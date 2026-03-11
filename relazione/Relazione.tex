@@ -1,0 +1,87 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{hyperref}
+\usepackage[italian]{babel}
+\usepackage{subcaption}
+\usepackage{graphicx}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{lmodern}
+\usepackage{geometry}
+\usepackage{setspace}
+\usepackage{parskip}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{enumitem}
+%\usepackage{subfigure}
+\usepackage{float}
+\usepackage{booktabs}
+
+\addtolength{\skip\footins}{1cm}
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codeblue}{rgb}{0.2,0.2,0.7}
+\definecolor{backcolor}{rgb}{0.95,0.95,0.90}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolor},   
+    commentstyle=\color{codegreen}\itshape,
+    keywordstyle=\color{blue},
+    numberstyle=\tiny\color{black},
+    stringstyle=\color{codegreen},
+    basicstyle=\ttfamily\footnotesize,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    numbers=left,
+    numbersep=8pt,
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    frame=shadowbox,
+    language=Python
+}
+
+\lstset{style=mystyle}
+
+\geometry{top=2.5cm,bottom=2.5cm,left=2.5cm,right=2.5cm}
+
+\begin{document}
+
+\begin{titlepage}
+    \centering
+    \vspace*{1.5cm}
+    
+    {\scshape\LARGE Università degli Studi di Udine \par}
+    \vspace{0.4cm}
+    
+    {\scshape\Large Dipartimento di Scienze Matematiche, Informatiche e Fisiche\par}
+    \vspace{0.4cm}
+    {\large IBML - Internet of Things, Big Data, Machine Learning \par}
+    \vspace{0.4cm}
+    
+    \vspace{1.5cm}
+    \includegraphics[width=0.25\textwidth]{immagini/Logo.pdf}\par
+    \vspace{1cm}
+    
+    \rule{\textwidth}{0.5pt}\vspace{0.4cm}
+    {\bfseries\LARGE Internet of Things\\[0.2cm]
+    Progetto Pet Tracker \par}
+    \rule{\textwidth}{0.5pt}
+
+    \vfill
+    
+    \begin{flushleft}
+    \textit{\textbf{Autori}}\\
+    Andrea Gioia, 169484 \hfill 169484@spes.uniud.it \\
+    Alessio Nicodemo, 166972 \hfill 166972@spes.uniud.it \\
+    Mattia Nadal,  167372\hfill 167372@spes.uniud.it \\
+	Francesco Sabot, 167339  \hfill 167339@spes.uniud.it
+    \end{flushleft}
+    
+\end{titlepage}
+
+\tableofcontents
+
+
+\end{document}
