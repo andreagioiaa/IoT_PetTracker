@@ -3,7 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:geolocator/geolocator.dart'; // Libreria per il GPS del telefono
+import 'package:geolocator/geolocator.dart'; 
 
 class GeofencingScreen extends StatefulWidget {
   const GeofencingScreen({Key? key}) : super(key: key);
@@ -13,10 +13,19 @@ class GeofencingScreen extends StatefulWidget {
 }
 
 class _GeofencingScreenState extends State<GeofencingScreen> {
-  // Lista iniziale vuota (nessun posto salvato di default)
-  List<Map<String, dynamic>> savedPlaces = [];
+  List<Map<String, dynamic>> savedPlaces = [
+    {
+      "name": "Uniud Polo Rizzi",
+      "street": "via delle scienze",
+      "civic": "206",
+      "city": "udine",
+      "cap": "33100",
+      "center": const LatLng(46.0804, 13.2126),
+      "radius": 50.0, 
+    }
+  ];
 
-  int? selectedPlaceIndex;
+  int? selectedPlaceIndex = 0;
   final MapController _mapController = MapController();
 
   final TextEditingController _nameController = TextEditingController();
@@ -27,50 +36,57 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
 
   double _tempRadius = 30.0;
   bool isSatelliteMap = false;
-  LatLng? _myLocation; // Variabile per la posizione dell'utente
+  LatLng? _myLocation; 
+  
+  // NUOVA VARIABILE: Controlla se il luogo selezionato è attualmente visibile nello schermo
+  bool _isPlaceInView = true;
 
   @override
   void initState() {
     super.initState();
-    _determinePosition(); // Cerca la posizione dell'utente all'avvio
+    _determinePosition(); 
   }
 
-  // --- LOGICA DI GEOLOCALIZZAZIONE ---
   Future<void> _determinePosition() async {
-    bool serviceEnabled;
-    LocationPermission permission;
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) throw Exception('Servizi GPS disabilitati');
 
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      return Future.error('Servizi di localizzazione disabilitati.');
-    }
-
-    permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
+      LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
-        return Future.error('Permessi di localizzazione negati.');
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) throw Exception('Permessi negati');
+      }
+      
+      if (permission == LocationPermission.deniedForever) {
+        throw Exception('Permessi negati permanentemente');
+      } 
+
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.medium, 
+        timeLimit: const Duration(seconds: 10),
+      );
+      
+      if (mounted) {
+        setState(() {
+          _myLocation = LatLng(position.latitude, position.longitude);
+        });
+        
+        _mapController.move(_myLocation!, 16.0);
+      }
+    } catch (e) {
+      debugPrint("Errore geolocalizzazione: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Impossibile trovare la posizione. Controlla il GPS o i permessi."), 
+            backgroundColor: Colors.orange
+          ),
+        );
       }
     }
-    
-    if (permission == LocationPermission.deniedForever) {
-      return Future.error('Permessi negati permanentemente.');
-    } 
-
-    Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
-    
-    if (mounted) {
-      setState(() {
-        _myLocation = LatLng(position.latitude, position.longitude);
-        // Se non abbiamo zone salvate, centra la mappa sull'utente
-        if (savedPlaces.isEmpty) {
-          _mapController.move(_myLocation!, 16.0);
-        }
-      });
-    }
   }
 
-  // --- LOGICA DI GEOCODING E SALVATAGGIO ---
   Future<bool> _fetchCoordinatesAndSaveOrUpdate(double chosenRadius, {bool isUpdating = false, int? updateIndex}) async {
     final String name = _nameController.text.trim();
     final String street = _streetController.text.trim();
@@ -98,7 +114,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
           var addressDetails = data[0]['address'];
           String? returnedCap = addressDetails != null ? addressDetails['postcode'] : null;
 
-          // Strict Validation sul CAP
           if (returnedCap != null && !returnedCap.contains(cap)) {
              ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -132,10 +147,10 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
               savedPlaces.add(newPlaceData);
               selectedPlaceIndex = savedPlaces.length - 1;
             }
+            _isPlaceInView = true; // Mostra subito il pannello quando creiamo/aggiorniamo
             _mapController.move(newCenter, 18.0); 
           });
 
-          // Pulizia campi
           _nameController.clear();
           _streetController.clear();
           _civicController.clear();
@@ -167,7 +182,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     }
   }
 
-  // --- UI: FINESTRA DI DIALOGO ---
   void _showPlaceDialog({bool isEditing = false, int? editIndex}) {
     if (isEditing && editIndex != null) {
       final place = savedPlaces[editIndex];
@@ -304,7 +318,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     );
   }
 
-  // --- UI: CONFERMA ELIMINAZIONE ---
   void _confirmDeleteCurrentPlace() {
     if (selectedPlaceIndex == null) return;
     
@@ -363,8 +376,10 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                   savedPlaces.removeAt(selectedPlaceIndex!);
                   if (savedPlaces.isEmpty) {
                     selectedPlaceIndex = null;
+                    _isPlaceInView = false;
                   } else {
                     selectedPlaceIndex = 0;
+                    _isPlaceInView = true;
                     _mapController.move(savedPlaces[0]['center'], 18.0);
                   }
                 });
@@ -386,7 +401,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     bool hasPlaces = savedPlaces.isNotEmpty && selectedPlaceIndex != null;
     var currentPlace = hasPlaces ? savedPlaces[selectedPlaceIndex!] : null;
 
-    // Logica di priorità per il centro iniziale
     LatLng initialCenter = const LatLng(41.8719, 12.5674);
     if (hasPlaces) {
       initialCenter = currentPlace!['center'];
@@ -402,9 +416,23 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
             options: MapOptions(
               initialCenter: initialCenter,
               initialZoom: hasPlaces ? 18.0 : (_myLocation != null ? 16.0 : 6.0),
+              // AGGIUNTA FONDAMENTALE: Evento scatenato ad ogni movimento della mappa
+              onPositionChanged: (MapCamera camera, bool hasGesture) {
+                if (hasPlaces) {
+                  // Controlla se il centro della zona è visibile nello schermo
+                  final placeCenter = savedPlaces[selectedPlaceIndex!]['center'] as LatLng;
+                  final isVisible = camera.visibleBounds.contains(placeCenter);
+                  
+                  // Se lo stato di visibilità cambia, aggiorna l'UI
+                  if (_isPlaceInView != isVisible) {
+                    setState(() {
+                      _isPlaceInView = isVisible;
+                    });
+                  }
+                }
+              },
             ),
             children: [
-              // 1. TILE LAYER: Mappa Ibrida o Standard
               TileLayer(
                 urlTemplate: isSatelliteMap 
                     ? 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}'
@@ -412,7 +440,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                 userAgentPackageName: 'com.example.pet_tracker',
               ),
               
-              // 2. CIRCLE LAYER: Disegna il Geofencing se presente
               if (hasPlaces)
                 CircleLayer(
                   circles: [
@@ -427,7 +454,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                   ],
                 ),
 
-              // 3. MARKER LAYER: Disegna la posizione dell'utente (Punto Blu)
               if (_myLocation != null)
                 MarkerLayer(
                   markers: [
@@ -461,7 +487,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                   ],
                 ),
 
-              // 4. MARKER LAYER: Disegna il pin rosso al centro del Geofencing
               if (hasPlaces)
                 MarkerLayer(
                   markers: [
@@ -477,75 +502,111 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
           ),
 
           // INTERFACCIA SUPERIORE
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(15.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  if (hasPlaces)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 15),
-                      decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(15),
-                          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10)]
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<int>(
-                          value: selectedPlaceIndex,
-                          items: List.generate(
-                              savedPlaces.length,
-                              (i) => DropdownMenuItem(
-                                  value: i, child: Text(savedPlaces[i]['name']))),
-                          onChanged: (val) {
-                            setState(() {
-                              selectedPlaceIndex = val!;
-                              _mapController.move(savedPlaces[val]['center'], 18.0);
-                            });
-                          },
-                        ),
-                      ),
-                    )
-                  else
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15)),
-                      child: const Text("Nessuna zona salvata", style: TextStyle(color: Colors.grey)),
+          Align(
+            alignment: Alignment.topCenter,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(15.0),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 180),
+                      child: hasPlaces 
+                        ? Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 15),
+                            decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(15),
+                                boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10)]
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<int>(
+                                isExpanded: true, 
+                                value: selectedPlaceIndex,
+                                items: List.generate(
+                                    savedPlaces.length,
+                                    (i) => DropdownMenuItem(
+                                        value: i, child: Text(savedPlaces[i]['name'], overflow: TextOverflow.ellipsis))),
+                                onChanged: (val) {
+                                  setState(() {
+                                    selectedPlaceIndex = val!;
+                                    _isPlaceInView = true; // Quando scelgo dalla tendina, forzo la visibilità
+                                    _mapController.move(savedPlaces[val]['center'], 18.0);
+                                  });
+                                },
+                              ),
+                            ),
+                          )
+                        : Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+                            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15)),
+                            child: const Text("Nessuna zona", style: TextStyle(color: Colors.grey)),
+                          ),
                     ),
                     
-                  // GRUPPO BOTTONI IN ALTO A DESTRA
-                  Row(
-                    children: [
-                      FloatingActionButton.small(
-                        heroTag: "mapSwitch", 
-                        onPressed: () {
-                          setState(() {
-                            isSatelliteMap = !isSatelliteMap;
-                          });
-                        },
-                        backgroundColor: Colors.white,
-                        child: Icon(
-                          isSatelliteMap ? Icons.map : Icons.satellite_alt, 
-                          color: const Color(0xFF00C6B8)
+                    const SizedBox(width: 10), 
+
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        FloatingActionButton.small(
+                          heroTag: "locatePet", 
+                          onPressed: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("Localizzazione animale in fase di creazione..."))
+                            );
+                          },
+                          backgroundColor: Colors.grey.shade400,
+                          child: const Icon(Icons.pets, color: Colors.white),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      FloatingActionButton.small(
-                        heroTag: "addPlace",
-                        onPressed: () => _showPlaceDialog(isEditing: false),
-                        backgroundColor: const Color(0xFF00C6B8),
-                        child: const Icon(Icons.add, color: Colors.white),
-                      ),
-                    ],
-                  ),
-                ],
+                        const SizedBox(width: 8),
+
+                        FloatingActionButton.small(
+                          heroTag: "locateMe", 
+                          onPressed: () async {
+                             ScaffoldMessenger.of(context).showSnackBar(
+                               const SnackBar(content: Text("Ricerca posizione in corso..."), duration: Duration(seconds: 1))
+                             );
+                             await _determinePosition();
+                          },
+                          backgroundColor: Colors.white,
+                          child: const Icon(Icons.smartphone, color: Colors.blueAccent),
+                        ),
+                        const SizedBox(width: 8),
+
+                        FloatingActionButton.small(
+                          heroTag: "mapSwitch", 
+                          onPressed: () {
+                            setState(() {
+                              isSatelliteMap = !isSatelliteMap;
+                            });
+                          },
+                          backgroundColor: Colors.white,
+                          child: Icon(
+                            isSatelliteMap ? Icons.map : Icons.satellite_alt, 
+                            color: const Color(0xFF00C6B8)
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+
+                        FloatingActionButton.small(
+                          heroTag: "addPlace",
+                          onPressed: () => _showPlaceDialog(isEditing: false),
+                          backgroundColor: const Color(0xFF00C6B8),
+                          child: const Icon(Icons.add, color: Colors.white),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
 
-          // PANNELLO INFORMAZIONI IN BASSO
-          if (hasPlaces)
+          // PANNELLO INFORMAZIONI IN BASSO - RESO DINAMICO SULLA BASE DELLA VISIBILITA'
+          if (hasPlaces && _isPlaceInView)
             Positioned(
               bottom: 20,
               left: 20,

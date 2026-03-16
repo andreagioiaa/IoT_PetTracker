@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'battery.dart';
 import 'geofencing.dart';
-
+import 'dart:math';
 
 void main() {
   runApp(const PetTrackerApp());
