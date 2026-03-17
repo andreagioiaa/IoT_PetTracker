@@ -1,9 +1,8 @@
+// In main.dart
 import 'package:flutter/material.dart';
-import 'login.dart'; // Importi il tuo file login
+import 'splash_screen.dart'; // Importa il nuovo file
 
-void main() {
-  runApp(const PetTrackerApp());
-}
+void main() => runApp(const PetTrackerApp());
 
 class PetTrackerApp extends StatelessWidget {
   const PetTrackerApp({super.key});
@@ -13,8 +12,9 @@ class PetTrackerApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Pet Tracker',
-      // Qui imposti la classe che hai definito in login.dart
-      home: const AuthScreen(), 
+      theme: ThemeData(primarySwatch: Colors.blue),
+      // PUNTO FONDAMENTALE: L'app ora parte dallo Splash
+      home: const SplashScreen(), 
     );
   }
 }
