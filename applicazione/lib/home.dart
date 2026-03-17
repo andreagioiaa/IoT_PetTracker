@@ -9,7 +9,7 @@ class PetTrackerApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Pet Tracker LoRaWAN',
+      title: 'Pet Tracker',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         fontFamily: 'Roboto',
