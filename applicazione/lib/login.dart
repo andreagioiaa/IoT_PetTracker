@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'home.dart';
-import 'data/mock_data.dart'; // Importiamo il file dei dati fittizi
+import 'data/mock_data.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -17,25 +17,66 @@ class _AuthScreenState extends State<AuthScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _surnameController = TextEditingController();
 
+  // --- FUNZIONE DI VALIDAZIONE SINTATTICA ---
+  String? _getValidationError() {
+    final username = _usernameController.text.trim();
+    final password = _passwordController.text.trim();
+    final name = _nameController.text.trim();
+    final surname = _surnameController.text.trim();
+
+    // 1. Controllo campi vuoti universali
+    if (username.isEmpty || password.isEmpty) {
+      return "Inserisci nome utente e password";
+    }
+
+    // 2. Controlli specifici per la Registrazione (SIGN IN)
+    if (!isLoginMode) {
+      if (name.isEmpty || surname.isEmpty) {
+        return "Nome e Cognome sono obbligatori";
+      }
+      if (password.length < 6) {
+        return "La password deve contenere almeno 6 caratteri";
+      }
+      // Controllo che il nome non contenga numeri (Esempio sintattico avanzato)
+      if (RegExp(r'[0-9]').hasMatch(name) ||
+          RegExp(r'[0-9]').hasMatch(surname)) {
+        return "Nome e Cognome non possono contenere numeri";
+      }
+    }
+
+    return null; // Nessun errore trovato
+  }
+
   void _submitForm() {
+    // Eseguiamo prima il controllo sintattico
+    final error = _getValidationError();
+
+    if (error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error),
+          backgroundColor: Colors.orange.shade800,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return; // Blocca l'esecuzione se c'è un errore
+    }
+
     if (isLoginMode) {
-      // LOGICA DI LOGIN CON MOCK DATA
+      // LOGICA DI LOGIN CON MOCK DATA (Controllo Logico)
       final usernameInput = _usernameController.text.trim();
       final passwordInput = _passwordController.text.trim();
 
-      // Cerchiamo se esiste un utente con quel nome e password nella lista mock
       bool isAuthenticated = registeredUsers.any((user) =>
           user.name.toLowerCase() == usernameInput.toLowerCase() &&
           user.password == passwordInput);
 
       if (isAuthenticated) {
-        // Accesso eseguito correttamente -> Vai alla Home
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const PetTrackerNavigation()),
         );
       } else {
-        // Messaggio richiesto dal docente in caso di errore
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Nome utente e/o Password errati'),
@@ -70,94 +111,113 @@ class _AuthScreenState extends State<AuthScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FA),
-      appBar: AppBar(
-        title: Text(isLoginMode ? 'LOGIN' : 'SIGN IN'),
-        centerTitle: true,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        foregroundColor: Colors.teal,
-      ),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Icon(Icons.pets, size: 80, color: Colors.teal),
-              const SizedBox(height: 30),
-              
-              if (!isLoginMode) ...[
-                TextField(
-                  controller: _nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Nome',
-                    border: OutlineInputBorder(),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 30.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.pets, size: 90, color: Colors.teal),
+                const SizedBox(height: 10),
+                const Text(
+                  'Pet Tracker',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w300,
+                    color: Colors.teal,
+                    letterSpacing: 2,
                   ),
                 ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _surnameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Cognome',
-                    border: OutlineInputBorder(),
+                const SizedBox(height: 50),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    isLoginMode ? 'LOGIN' : 'SIGN IN',
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF2D3142),
+                    ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
+                if (!isLoginMode) ...[
+                  _buildTextField(
+                      _nameController, 'Nome', Icons.badge_outlined),
+                  const SizedBox(height: 15),
+                  _buildTextField(
+                      _surnameController, 'Cognome', Icons.badge_outlined),
+                  const SizedBox(height: 15),
+                ],
+                _buildTextField(
+                    _usernameController, 'Nome utente', Icons.person_outline),
+                const SizedBox(height: 15),
+                _buildTextField(
+                    _passwordController, 'Password', Icons.lock_outline,
+                    obscure: true),
+                const SizedBox(height: 30),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _submitForm,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.teal,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 18),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: Text(
+                      isLoginMode ? 'ACCEDI' : 'REGISTRATI',
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      isLoginMode = !isLoginMode;
+                    });
+                  },
+                  child: Text(
+                    isLoginMode
+                        ? 'Non hai un account? Registrati ora'
+                        : 'Hai già un account? Accedi qui',
+                    style: const TextStyle(color: Colors.black54),
+                  ),
+                ),
+                const SizedBox(height: 20),
               ],
-
-              TextField(
-                controller: _usernameController,
-                decoration: const InputDecoration(
-                  labelText: 'Nome utente',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.person),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _passwordController,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'Password',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.lock),
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              ElevatedButton(
-                onPressed: _submitForm,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.teal,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: Text(
-                  isLoginMode ? 'ACCEDI' : 'REGISTRATI',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-              ),
-              
-              const SizedBox(height: 16),
-              TextButton(
-                onPressed: () {
-                  setState(() {
-                    isLoginMode = !isLoginMode;
-                  });
-                },
-                child: Text(
-                  isLoginMode 
-                      ? 'Non hai un account? SIGN IN' 
-                      : 'Hai già un account? LOGIN',
-                  style: const TextStyle(color: Colors.teal),
-                ),
-              ),
-            ],
+            ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTextField(
+      TextEditingController controller, String label, IconData icon,
+      {bool obscure = false}) {
+    return TextField(
+      controller: controller,
+      obscureText: obscure,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon, color: Colors.teal.withOpacity(0.7)),
+        filled: true,
+        fillColor: Colors.white,
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(15),
+          borderSide: BorderSide(color: Colors.grey.shade200),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(15),
+          borderSide: const BorderSide(color: Colors.teal, width: 2),
         ),
       ),
     );

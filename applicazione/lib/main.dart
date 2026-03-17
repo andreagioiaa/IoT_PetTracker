@@ -1,9 +1,9 @@
 // In main.dart
 import 'package:flutter/foundation.dart'; // NECESSARIO per kDebugMode
 import 'package:flutter/material.dart';
-import 'splash_screen.dart'; 
+import 'splash_screen.dart';
 // Importa la tua Home o la pagina che vuoi vedere in debug
-import 'home.dart'; 
+import 'home.dart';
 
 void main() => runApp(const PetTrackerApp());
 
@@ -16,10 +16,7 @@ class PetTrackerApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Pet Tracker',
       theme: ThemeData(primarySwatch: Colors.blue),
-      
-      home: kDebugMode 
-          ? const PetTrackerNavigation()
-          : const SplashScreen(),
+      home: kDebugMode ? const PetTrackerNavigation() : const SplashScreen(),
     );
   }
 }
