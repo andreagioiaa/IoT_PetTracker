@@ -9,7 +9,8 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
 
@@ -51,7 +52,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.blueAccent, // Sfondo Blu
+      backgroundColor: Colors.white,
       body: Center(
         child: ScaleTransition(
           scale: _animation,
@@ -61,7 +62,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
               Icon(
                 Icons.pets,
                 size: 80,
-                color: Colors.white,
+                color: Colors.teal,
               ),
               SizedBox(height: 20),
               Text(
@@ -69,7 +70,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                 style: TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white,
+                  color: Colors.teal,
                   letterSpacing: 2,
                 ),
               ),

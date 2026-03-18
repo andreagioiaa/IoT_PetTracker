@@ -15,7 +15,7 @@ class PetTrackerApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Pet Tracker',
-      theme: ThemeData(primarySwatch: Colors.blue),
+      theme: ThemeData(primarySwatch: Colors.teal),
       home: kDebugMode ? const PetTrackerNavigation() : const SplashScreen(),
     );
   }
