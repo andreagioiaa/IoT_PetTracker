@@ -291,6 +291,7 @@ void setup() {
   // --- MODIFICA: Disabilita ADR e forza DR0 (SF12) per massima portata ---
   node.setADR(false);      // Disabilita Adaptive Data Rate
   node.setDatarate(0);     // DR0 = SF12 = massima portata (~10-15 km)
+  radio.setOutputPower(14);  // 14 dBm = massima potenza EU868
   Serial.println("DR impostato a DR0 (SF12) – massima portata.");
   // -----------------------------------------------------------------------
 
