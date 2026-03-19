@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:geolocator/geolocator.dart';
+import 'scambio.dart' as scambio;
 
 class GeofencingScreen extends StatefulWidget {
   const GeofencingScreen({Key? key}) : super(key: key);
@@ -13,18 +14,47 @@ class GeofencingScreen extends StatefulWidget {
 }
 
 class _GeofencingScreenState extends State<GeofencingScreen> {
-  // UniUd inserito come dato di partenza
-  List<Map<String, dynamic>> savedPlaces = [
-    {
-      "name": "UniUd",
-      "street": "via delle scienze",
-      "civic": "206",
-      "city": "udine",
-      "cap": "33100",
-      "center": const LatLng(46.0804, 13.2126),
-      "radius": 50.0,
+  List<Map<String, dynamic>> savedPlaces = [];
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _caricaZoneDalDatabase();
+    _determinePosition();
+  }
+
+  Future<void> _caricaZoneDalDatabase() async {
+    setState(() => isLoading = true);
+    if (!scambio.isReady) await scambio.autenticazione();
+
+    try {
+      final records =
+          await scambio.pb.collection('geofences_test').getFullList();
+      final List<Map<String, dynamic>> nuoveZone = records.map((res) {
+        return {
+          "id": res.id, // Fondamentale per eliminare poi!
+          "name": res.getStringValue('name'),
+          "street": res.getStringValue('street'),
+          "civic": res.getStringValue('civic'),
+          "city": res.getStringValue('city'),
+          "cap": res.getStringValue('cap'),
+          "center": LatLng(res.getDoubleValue('center_lat'),
+              res.getDoubleValue('center_lon')),
+          "radius": res.getDoubleValue('radius'),
+        };
+      }).toList();
+
+      setState(() {
+        savedPlaces = nuoveZone;
+        isLoading = false;
+        if (savedPlaces.isNotEmpty) selectedPlaceIndex = 0;
+      });
+    } catch (e) {
+      debugPrint("Errore caricamento: $e");
+      setState(() => isLoading = false);
     }
-  ];
+  }
 
   int? selectedPlaceIndex = 0;
   final MapController _mapController = MapController();
@@ -40,12 +70,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
   LatLng? _myLocation;
 
   final ValueNotifier<bool> _isPlaceInView = ValueNotifier<bool>(true);
-
-  @override
-  void initState() {
-    super.initState();
-    _determinePosition();
-  }
 
   @override
   void dispose() {
@@ -221,24 +245,34 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
           double lon = double.parse(data[0]['lon']);
           LatLng newCenter = LatLng(lat, lon);
 
-          setState(() {
-            final newPlaceData = {
-              "name": name,
-              "street": street,
-              "civic": civic,
-              "city": city,
-              "cap": cap,
-              "center": newCenter,
-              "radius": chosenRadius,
-            };
+          // --- CORREZIONE QUI: FUORI DAL SETSTATE ---
+          final body = {
+            "name": name,
+            "center_lat": newCenter.latitude,
+            "center_lon": newCenter.longitude,
+            "radius": chosenRadius,
+            "street": street,
+            "civic": civic,
+            "city": city,
+            "cap": cap,
+            "is_active": true,
+          };
+
+          try {
             if (isUpdating && updateIndex != null) {
-              savedPlaces[updateIndex] = newPlaceData;
-              selectedPlaceIndex = updateIndex;
+              final id = savedPlaces[updateIndex]['id'];
+              await scambio.pb
+                  .collection('geofences_test')
+                  .update(id, body: body);
             } else {
-              savedPlaces.add(newPlaceData);
-              selectedPlaceIndex = savedPlaces.length - 1;
+              await scambio.pb.collection('geofences_test').create(body: body);
             }
-          });
+            // Una volta salvato su cloud, ricarichiamo la lista aggiornata
+            await _caricaZoneDalDatabase();
+          } catch (e) {
+            debugPrint("Errore salvataggio DB: $e");
+          }
+          // --- FINE CORREZIONE ---
 
           _isPlaceInView.value = true;
           _mapController.move(newCenter, 18.0);
@@ -309,7 +343,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                 children: [
                   TextField(
                       controller: _nameController,
-                      maxLength: 7,
+                      maxLength: 15,
                       decoration: const InputDecoration(
                           labelText: "Nome luogo", hintText: "Es. Casa"),
                       enabled: !isLoading),
@@ -568,24 +602,24 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              onPressed: () {
-                setState(() {
-                  savedPlaces.removeAt(selectedPlaceIndex!);
-                  if (savedPlaces.isEmpty) {
-                    selectedPlaceIndex = null;
-                    _isPlaceInView.value = false;
-                  } else {
-                    selectedPlaceIndex = 0;
-                    _isPlaceInView.value = true;
-                    _mapController.move(savedPlaces[0]['center'], 18.0);
-                  }
-                });
-                Navigator.of(context).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                      content: Text("Zona '$placeName' eliminata."),
-                      backgroundColor: Colors.black87),
-                );
+              onPressed: () async {
+                final idDaEliminare = savedPlaces[selectedPlaceIndex!]['id'];
+
+                try {
+                  await scambio.pb
+                      .collection('geofences_test')
+                      .delete(idDaEliminare);
+                  await _caricaZoneDalDatabase();
+
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                        content: Text("Zona '$placeName' eliminata."),
+                        backgroundColor: Colors.black87),
+                  );
+                } catch (e) {
+                  debugPrint("Errore eliminazione: $e");
+                }
               },
               child:
                   const Text("Elimina", style: TextStyle(color: Colors.white)),
