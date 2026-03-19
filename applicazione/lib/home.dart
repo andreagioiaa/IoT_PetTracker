@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'battery.dart';
 import 'geofencing.dart';
-
+import 'scambio.dart' as scambio; // Import fondamentale per i dati reali
 
 class PetTrackerApp extends StatelessWidget {
   const PetTrackerApp({Key? key}) : super(key: key);
@@ -15,10 +15,51 @@ class PetTrackerApp extends StatelessWidget {
         fontFamily: 'Roboto',
         scaffoldBackgroundColor: const Color(0xFFF7F8FA),
         primarySwatch: Colors.teal,
+        useMaterial3: true,
       ),
       home: const PetTrackerNavigation(),
     );
   }
+}
+
+// --- LOGICA DI FORMATTAZIONE ---
+String formattaUltimoAggiornamento(DateTime? ultimoInvio) {
+  if (ultimoInvio == null) return "Dato non disponibile";
+
+  final oraAttuale = DateTime.now();
+  final differenza = oraAttuale.difference(ultimoInvio);
+
+  // --- OUTPUT RICHIESTO PER IL DEBUG ---
+  print("-----------------------------------------");
+  print("🕒 ANALISI TEMPORALE:");
+  print("📍 Ultimo Invio (Locale): $ultimoInvio");
+  print("📱 Ora Attuale (Locale):   $oraAttuale");
+  print("⏳ Differenza (Secondi):  ${differenza.inSeconds}");
+  print("-----------------------------------------");
+
+  if (differenza.isNegative) {
+    // Se la differenza è negativa, forziamo "Adesso" per la UI
+    // ma manteniamo il log per capire l'errore
+    return "In tempo reale (${differenza.inSeconds}s)"; 
+  }
+
+  if (differenza.inSeconds < 60) {
+    return "Adesso";
+  } else if (differenza.inMinutes < 60) {
+    return "${differenza.inMinutes} min fa";
+  } else {
+    return "${differenza.inHours} ore fa";
+  }
+}
+
+// Funzione helper per il colore dello stato
+Color getColoreStato(DateTime? ultimoInvio) {
+  if (ultimoInvio == null) return Colors.grey;
+  final differenza = DateTime.now().difference(ultimoInvio);
+  
+  if (differenza.inMinutes < 30) return const Color(0xFF00C6B8); // Tutto ok
+  if (differenza.inMinutes < 60) return Colors.orange; // Ritardo lieve
+  return Colors.red; // Ritardo critico
 }
 
 class PetTrackerNavigation extends StatefulWidget {
@@ -58,12 +99,9 @@ class _PetTrackerNavigationState extends State<PetTrackerNavigation> {
           type: BottomNavigationBarType.fixed,
           backgroundColor: Colors.white,
           items: const [
-            BottomNavigationBarItem(
-                icon: Icon(Icons.home_filled), label: "Home"),
-            BottomNavigationBarItem(
-                icon: Icon(Icons.map_rounded), label: "Mappa"),
-            BottomNavigationBarItem(
-                icon: Icon(Icons.battery_charging_full), label: "Energia"),
+            BottomNavigationBarItem(icon: Icon(Icons.home_filled), label: "Home"),
+            BottomNavigationBarItem(icon: Icon(Icons.map_rounded), label: "Mappa"),
+            BottomNavigationBarItem(icon: Icon(Icons.battery_charging_full), label: "Energia"),
           ],
         ),
       ),
@@ -82,28 +120,22 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
   late List<Map<String, String>> dates;
   late int selectedDateIndex;
   late String currentMonthName;
+  
+  // Future per il recupero del timestamp
+  late Future<DateTime?> _lastUpdateFuture;
 
   @override
   void initState() {
     super.initState();
     _initializeDates();
+    _lastUpdateFuture = scambio.getUltimoTimestamp();
   }
 
   void _initializeDates() {
     DateTime today = DateTime.now();
     List<String> monthNames = [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December'
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
     ];
     currentMonthName = monthNames[today.month - 1];
     List<String> weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -130,8 +162,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
             width: 200,
             height: 150,
             decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                  colors: [Color(0xFF00E2C1), Color(0xFF00C6B8)]),
+              gradient: LinearGradient(colors: [Color(0xFF00E2C1), Color(0xFF00C6B8)]),
               borderRadius: BorderRadius.only(bottomLeft: Radius.circular(100)),
             ),
           ),
@@ -143,36 +174,32 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 20),
-                const Text('Bentornato,',
-                    style: TextStyle(fontSize: 16, color: Colors.black54)),
-                const Text('Alberto Angela',
-                    style:
-                        TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
+                const Text('Bentornato,', style: TextStyle(fontSize: 16, color: Colors.black54)),
+                const Text('Alberto Angela', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 25),
 
-                // Card Posizione Attuale
                 _buildPositionCard(),
 
                 const SizedBox(height: 25),
-
-                // Calendario Orizzontale
                 _buildMonthHeader(),
                 const SizedBox(height: 10),
                 _buildHorizontalCalendar(),
 
                 const SizedBox(height: 30),
-
-                // Attività Odierna con Cerchi Statistici
-                const Text("Attività Odierna",
-                    style:
-                        TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                const Text("Attività Odierna", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 20),
                 _buildActivityStats(),
 
                 const SizedBox(height: 30),
 
-                // Info LoRaWAN
-                _buildLoraInfoPanel(),
+                // Pannello dinamico con FutureBuilder
+                FutureBuilder<DateTime?>(
+                  future: _lastUpdateFuture,
+                  builder: (context, snapshot) {
+                    return _buildLoraInfoPanel(snapshot.data);
+                  },
+                ),
+                
                 const SizedBox(height: 30),
               ],
             ),
@@ -185,12 +212,9 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
   Widget _buildPositionCard() {
     return GestureDetector(
       onTap: () {
-        final navState =
-            context.findAncestorStateOfType<_PetTrackerNavigationState>();
+        final navState = context.findAncestorStateOfType<_PetTrackerNavigationState>();
         if (navState != null) {
-          navState.setState(() {
-            navState._currentIndex = 1;
-          });
+          navState.setState(() => navState._currentIndex = 1);
         }
       },
       child: Container(
@@ -198,29 +222,22 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(25),
-          boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15)
-          ],
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15)],
         ),
         child: const Row(
           children: [
             Icon(Icons.location_on, color: Color(0xFF00C6B8), size: 40),
             SizedBox(width: 15),
             Expanded(
-              // Aggiunto per gestire bene lo spazio
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("Posizione Attuale",
-                      style: TextStyle(color: Colors.black45)),
-                  Text("In Recinto (Casa)",
-                      style:
-                          TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                  Text("Posizione Attuale", style: TextStyle(color: Colors.black45)),
+                  Text("In Recinto (Casa)", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
                 ],
               ),
             ),
-            Icon(Icons.arrow_forward_ios,
-                color: Colors.black12, size: 16),
+            Icon(Icons.arrow_forward_ios, color: Colors.black12, size: 16),
           ],
         ),
       ),
@@ -232,11 +249,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
       children: [
         const Icon(Icons.calendar_month, color: Color(0xFF00C6B8), size: 20),
         const SizedBox(width: 8),
-        Text(
-          currentMonthName,
-          style: const TextStyle(
-              fontSize: 18, color: Colors.black54, fontWeight: FontWeight.w500),
-        ),
+        Text(currentMonthName, style: const TextStyle(fontSize: 18, color: Colors.black54, fontWeight: FontWeight.w500)),
       ],
     );
   }
@@ -253,42 +266,20 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
             child: GestureDetector(
               onTap: () => setState(() => selectedDateIndex = index),
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 0),
+                duration: const Duration(milliseconds: 200),
                 margin: const EdgeInsets.symmetric(horizontal: 4),
                 decoration: BoxDecoration(
-                  gradient: isSelected
-                      ? const LinearGradient(
-                          colors: [Color(0xFF00E2C1), Color(0xFF00C6B8)])
-                      : null,
+                  gradient: isSelected ? const LinearGradient(colors: [Color(0xFF00E2C1), Color(0xFF00C6B8)]) : null,
                   color: isSelected ? null : Colors.white,
                   borderRadius: BorderRadius.circular(15),
-                  boxShadow: isSelected
-                      ? null
-                      : [
-                          BoxShadow(
-                              color: Colors.black.withOpacity(0.03),
-                              blurRadius: 5)
-                        ],
+                  boxShadow: isSelected ? null : [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 5)],
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(
-                      dates[index]['day']!,
-                      style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: isSelected
-                              ? Colors.white
-                              : const Color(0xFF2D3142)),
-                    ),
+                    Text(dates[index]['day']!, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isSelected ? Colors.white : const Color(0xFF2D3142))),
                     const SizedBox(height: 4),
-                    Text(
-                      dates[index]['weekDay']!,
-                      style: TextStyle(
-                          fontSize: 10,
-                          color: isSelected ? Colors.white70 : Colors.black45),
-                    ),
+                    Text(dates[index]['weekDay']!, style: TextStyle(fontSize: 10, color: isSelected ? Colors.white70 : Colors.black45)),
                   ],
                 ),
               ),
@@ -310,41 +301,46 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     );
   }
 
-  Widget _buildStatCircle(
-      String label, String value, IconData icon, Color color) {
+  Widget _buildStatCircle(String label, String value, IconData icon, Color color) {
     return Column(
       children: [
         Container(
           width: 65,
           height: 65,
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            shape: BoxShape.circle,
-          ),
+          decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
           child: Icon(icon, color: color, size: 25),
         ),
         const SizedBox(height: 10),
-        Text(value,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-        Text(label,
-            style: const TextStyle(color: Colors.black38, fontSize: 13)),
+        Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        Text(label, style: const TextStyle(color: Colors.black38, fontSize: 13)),
       ],
     );
   }
 
-  Widget _buildLoraInfoPanel() {
-    return Container(
+  // PANNELLO DINAMICO AGGIORNATO
+  Widget _buildLoraInfoPanel(DateTime? ultimoInvio) {
+    final coloreStato = getColoreStato(ultimoInvio);
+    final testoTempo = formattaUltimoAggiornamento(ultimoInvio);
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 500),
       width: double.infinity,
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        color: const Color(0xFF00C6B8).withOpacity(0.1),
+        color: coloreStato.withOpacity(0.1),
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: const Color(0xFF00C6B8).withOpacity(0.3)),
+        border: Border.all(color: coloreStato.withOpacity(0.3)),
       ),
-      child: const Text(
-        "Ultimo aggiornamento ricevuto: 2 minuti fa",
-        textAlign: TextAlign.center,
-        style: TextStyle(color: Color(0xFF007A71), fontWeight: FontWeight.w500),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.sync, color: coloreStato, size: 18),
+          const SizedBox(width: 10),
+          Text(
+            "Ultimo aggiornamento: $testoTempo",
+            style: TextStyle(color: coloreStato.withOpacity(0.8), fontWeight: FontWeight.w600),
+          ),
+        ],
       ),
     );
   }

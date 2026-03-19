@@ -61,8 +61,9 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied)
+        if (permission == LocationPermission.denied) {
           throw Exception('Permessi negati');
+        }
       }
 
       if (permission == LocationPermission.deniedForever) {
