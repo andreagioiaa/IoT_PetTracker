@@ -124,7 +124,7 @@ class _AuthScreenState extends State<AuthScreen> {
                   'Pet Tracker',
                   style: TextStyle(
                     fontSize: 18,
-                    fontWeight: FontWeight.w300,
+                    fontWeight: FontWeight.bold,
                     color: Colors.teal,
                     letterSpacing: 2,
                   ),
