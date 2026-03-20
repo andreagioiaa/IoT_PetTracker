@@ -48,8 +48,15 @@ String formattaUltimoAggiornamento(DateTime? ultimoInvio) {
     return "Adesso";
   } else if (differenza.inMinutes < 60) {
     return "${differenza.inMinutes} min fa";
+  } else if (differenza.inHours < 24) {
+    // Appena scattano i 60 min, scrive "1 h fa", "2 h fa" ecc.
+    return "${differenza.inHours} h fa";
+  } else if (differenza.inDays < 7) {
+    // Appena scattano le 24 ore, scrive "1 d fa", "2 d fa" ecc.
+    return "${differenza.inDays} d fa";
   } else {
-    return "${differenza.inHours} ore fa";
+    // Se è passato più di una settimana, mostriamo la data esatta
+    return "${ultimoInvio.day}/${ultimoInvio.month}/${ultimoInvio.year}";
   }
 }
 

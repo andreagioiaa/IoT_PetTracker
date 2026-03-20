@@ -752,7 +752,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                       child: const Icon(
                         Icons.pets,
                         color: Colors.orange, // Icona della zampa arancione
-                        size: 40,
+                        size: 30,
                       ),
                     ),
                   ],
