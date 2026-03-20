@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
 import 'battery.dart';
 import 'geofencing.dart';
-import 'scambio.dart' as scambio; // Import fondamentale per i dati reali
+import 'scambio.dart' as scambio;
 
 class PetTrackerApp extends StatelessWidget {
   const PetTrackerApp({Key? key}) : super(key: key);
@@ -40,7 +41,7 @@ String formattaUltimoAggiornamento(DateTime? ultimoInvio) {
   if (differenza.isNegative) {
     // Se la differenza è negativa, forziamo "Adesso" per la UI
     // ma manteniamo il log per capire l'errore
-    return "In tempo reale (${differenza.inSeconds}s)"; 
+    return "In tempo reale (${differenza.inSeconds}s)";
   }
 
   if (differenza.inSeconds < 60) {
@@ -56,7 +57,7 @@ String formattaUltimoAggiornamento(DateTime? ultimoInvio) {
 Color getColoreStato(DateTime? ultimoInvio) {
   if (ultimoInvio == null) return Colors.grey;
   final differenza = DateTime.now().difference(ultimoInvio);
-  
+
   if (differenza.inMinutes < 30) return const Color(0xFF00C6B8); // Tutto ok
   if (differenza.inMinutes < 60) return Colors.orange; // Ritardo lieve
   return Colors.red; // Ritardo critico
@@ -99,9 +100,12 @@ class _PetTrackerNavigationState extends State<PetTrackerNavigation> {
           type: BottomNavigationBarType.fixed,
           backgroundColor: Colors.white,
           items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.home_filled), label: "Home"),
-            BottomNavigationBarItem(icon: Icon(Icons.map_rounded), label: "Mappa"),
-            BottomNavigationBarItem(icon: Icon(Icons.battery_charging_full), label: "Energia"),
+            BottomNavigationBarItem(
+                icon: Icon(Icons.home_filled), label: "Home"),
+            BottomNavigationBarItem(
+                icon: Icon(Icons.map_rounded), label: "Mappa"),
+            BottomNavigationBarItem(
+                icon: Icon(Icons.battery_charging_full), label: "Energia"),
           ],
         ),
       ),
@@ -120,22 +124,34 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
   late List<Map<String, String>> dates;
   late int selectedDateIndex;
   late String currentMonthName;
-  
-  // Future per il recupero del timestamp
+
+  // Future per i dati dinamici
   late Future<DateTime?> _lastUpdateFuture;
+  late Future<String> _currentZoneFuture; // <-- Nuovo Future per il recinto
 
   @override
   void initState() {
     super.initState();
     _initializeDates();
     _lastUpdateFuture = scambio.getUltimoTimestamp();
+    _currentZoneFuture = _calculateCurrentZone(); // <-- Avviamo il calcolo
   }
 
   void _initializeDates() {
     DateTime today = DateTime.now();
     List<String> monthNames = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December'
     ];
     currentMonthName = monthNames[today.month - 1];
     List<String> weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -151,6 +167,55 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     selectedDateIndex = today.weekday - 1;
   }
 
+  // --- MAGIA IoT: CALCOLO SE IL CANE È NEL RECINTO ---
+  Future<String> _calculateCurrentZone() async {
+    if (!scambio.isReady) await scambio.autenticazione();
+
+    try {
+      // 1. Prendiamo l'ultima posizione registrata del cane
+      final posResult = await scambio.pb.collection('positions_test').getList(
+            page: 1,
+            perPage: 1,
+            sort: '-timestamp', // Prendi il più recente
+          );
+
+      if (posResult.items.isEmpty) return "Posizione sconosciuta";
+
+      final petLat = posResult.items.first.getDoubleValue('lat');
+      final petLon = posResult.items.first.getDoubleValue('lon');
+      final petLocation = LatLng(petLat, petLon);
+
+      // 2. Prendiamo tutte le zone sicure (geofences)
+      final geoResult =
+          await scambio.pb.collection('geofences_test').getFullList();
+
+      // 3. Calcoliamo la distanza
+      const distanceTool = Distance(); // Strumento di latlong2
+
+      for (var record in geoResult) {
+        final zLat = record.getDoubleValue('center_lat');
+        final zLon = record.getDoubleValue('center_lon');
+        final radius = record.getDoubleValue('radius');
+        final nomeZona = record.getStringValue('name');
+
+        // Calcola distanza in metri tra il cane e il centro della zona
+        final distMeters =
+            distanceTool.as(LengthUnit.Meter, petLocation, LatLng(zLat, zLon));
+
+        // Se il cane è dentro al raggio, restituisci solo il NOME
+        if (distMeters <= radius) {
+          return nomeZona;
+        }
+      }
+
+      // Se finisce il ciclo e non è in nessuna zona
+      return "Fuori zona sicura";
+    } catch (e) {
+      debugPrint("Errore calcolo zona: $e");
+      return "Errore rilevamento";
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Stack(
@@ -162,7 +227,8 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
             width: 200,
             height: 150,
             decoration: const BoxDecoration(
-              gradient: LinearGradient(colors: [Color(0xFF00E2C1), Color(0xFF00C6B8)]),
+              gradient: LinearGradient(
+                  colors: [Color(0xFF00E2C1), Color(0xFF00C6B8)]),
               borderRadius: BorderRadius.only(bottomLeft: Radius.circular(100)),
             ),
           ),
@@ -174,11 +240,14 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 20),
-                const Text('Bentornato,', style: TextStyle(fontSize: 16, color: Colors.black54)),
-                const Text('Alberto Angela', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
+                const Text('Bentornato,',
+                    style: TextStyle(fontSize: 16, color: Colors.black54)),
+                const Text('Alberto Angela',
+                    style:
+                        TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 25),
 
-                _buildPositionCard(),
+                _buildPositionCard(), // <-- Card aggiornata
 
                 const SizedBox(height: 25),
                 _buildMonthHeader(),
@@ -186,7 +255,9 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
                 _buildHorizontalCalendar(),
 
                 const SizedBox(height: 30),
-                const Text("Attività Odierna", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                const Text("Attività Odierna",
+                    style:
+                        TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 20),
                 _buildActivityStats(),
 
@@ -199,7 +270,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
                     return _buildLoraInfoPanel(snapshot.data);
                   },
                 ),
-                
+
                 const SizedBox(height: 30),
               ],
             ),
@@ -212,7 +283,8 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
   Widget _buildPositionCard() {
     return GestureDetector(
       onTap: () {
-        final navState = context.findAncestorStateOfType<_PetTrackerNavigationState>();
+        final navState =
+            context.findAncestorStateOfType<_PetTrackerNavigationState>();
         if (navState != null) {
           navState.setState(() => navState._currentIndex = 1);
         }
@@ -222,22 +294,50 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(25),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15)],
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15)
+          ],
         ),
-        child: const Row(
+        child: Row(
           children: [
-            Icon(Icons.location_on, color: Color(0xFF00C6B8), size: 40),
-            SizedBox(width: 15),
+            const Icon(Icons.location_on, color: Color(0xFF00C6B8), size: 40),
+            const SizedBox(width: 15),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("Posizione Attuale", style: TextStyle(color: Colors.black45)),
-                  Text("In Recinto (Casa)", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                  const Text("Posizione Attuale",
+                      style: TextStyle(color: Colors.black45)),
+
+                  // Inseriamo un FutureBuilder che attende il nome del recinto!
+                  FutureBuilder<String>(
+                      future: _currentZoneFuture,
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Text("Ricerca in corso...",
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                  color: Colors.grey));
+                        }
+
+                        final nomeRecinto = snapshot.data ?? "Sconosciuta";
+
+                        return Text(nomeRecinto,
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                                // Se è fuori zona, metto il testo in rosso per allertare!
+                                color: nomeRecinto == "Fuori zona sicura"
+                                    ? Colors.red
+                                    : Colors.black));
+                      }),
                 ],
               ),
             ),
-            Icon(Icons.arrow_forward_ios, color: Colors.black12, size: 16),
+            const Icon(Icons.arrow_forward_ios,
+                color: Colors.black12, size: 16),
           ],
         ),
       ),
@@ -249,7 +349,11 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
       children: [
         const Icon(Icons.calendar_month, color: Color(0xFF00C6B8), size: 20),
         const SizedBox(width: 8),
-        Text(currentMonthName, style: const TextStyle(fontSize: 18, color: Colors.black54, fontWeight: FontWeight.w500)),
+        Text(currentMonthName,
+            style: const TextStyle(
+                fontSize: 18,
+                color: Colors.black54,
+                fontWeight: FontWeight.w500)),
       ],
     );
   }
@@ -269,17 +373,36 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
                 duration: const Duration(milliseconds: 200),
                 margin: const EdgeInsets.symmetric(horizontal: 4),
                 decoration: BoxDecoration(
-                  gradient: isSelected ? const LinearGradient(colors: [Color(0xFF00E2C1), Color(0xFF00C6B8)]) : null,
+                  gradient: isSelected
+                      ? const LinearGradient(
+                          colors: [Color(0xFF00E2C1), Color(0xFF00C6B8)])
+                      : null,
                   color: isSelected ? null : Colors.white,
                   borderRadius: BorderRadius.circular(15),
-                  boxShadow: isSelected ? null : [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 5)],
+                  boxShadow: isSelected
+                      ? null
+                      : [
+                          BoxShadow(
+                              color: Colors.black.withOpacity(0.03),
+                              blurRadius: 5)
+                        ],
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(dates[index]['day']!, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isSelected ? Colors.white : const Color(0xFF2D3142))),
+                    Text(dates[index]['day']!,
+                        style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: isSelected
+                                ? Colors.white
+                                : const Color(0xFF2D3142))),
                     const SizedBox(height: 4),
-                    Text(dates[index]['weekDay']!, style: TextStyle(fontSize: 10, color: isSelected ? Colors.white70 : Colors.black45)),
+                    Text(dates[index]['weekDay']!,
+                        style: TextStyle(
+                            fontSize: 10,
+                            color:
+                                isSelected ? Colors.white70 : Colors.black45)),
                   ],
                 ),
               ),
@@ -301,18 +424,22 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     );
   }
 
-  Widget _buildStatCircle(String label, String value, IconData icon, Color color) {
+  Widget _buildStatCircle(
+      String label, String value, IconData icon, Color color) {
     return Column(
       children: [
         Container(
           width: 65,
           height: 65,
-          decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
+          decoration: BoxDecoration(
+              color: color.withOpacity(0.1), shape: BoxShape.circle),
           child: Icon(icon, color: color, size: 25),
         ),
         const SizedBox(height: 10),
-        Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-        Text(label, style: const TextStyle(color: Colors.black38, fontSize: 13)),
+        Text(value,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        Text(label,
+            style: const TextStyle(color: Colors.black38, fontSize: 13)),
       ],
     );
   }
@@ -338,7 +465,9 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
           const SizedBox(width: 10),
           Text(
             "Ultimo aggiornamento: $testoTempo",
-            style: TextStyle(color: coloreStato.withOpacity(0.8), fontWeight: FontWeight.w600),
+            style: TextStyle(
+                color: coloreStato.withOpacity(0.8),
+                fontWeight: FontWeight.w600),
           ),
         ],
       ),

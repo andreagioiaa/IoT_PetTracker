@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'splash_screen.dart';
 import 'home.dart';
-import 'scambio.dart' as scambio; // Importiamo la logica di rete
+import 'scambio.dart' as scambio;
 
 void main() async {
   // 1. Necessario per eseguire codice asincrono prima di runApp

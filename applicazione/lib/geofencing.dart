@@ -17,11 +17,39 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
   List<Map<String, dynamic>> savedPlaces = [];
   bool isLoading = true;
 
+  LatLng? _petLocation; // NUOVO: Variabile per salvare la posizione del cane
+
   @override
   void initState() {
     super.initState();
     _caricaZoneDalDatabase();
+    _caricaPosizioneAnimaleDalDatabase(); // NUOVO: Carica la posizione all'avvio
     _determinePosition();
+  }
+
+  // NUOVO: Funzione per scaricare l'ultima posizione del cane
+  Future<void> _caricaPosizioneAnimaleDalDatabase() async {
+    if (!scambio.isReady) await scambio.autenticazione();
+
+    try {
+      final result = await scambio.pb.collection('positions_test').getList(
+            page: 1,
+            perPage: 1,
+            sort: '-timestamp', // Prende l'ultimo dato inviato
+          );
+
+      if (result.items.isNotEmpty) {
+        final lat = result.items.first.getDoubleValue('lat');
+        final lon = result.items.first.getDoubleValue('lon');
+        if (mounted) {
+          setState(() {
+            _petLocation = LatLng(lat, lon);
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint("Errore recupero posizione pet: $e");
+    }
   }
 
   Future<void> _caricaZoneDalDatabase() async {
@@ -33,7 +61,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
           await scambio.pb.collection('geofences_test').getFullList();
       final List<Map<String, dynamic>> nuoveZone = records.map((res) {
         return {
-          "id": res.id, // Fondamentale per eliminare poi!
+          "id": res.id,
           "name": res.getStringValue('name'),
           "street": res.getStringValue('street'),
           "civic": res.getStringValue('civic'),
@@ -111,7 +139,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     }
   }
 
-  // --- LOGICA DOMANDA E REVERSE GEOCODING ---
   Future<void> _promptAddLocation() async {
     if (_myLocation == null) {
       _showPlaceDialog(isEditing: false);
@@ -198,7 +225,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     _capController.text = cap;
     _tempRadius = 30.0;
 
-    // Passiamo le coordinate GPS esatte al Dialog!
     _showPlaceDialog(isEditing: false, gpsLocation: _myLocation);
   }
 
@@ -245,7 +271,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
           double lon = double.parse(data[0]['lon']);
           LatLng newCenter = LatLng(lat, lon);
 
-          // --- CORREZIONE QUI: FUORI DAL SETSTATE ---
           final body = {
             "name": name,
             "center_lat": newCenter.latitude,
@@ -267,12 +292,10 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
             } else {
               await scambio.pb.collection('geofences_test').create(body: body);
             }
-            // Una volta salvato su cloud, ricarichiamo la lista aggiornata
             await _caricaZoneDalDatabase();
           } catch (e) {
             debugPrint("Errore salvataggio DB: $e");
           }
-          // --- FINE CORREZIONE ---
 
           _isPlaceInView.value = true;
           _mapController.move(newCenter, 18.0);
@@ -306,7 +329,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     }
   }
 
-  // Riceve le coordinate GPS per bypassare il server
   void _showPlaceDialog(
       {bool isEditing = false, int? editIndex, LatLng? gpsLocation}) {
     if (isEditing && editIndex != null) {
@@ -318,7 +340,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
       _civicController.text = place['civic'];
       _tempRadius = place['radius'];
     } else if (gpsLocation == null) {
-      // Svuota solo se inserimento puramente manuale
       _nameController.clear();
       _cityController.clear();
       _capController.clear();
@@ -435,7 +456,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                         final city = _cityController.text.trim();
                         final cap = _capController.text.trim();
 
-                        // Validazione morbida: nome e città servono sempre
                         if (name.isEmpty || city.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
@@ -445,7 +465,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                           return;
                         }
 
-                        // Controlli Duplicati
                         bool nameExists = savedPlaces.asMap().entries.any((e) =>
                             e.key != editIndex &&
                             e.value['name'].toString().toLowerCase() ==
@@ -462,39 +481,40 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                           isLoading = true;
                         });
 
-                        // LA MAGIA DEL BYPASS GPS
                         if (gpsLocation != null && !isEditing) {
-                          setState(() {
-                            savedPlaces.add({
-                              "name": name,
-                              "street":
-                                  street.isEmpty ? "Via Sconosciuta" : street,
-                              "civic": civic.isEmpty ? "SNC" : civic,
-                              "city": city,
-                              "cap": cap.isEmpty ? "00000" : cap,
-                              "center":
-                                  gpsLocation, // USIAMO LE COORDINATE ESATTE DEL GPS
-                              "radius": _tempRadius,
-                            });
-                            selectedPlaceIndex = savedPlaces.length - 1;
-                          });
-                          _isPlaceInView.value = true;
-                          _mapController.move(gpsLocation, 18.0);
+                          final body = {
+                            "name": name,
+                            "center_lat": gpsLocation.latitude,
+                            "center_lon": gpsLocation.longitude,
+                            "radius": _tempRadius,
+                            "street":
+                                street.isEmpty ? "Via Sconosciuta" : street,
+                            "civic": civic.isEmpty ? "SNC" : civic,
+                            "city": city,
+                            "cap": cap.isEmpty ? "00000" : cap,
+                            "is_active": true,
+                          };
 
-                          _nameController.clear();
-                          _cityController.clear();
-                          _capController.clear();
-                          _streetController.clear();
-                          _civicController.clear();
-                          _tempRadius = 30.0;
+                          try {
+                            await scambio.pb
+                                .collection('geofences_test')
+                                .create(body: body);
+                            await _caricaZoneDalDatabase();
 
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                              content: Text(
-                                  "Zona '$name' creata sulla tua posizione!"),
-                              backgroundColor: Colors.green));
-                          Navigator.pop(dialogContext);
+                            _isPlaceInView.value = true;
+                            _mapController.move(gpsLocation, 18.0);
+
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                content: Text(
+                                    "Zona '$name' creata sulla tua posizione!"),
+                                backgroundColor: Colors.green));
+
+                            if (context.mounted) Navigator.pop(dialogContext);
+                          } catch (e) {
+                            debugPrint("Errore creazione GPS: $e");
+                            setDialogState(() => isLoading = false);
+                          }
                         } else {
-                          // Se NON usiamo il GPS o stiamo modificando, serve validazione severa
                           if (street.isEmpty || civic.isEmpty || cap.isEmpty) {
                             setDialogState(() {
                               isLoading = false;
@@ -611,12 +631,14 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                       .delete(idDaEliminare);
                   await _caricaZoneDalDatabase();
 
-                  Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                        content: Text("Zona '$placeName' eliminata."),
-                        backgroundColor: Colors.black87),
-                  );
+                  if (context.mounted) {
+                    Navigator.of(context).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                          content: Text("Zona '$placeName' eliminata."),
+                          backgroundColor: Colors.black87),
+                    );
+                  }
                 } catch (e) {
                   debugPrint("Errore eliminazione: $e");
                 }
@@ -685,6 +707,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                     ),
                   ],
                 ),
+              // Marker per la tua posizione
               if (_myLocation != null)
                 MarkerLayer(
                   markers: [
@@ -717,6 +740,25 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                     ),
                   ],
                 ),
+
+              // NUOVO: Marker dedicato per il CANE (Arancione)
+              if (_petLocation != null)
+                MarkerLayer(
+                  markers: [
+                    Marker(
+                      point: _petLocation!,
+                      width: 50,
+                      height: 50,
+                      child: const Icon(
+                        Icons.pets,
+                        color: Colors.orange, // Icona della zampa arancione
+                        size: 40,
+                      ),
+                    ),
+                  ],
+                ),
+
+              // Marker per il centro del recinto (Rosso)
               if (hasPlaces)
                 MarkerLayer(
                   markers: [
@@ -759,7 +801,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                                   isExpanded:
                                       false, // IMPORTANTE: False evita che occupi tutto lo schermo
                                   value: selectedPlaceIndex,
-                                  // Aggiungiamo uno stile coerente
                                   style: const TextStyle(
                                     color: Colors.black87,
                                     fontSize: 15,
@@ -795,16 +836,31 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        // NUOVO: Logica del tasto per localizzare il cane
                         FloatingActionButton.small(
                           heroTag: "locatePet",
-                          onPressed: () {
+                          onPressed: () async {
                             ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                    content: Text(
-                                        "Localizzazione animale in fase di creazione...")));
+                                    content:
+                                        Text("Ricerca posizione animale..."),
+                                    duration: Duration(seconds: 1)));
+
+                            await _caricaPosizioneAnimaleDalDatabase();
+
+                            if (_petLocation != null) {
+                              _mapController.move(_petLocation!, 18.0);
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content:
+                                          Text("Posizione non disponibile.")));
+                            }
                           },
-                          backgroundColor: Colors.grey.shade400,
-                          child: const Icon(Icons.pets, color: Colors.white),
+                          backgroundColor: Colors.white,
+                          child: const Icon(Icons.pets,
+                              color: Colors
+                                  .orange), // Tasto bianco con zampa arancione
                         ),
                         const SizedBox(width: 8),
                         FloatingActionButton.small(
