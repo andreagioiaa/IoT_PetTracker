@@ -17,17 +17,16 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
   List<Map<String, dynamic>> savedPlaces = [];
   bool isLoading = true;
 
-  LatLng? _petLocation; // NUOVO: Variabile per salvare la posizione del cane
+  LatLng? _petLocation;
 
   @override
   void initState() {
     super.initState();
     _caricaZoneDalDatabase();
-    _caricaPosizioneAnimaleDalDatabase(); // NUOVO: Carica la posizione all'avvio
+    _caricaPosizioneAnimaleDalDatabase();
     _determinePosition();
   }
 
-  // NUOVO: Funzione per scaricare l'ultima posizione del cane
   Future<void> _caricaPosizioneAnimaleDalDatabase() async {
     if (!scambio.isReady) await scambio.autenticazione();
 
@@ -35,7 +34,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
       final result = await scambio.pb.collection('positions_test').getList(
             page: 1,
             perPage: 1,
-            sort: '-timestamp', // Prende l'ultimo dato inviato
+            sort: '-timestamp',
           );
 
       if (result.items.isNotEmpty) {
@@ -70,17 +69,52 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
           "center": LatLng(res.getDoubleValue('center_lat'),
               res.getDoubleValue('center_lon')),
           "radius": res.getDoubleValue('radius'),
+          "is_active": res.getBoolValue('is_active'),
         };
       }).toList();
 
       setState(() {
         savedPlaces = nuoveZone;
         isLoading = false;
-        if (savedPlaces.isNotEmpty) selectedPlaceIndex = 0;
+
+        // --- CORREZIONE RANGE ERROR ---
+        if (savedPlaces.isEmpty) {
+          selectedPlaceIndex =
+              null; // Se non c'è nessuna zona, togliamo la selezione
+        } else if (selectedPlaceIndex == null ||
+            selectedPlaceIndex! >= savedPlaces.length) {
+          // Se l'indice è diventato fuori dai limiti (es. era 5 ma la lista ora ha 5 elementi, da 0 a 4)
+          // torna in automatico alla prima zona (0)
+          selectedPlaceIndex = 0;
+        }
+        // --------------------------------
       });
     } catch (e) {
       debugPrint("Errore caricamento: $e");
       setState(() => isLoading = false);
+    }
+  }
+
+  Future<void> _toggleZoneActiveStatus(String id, bool currentStatus) async {
+    try {
+      // Inverte lo stato (se era true diventa false, e viceversa)
+      final newStatus = !currentStatus;
+
+      await scambio.pb.collection('geofences_test').update(id, body: {
+        "is_active": newStatus,
+      });
+
+      await _caricaZoneDalDatabase(); // Ricarica i dati per aggiornare la UI
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(newStatus ? "Zona attivata." : "Zona disattivata."),
+          backgroundColor: newStatus ? Colors.green : Colors.orange,
+          duration: const Duration(seconds: 2),
+        ));
+      }
+    } catch (e) {
+      debugPrint("Errore attivazione zona: $e");
     }
   }
 
@@ -657,6 +691,9 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     bool hasPlaces = savedPlaces.isNotEmpty && selectedPlaceIndex != null;
     var currentPlace = hasPlaces ? savedPlaces[selectedPlaceIndex!] : null;
 
+    // NUOVO: Controlla se la zona selezionata è attiva
+    bool isCurrentPlaceActive = currentPlace?['is_active'] ?? false;
+
     LatLng initialCenter = const LatLng(41.8719, 12.5674);
     if (_myLocation != null) {
       initialCenter = _myLocation!;
@@ -701,8 +738,13 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                       point: currentPlace!['center'],
                       radius: currentPlace['radius'],
                       useRadiusInMeter: true,
-                      color: const Color(0xFF00C6B8).withOpacity(0.3),
-                      borderColor: const Color(0xFF00C6B8),
+                      // NUOVO: Se non è attiva, coloriamo il recinto di grigio
+                      color: isCurrentPlaceActive
+                          ? const Color(0xFF00C6B8).withOpacity(0.3)
+                          : Colors.grey.withOpacity(0.4),
+                      borderColor: isCurrentPlaceActive
+                          ? const Color(0xFF00C6B8)
+                          : Colors.grey,
                       borderStrokeWidth: 3,
                     ),
                   ],
@@ -741,7 +783,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                   ],
                 ),
 
-              // NUOVO: Marker dedicato per il CANE (Arancione)
+              // Marker dedicato per il CANE (Arancione)
               if (_petLocation != null)
                 MarkerLayer(
                   markers: [
@@ -751,14 +793,14 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                       height: 50,
                       child: const Icon(
                         Icons.pets,
-                        color: Colors.orange, // Icona della zampa arancione
+                        color: Colors.orange,
                         size: 30,
                       ),
                     ),
                   ],
                 ),
 
-              // Marker per il centro del recinto (Rosso)
+              // Marker per il centro del recinto (Rosso o Grigio scuro)
               if (hasPlaces)
                 MarkerLayer(
                   markers: [
@@ -766,8 +808,11 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                       point: currentPlace!['center'],
                       width: 30,
                       height: 30,
-                      child: const Icon(Icons.location_on,
-                          color: Colors.red, size: 30),
+                      child: Icon(Icons.location_on,
+                          color: isCurrentPlaceActive
+                              ? Colors.red
+                              : Colors.grey.shade700,
+                          size: 30),
                     ),
                   ],
                 ),
@@ -782,13 +827,12 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    IntrinsicWidth(
+                    Expanded(
                       child: hasPlaces
                           ? Container(
                               padding:
                                   const EdgeInsets.symmetric(horizontal: 15),
-                              height:
-                                  45, // Altezza fissa per coerenza con i pulsanti a fianco
+                              height: 45,
                               decoration: BoxDecoration(
                                   color: Colors.white,
                                   borderRadius: BorderRadius.circular(15),
@@ -798,19 +842,44 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                                   ]),
                               child: DropdownButtonHideUnderline(
                                 child: DropdownButton<int>(
-                                  isExpanded:
-                                      false, // IMPORTANTE: False evita che occupi tutto lo schermo
+                                  isExpanded: true,
+
+                                  // --- LA MAGIA PER I 5 ELEMENTI ---
+                                  menuMaxHeight: 240, // 48px * 5 elementi
+                                  itemHeight:
+                                      48, // Fissa l'altezza di ogni riga
+                                  // ---------------------------------
+
                                   value: selectedPlaceIndex,
                                   style: const TextStyle(
                                     color: Colors.black87,
                                     fontSize: 15,
                                     fontWeight: FontWeight.w600,
                                   ),
-                                  items: List.generate(
-                                      savedPlaces.length,
-                                      (i) => DropdownMenuItem(
-                                          value: i,
-                                          child: Text(savedPlaces[i]['name']))),
+                                  items: List.generate(savedPlaces.length, (i) {
+                                    bool isActiveZone =
+                                        savedPlaces[i]['is_active'] ?? false;
+                                    return DropdownMenuItem(
+                                        value: i,
+                                        // NUOVO: Aggiunta la spunta verde nel Dropdown se la zona è attiva
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Flexible(
+                                              child: Text(
+                                                savedPlaces[i]['name'],
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                            if (isActiveZone) ...[
+                                              const SizedBox(width: 8),
+                                              const Icon(Icons.check_circle,
+                                                  color: Colors.green,
+                                                  size: 16),
+                                            ]
+                                          ],
+                                        ));
+                                  }),
                                   onChanged: (val) {
                                     setState(() {
                                       selectedPlaceIndex = val!;
@@ -836,7 +905,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // NUOVO: Logica del tasto per localizzare il cane
                         FloatingActionButton.small(
                           heroTag: "locatePet",
                           onPressed: () async {
@@ -858,9 +926,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                             }
                           },
                           backgroundColor: Colors.white,
-                          child: const Icon(Icons.pets,
-                              color: Colors
-                                  .orange), // Tasto bianco con zampa arancione
+                          child: const Icon(Icons.pets, color: Colors.orange),
                         ),
                         const SizedBox(width: 8),
                         FloatingActionButton.small(
@@ -951,15 +1017,18 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                                 child: _buildSmallAction(Icons.edit, "Modifica",
                                     color: Colors.blueAccent)),
                             InkWell(
-                                onTap: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                          content: Text(
-                                              "Impostazioni avvisi in arrivo...")));
-                                },
+                                onTap: () => _toggleZoneActiveStatus(
+                                    currentPlace['id'], isCurrentPlaceActive),
                                 child: _buildSmallAction(
-                                    Icons.notifications_active, "Avvisi",
-                                    color: Colors.grey.shade400)),
+                                    isCurrentPlaceActive
+                                        ? Icons.notifications_off
+                                        : Icons.notifications_active,
+                                    isCurrentPlaceActive
+                                        ? "Disattiva"
+                                        : "Attiva",
+                                    color: isCurrentPlaceActive
+                                        ? Colors.orange
+                                        : Colors.green)),
                             InkWell(
                                 onTap: _confirmDeleteCurrentPlace,
                                 child: _buildSmallAction(
