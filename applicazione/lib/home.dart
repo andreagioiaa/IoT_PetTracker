@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import 'battery.dart';
 import 'geofencing.dart';
+import 'dart:async';
 import 'scambio.dart' as scambio;
 
 class PetTrackerApp extends StatelessWidget {
@@ -132,16 +133,120 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
   late int selectedDateIndex;
   late String currentMonthName;
 
-  // Future per i dati dinamici
-  late Future<DateTime?> _lastUpdateFuture;
-  late Future<String> _currentZoneFuture; // <-- Nuovo Future per il recinto
+  // --- VARIABILI DI STATO (Niente più FutureBuilder) ---
+  DateTime? _ultimoAggiornamento;
+  String _nomeZona = "Ricerca in corso...";
+  bool _isLoading = true;
+
+  // L'antenna per lo stream in tempo reale
+  StreamSubscription? _streamSubscription;
+
+  // Un timer per far scorrere i minuti ("1 min fa", "2 min fa") da soli
+  Timer? _uiRefreshTimer;
 
   @override
   void initState() {
     super.initState();
     _initializeDates();
-    _lastUpdateFuture = scambio.getUltimoTimestamp();
-    _currentZoneFuture = _calculateCurrentZone(); // <-- Avviamo il calcolo
+
+    // 1. Accendiamo l'antenna per lo stream in tempo reale
+    _streamSubscription = scambio.posizioneStream.listen((nuovoRecord) async {
+      debugPrint('🏠 [HOME] Il tubo ha vibrato! Leggo il pacchetto...');
+      try {
+        // Estrai orario
+        String timeStr = nuovoRecord.getStringValue('timestamp');
+        DateTime nuovoTempo = DateTime.parse(timeStr).toLocal();
+
+        // Estrai coordinate e calcola la zona
+        double petLat = nuovoRecord.getDoubleValue('lat');
+        double petLon = nuovoRecord.getDoubleValue('lon');
+        String nuovaZona = await _calcolaZonaDalPunto(LatLng(petLat, petLon));
+
+        if (mounted) {
+          setState(() {
+            _ultimoAggiornamento = nuovoTempo;
+            _nomeZona = nuovaZona;
+            _isLoading = false;
+          });
+        }
+      } catch (e) {
+        debugPrint('❌ [HOME] Errore decodifica stream: $e');
+      }
+    });
+
+    // 2. Scarichiamo la "fotografia" iniziale
+    _scaricaDatiIniziali();
+
+    // 3. Facciamo partire un orologio che rinfresca la UI ogni 30 secondi
+    // per far scorrere i "min fa" automaticamente.
+    _uiRefreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    // Spengiamo antenna e timer quando usciamo
+    _streamSubscription?.cancel();
+    _uiRefreshTimer?.cancel();
+    super.dispose();
+  }
+
+  // --- FUNZIONI DI SUPPORTO ---
+
+  Future<void> _scaricaDatiIniziali() async {
+    final tempoIniziale = await scambio.getUltimoTimestamp();
+    final zonaIniziale = await _calculateCurrentZone();
+
+    if (mounted) {
+      setState(() {
+        if (_ultimoAggiornamento == null) {
+          _ultimoAggiornamento = tempoIniziale;
+        }
+        if (_nomeZona == "Ricerca in corso...") {
+          _nomeZona = zonaIniziale;
+        }
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<String> _calculateCurrentZone() async {
+    if (!scambio.isReady) await scambio.autenticazione();
+    try {
+      final posResult = await scambio.pb
+          .collection('positions_test')
+          .getList(page: 1, perPage: 1, sort: '-timestamp');
+      if (posResult.items.isEmpty) return "Posizione sconosciuta";
+
+      final petLat = posResult.items.first.getDoubleValue('lat');
+      final petLon = posResult.items.first.getDoubleValue('lon');
+      return await _calcolaZonaDalPunto(LatLng(petLat, petLon));
+    } catch (e) {
+      return "Errore rilevamento";
+    }
+  }
+
+  Future<String> _calcolaZonaDalPunto(LatLng petPos) async {
+    try {
+      final geoResult =
+          await scambio.pb.collection('geofences_test').getFullList();
+      const distanceTool = Distance();
+      for (var record in geoResult) {
+        // Consideriamo solo le zone attive!
+        if (record.getBoolValue('is_active') == true) {
+          final zLat = record.getDoubleValue('center_lat');
+          final zLon = record.getDoubleValue('center_lon');
+          final radius = record.getDoubleValue('radius');
+          final dist =
+              distanceTool.as(LengthUnit.Meter, petPos, LatLng(zLat, zLon));
+          if (dist <= radius) return record.getStringValue('name');
+        }
+      }
+      return "Fuori zona sicura";
+    } catch (e) {
+      return "Errore rilevamento";
+    }
   }
 
   void _initializeDates() {
@@ -174,54 +279,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     selectedDateIndex = today.weekday - 1;
   }
 
-  // --- MAGIA IoT: CALCOLO SE IL CANE È NEL RECINTO ---
-  Future<String> _calculateCurrentZone() async {
-    if (!scambio.isReady) await scambio.autenticazione();
-
-    try {
-      // 1. Prendiamo l'ultima posizione registrata del cane
-      final posResult = await scambio.pb.collection('positions_test').getList(
-            page: 1,
-            perPage: 1,
-            sort: '-timestamp', // Prendi il più recente
-          );
-
-      if (posResult.items.isEmpty) return "Posizione sconosciuta";
-
-      final petLat = posResult.items.first.getDoubleValue('lat');
-      final petLon = posResult.items.first.getDoubleValue('lon');
-      final petLocation = LatLng(petLat, petLon);
-
-      // 2. Prendiamo tutte le zone sicure (geofences)
-      final geoResult =
-          await scambio.pb.collection('geofences_test').getFullList();
-
-      // 3. Calcoliamo la distanza
-      const distanceTool = Distance(); // Strumento di latlong2
-
-      for (var record in geoResult) {
-        final zLat = record.getDoubleValue('center_lat');
-        final zLon = record.getDoubleValue('center_lon');
-        final radius = record.getDoubleValue('radius');
-        final nomeZona = record.getStringValue('name');
-
-        // Calcola distanza in metri tra il cane e il centro della zona
-        final distMeters =
-            distanceTool.as(LengthUnit.Meter, petLocation, LatLng(zLat, zLon));
-
-        // Se il cane è dentro al raggio, restituisci solo il NOME
-        if (distMeters <= radius) {
-          return nomeZona;
-        }
-      }
-
-      // Se finisce il ciclo e non è in nessuna zona
-      return "Fuori zona sicura";
-    } catch (e) {
-      debugPrint("Errore calcolo zona: $e");
-      return "Errore rilevamento";
-    }
-  }
+  // --- COSTRUZIONE UI ---
 
   @override
   Widget build(BuildContext context) {
@@ -254,7 +312,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
                         TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 25),
 
-                _buildPositionCard(), // <-- Card aggiornata
+                _buildPositionCard(), // Usa la variabile di stato
 
                 const SizedBox(height: 25),
                 _buildMonthHeader(),
@@ -270,13 +328,8 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
 
                 const SizedBox(height: 30),
 
-                // Pannello dinamico con FutureBuilder
-                FutureBuilder<DateTime?>(
-                  future: _lastUpdateFuture,
-                  builder: (context, snapshot) {
-                    return _buildLoraInfoPanel(snapshot.data);
-                  },
-                ),
+                // Usa la variabile di stato per il pannello
+                _buildLoraInfoPanel(_ultimoAggiornamento),
 
                 const SizedBox(height: 30),
               ],
@@ -316,30 +369,20 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
                   const Text("Posizione Attuale",
                       style: TextStyle(color: Colors.black45)),
 
-                  // Inseriamo un FutureBuilder che attende il nome del recinto!
-                  FutureBuilder<String>(
-                      future: _currentZoneFuture,
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return const Text("Ricerca in corso...",
-                              style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 18,
-                                  color: Colors.grey));
-                        }
-
-                        final nomeRecinto = snapshot.data ?? "Sconosciuta";
-
-                        return Text(nomeRecinto,
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 18,
-                                // Se è fuori zona, metto il testo in rosso per allertare!
-                                color: nomeRecinto == "Fuori zona sicura"
-                                    ? Colors.red
-                                    : Colors.black));
-                      }),
+                  // Se stiamo caricando mostra il testo grigio, altrimenti la zona
+                  _isLoading
+                      ? const Text("Caricamento...",
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                              color: Colors.grey))
+                      : Text(_nomeZona,
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                              color: _nomeZona == "Fuori zona sicura"
+                                  ? Colors.red
+                                  : Colors.black)),
                 ],
               ),
             ),
@@ -451,7 +494,6 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     );
   }
 
-  // PANNELLO DINAMICO AGGIORNATO
   Widget _buildLoraInfoPanel(DateTime? ultimoInvio) {
     final coloreStato = getColoreStato(ultimoInvio);
     final testoTempo = formattaUltimoAggiornamento(ultimoInvio);

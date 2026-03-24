@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:geolocator/geolocator.dart';
+import 'dart:async';
 import 'scambio.dart' as scambio;
 
 class GeofencingScreen extends StatefulWidget {
@@ -18,16 +19,44 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
   bool isLoading = true;
 
   LatLng? _petLocation;
+  StreamSubscription? _streamSubscription; // <-- 1. Dichiariamo l'antenna
 
   @override
   void initState() {
     super.initState();
     _caricaZoneDalDatabase();
-    _caricaPosizioneAnimaleDalDatabase();
+
+    // 2. ACCENDIAMO L'ANTENNA (si muoverà da sola ad ogni pacchetto!)
+    _streamSubscription = scambio.posizioneStream.listen((nuovoRecord) {
+      debugPrint('🗺️ [MAPPA] Il tubo ha vibrato! Aggiorno la zampetta...');
+      try {
+        final lat = nuovoRecord.getDoubleValue('lat');
+        final lon = nuovoRecord.getDoubleValue('lon');
+
+        if (mounted) {
+          setState(() {
+            _petLocation = LatLng(lat, lon);
+          });
+        }
+      } catch (e) {
+        debugPrint('❌ [MAPPA] Errore lettura coordinate in diretta: $e');
+      }
+    });
+
+    // 3. Scarichiamo la foto iniziale
+    _scaricaPosizioneInizialeAnimale();
     _determinePosition();
   }
 
-  Future<void> _caricaPosizioneAnimaleDalDatabase() async {
+  @override
+  void dispose() {
+    _isPlaceInView.dispose();
+    _streamSubscription
+        ?.cancel(); // <-- 4. Spegniamo l'antenna quando chiudiamo la mappa
+    super.dispose();
+  }
+
+  Future<void> _scaricaPosizioneInizialeAnimale() async {
     if (!scambio.isReady) await scambio.autenticazione();
 
     try {
@@ -37,17 +66,15 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
             sort: '-timestamp',
           );
 
-      if (result.items.isNotEmpty) {
+      if (result.items.isNotEmpty && mounted && _petLocation == null) {
         final lat = result.items.first.getDoubleValue('lat');
         final lon = result.items.first.getDoubleValue('lon');
-        if (mounted) {
-          setState(() {
-            _petLocation = LatLng(lat, lon);
-          });
-        }
+        setState(() {
+          _petLocation = LatLng(lat, lon);
+        });
       }
     } catch (e) {
-      debugPrint("Errore recupero posizione pet: $e");
+      debugPrint("Errore recupero posizione iniziale pet: $e");
     }
   }
 
@@ -132,12 +159,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
   LatLng? _myLocation;
 
   final ValueNotifier<bool> _isPlaceInView = ValueNotifier<bool>(true);
-
-  @override
-  void dispose() {
-    _isPlaceInView.dispose();
-    super.dispose();
-  }
 
   Future<void> _determinePosition() async {
     try {
@@ -914,7 +935,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                                         Text("Ricerca posizione animale..."),
                                     duration: Duration(seconds: 1)));
 
-                            await _caricaPosizioneAnimaleDalDatabase();
+                            await _scaricaPosizioneInizialeAnimale();
 
                             if (_petLocation != null) {
                               _mapController.move(_petLocation!, 18.0);

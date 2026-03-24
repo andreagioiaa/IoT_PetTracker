@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
+import 'dart:async'; // Serve per lo StreamSubscription
 import 'scambio.dart' as scambio;
 
 class BatteryScreen extends StatefulWidget {
@@ -10,155 +11,190 @@ class BatteryScreen extends StatefulWidget {
 }
 
 class _BatteryScreenState extends State<BatteryScreen> {
-  late Future<int?> _batteryFuture;
+  // Le nostre variabili di stato (addio FutureBuilder!)
+  int? _currentBattery;
+  bool _isLoading = true;
+  StreamSubscription? _streamSubscription;
 
   @override
   void initState() {
     super.initState();
-    _batteryFuture = scambio.getUltimoLivelloBatteria();
+
+    // 1. ACCENDIAMO L'ANTENNA IMMEDIATAMENTE!
+    _streamSubscription = scambio.posizioneStream.listen((nuovoRecord) {
+      print('🔊 [BATTERY SCREEN] Leggo il pacchetto...');
+
+      try {
+        final nuovaBatteria = nuovoRecord.getIntValue('battery');
+        print('🔋 [BATTERY SCREEN] Nuova batteria in diretta: $nuovaBatteria%');
+
+        if (mounted) {
+          setState(() {
+            _currentBattery = nuovaBatteria; // Aggiorna la variabile
+            _isLoading = false; // Ferma il caricamento
+          });
+        }
+      } catch (e) {
+        print('❌ [BATTERY SCREEN] Errore lettura pacchetto: $e');
+      }
+    });
+
+    // 2. SCARICHIAMO LA FOTOGRAFIA INIZIALE
+    _scaricaDatoIniziale();
+  }
+
+  Future<void> _scaricaDatoIniziale() async {
+    final batteriaIniziale = await scambio.getUltimoLivelloBatteria();
+    if (mounted && _currentBattery == null) {
+      setState(() {
+        _currentBattery = batteriaIniziale;
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    // Spengiamo l'antenna quando usciamo dalla pagina
+    _streamSubscription?.cancel();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: FutureBuilder<int?>(
-        future: _batteryFuture,
-        builder: (context, snapshot) {
-          // 1. Stato di Caricamento
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-                child: CircularProgressIndicator(color: Color(0xFF00C6B8)));
-          }
+      child: _buildBody(),
+    );
+  }
 
-          // 2. Stato di Errore
-          if (snapshot.hasError || !snapshot.hasData) {
-            return const Center(
-                child: Text("Errore nel recupero dati batteria"));
-          }
+  // Sostituisce il FutureBuilder
+  Widget _buildBody() {
+    // 1. Stato di Caricamento
+    if (_isLoading) {
+      return const Center(
+          child: CircularProgressIndicator(color: Color(0xFF00C6B8)));
+    }
 
-          // 3. Dati Ricevuti
-          final int batteryInt = snapshot.data ?? 0;
-          final double batteryLevel = batteryInt / 100.0;
+    // 2. Stato di Errore
+    if (_currentBattery == null) {
+      return const Center(child: Text("Errore nel recupero dati batteria"));
+    }
 
-          // --- LOGICA DINAMICA DEI COLORI E TESTI ---
-          List<Color> ringColors;
-          Color mainColor;
-          String statusText;
+    // 3. Dati Ricevuti
+    final int batteryInt = _currentBattery!;
+    final double batteryLevel = batteryInt / 100.0;
 
-          if (batteryInt <= 0) {
-            // Batteria morta
-            ringColors = [Colors.red.shade900, Colors.red.shade700];
-            mainColor = Colors.red;
-            statusText = "Scarica";
-          } else if (batteryInt <= 20) {
-            // Batteria in esaurimento (<= 20%)
-            ringColors = [Colors.orange, Colors.redAccent];
-            mainColor = Colors.redAccent;
-            statusText = "In esaurimento";
-          } else {
-            // Batteria ok (> 20%)
-            ringColors = const [Color(0xFF00E2C1), Color(0xFF00C6B8)];
-            mainColor = const Color(0xFF00C6B8);
-            statusText = "Carica";
-          }
+    // --- LOGICA DINAMICA DEI COLORI E TESTI ---
+    List<Color> ringColors;
+    Color mainColor;
+    String statusText;
 
-          // Calcolo stimato realistico (ipotizzando 7 giorni al 100%)
-          double estimatedDays = (batteryInt / 100.0) * 7.0;
+    if (batteryInt <= 0) {
+      // Batteria morta
+      ringColors = [Colors.red.shade900, Colors.red.shade700];
+      mainColor = Colors.red;
+      statusText = "Scarica";
+    } else if (batteryInt <= 20) {
+      // Batteria in esaurimento (<= 20%)
+      ringColors = [Colors.orange, Colors.redAccent];
+      mainColor = Colors.redAccent;
+      statusText = "In esaurimento";
+    } else {
+      // Batteria ok (> 20%)
+      ringColors = const [Color(0xFF00E2C1), Color(0xFF00C6B8)];
+      mainColor = const Color(0xFF00C6B8);
+      statusText = "Carica";
+    }
 
-          return SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 25.0),
-            child: Column(
+    // Calcolo stimato realistico
+    double estimatedDays = (batteryInt / 100.0) * 7.0;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 25.0),
+      child: Column(
+        children: [
+          const SizedBox(height: 40),
+          const Text(
+            'Stato Batteria',
+            style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF2D3142)),
+          ),
+          const SizedBox(height: 40),
+
+          // Anello di progresso batteria
+          SizedBox(
+            width: 220,
+            height: 220,
+            child: Stack(
+              alignment: Alignment.center,
               children: [
-                const SizedBox(height: 40),
-                const Text(
-                  'Stato Batteria',
-                  style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF2D3142)),
+                GradientCircularProgress(
+                  percentage: batteryLevel,
+                  strokeWidth: 22,
+                  colors: ringColors,
                 ),
-                const SizedBox(height: 40),
-
-                // Anello di progresso batteria
-                SizedBox(
-                  width: 220,
-                  height: 220,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      GradientCircularProgress(
-                        percentage: batteryLevel,
-                        strokeWidth: 22,
-                        colors: ringColors, // <--- Colore dinamico inserito qui
-                      ),
-                      Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            '${batteryInt}%',
-                            style: TextStyle(
-                                fontSize: 54,
-                                fontWeight: FontWeight.bold,
-                                color: mainColor), // <--- Colore dinamico
-                          ),
-                          Text(
-                            statusText, // <--- Testo dinamico ("In esaurimento", ecc.)
-                            style: TextStyle(
-                                fontSize: 16,
-                                color: batteryInt <= 20
-                                    ? mainColor
-                                    : Colors.black38,
-                                fontWeight: batteryInt <= 20
-                                    ? FontWeight.bold
-                                    : FontWeight.normal),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      '${batteryInt}%',
+                      style: TextStyle(
+                          fontSize: 54,
+                          fontWeight: FontWeight.bold,
+                          color: mainColor),
+                    ),
+                    Text(
+                      statusText,
+                      style: TextStyle(
+                          fontSize: 16,
+                          color: batteryInt <= 20 ? mainColor : Colors.black38,
+                          fontWeight: batteryInt <= 20
+                              ? FontWeight.bold
+                              : FontWeight.normal),
+                    ),
+                  ],
                 ),
-
-                const SizedBox(height: 50),
-
-                // Card Unica: Durata Stimata (Cambia colore anche l'icona!)
-                _buildBatteryDetailCard(
-                    Icons.access_time,
-                    "Durata Stimata",
-                    batteryInt <= 0
-                        ? "Spento"
-                        : "~ ${estimatedDays.toStringAsFixed(1)} giorni",
-                    batteryInt <= 20 ? Colors.redAccent : Colors.blue),
-
-                const SizedBox(height: 40),
-
-                // Dettagli Tecnici (che piacciono al prof)
-                _buildTechDetail(
-                    "Capacità Batteria", "3000 mAh", Icons.battery_full),
-                const SizedBox(height: 15),
-                _buildTechDetail("Consumo ad Invio", "~ 45 mA", Icons.sensors),
-                const SizedBox(height: 15),
-                _buildTechDetail("Intervallo medio", "2 min", Icons.history),
-
-                const SizedBox(height: 40),
-
-                const Text(
-                  "NOTA: La durata è stimata sul consumo dei dati inviati dal collare.",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                      fontStyle: FontStyle.italic,
-                      color: Colors.grey,
-                      fontSize: 12),
-                ),
-                const SizedBox(height: 20),
               ],
             ),
-          );
-        },
+          ),
+
+          const SizedBox(height: 50),
+
+          // Card Unica: Durata Stimata
+          _buildBatteryDetailCard(
+              Icons.access_time,
+              "Durata Stimata",
+              batteryInt <= 0
+                  ? "Spento"
+                  : "~ ${estimatedDays.toStringAsFixed(1)} giorni",
+              batteryInt <= 20 ? Colors.redAccent : Colors.blue),
+
+          const SizedBox(height: 40),
+
+          // Dettagli Tecnici
+          _buildTechDetail("Capacità Batteria", "3000 mAh", Icons.battery_full),
+          const SizedBox(height: 15),
+          _buildTechDetail("Consumo ad Invio", "~ 45 mA", Icons.sensors),
+          const SizedBox(height: 15),
+          _buildTechDetail("Intervallo medio", "2 min", Icons.history),
+
+          const SizedBox(height: 40),
+
+          const Text(
+            "NOTA: La durata è stimata sul consumo dei dati inviati dal collare.",
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                fontStyle: FontStyle.italic, color: Colors.grey, fontSize: 12),
+          ),
+          const SizedBox(height: 20),
+        ],
       ),
     );
   }
 
-  // --- WIDGET HELPER (Spostati dentro la classe State o come widget esterni) ---
+  // --- WIDGET HELPER ---
 
   Widget _buildBatteryDetailCard(
       IconData icon, String title, String subtitle, Color color) {
