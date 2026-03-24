@@ -31,17 +31,7 @@ String formattaUltimoAggiornamento(DateTime? ultimoInvio) {
   final oraAttuale = DateTime.now();
   final differenza = oraAttuale.difference(ultimoInvio);
 
-  // --- OUTPUT RICHIESTO PER IL DEBUG ---
-  print("-----------------------------------------");
-  print("🕒 ANALISI TEMPORALE:");
-  print("📍 Ultimo Invio (Locale): $ultimoInvio");
-  print("📱 Ora Attuale (Locale):   $oraAttuale");
-  print("⏳ Differenza (Secondi):  ${differenza.inSeconds}");
-  print("-----------------------------------------");
-
   if (differenza.isNegative) {
-    // Se la differenza è negativa, forziamo "Adesso" per la UI
-    // ma manteniamo il log per capire l'errore
     return "In tempo reale (${differenza.inSeconds}s)";
   }
 
@@ -50,13 +40,10 @@ String formattaUltimoAggiornamento(DateTime? ultimoInvio) {
   } else if (differenza.inMinutes < 60) {
     return "${differenza.inMinutes} min fa";
   } else if (differenza.inHours < 24) {
-    // Appena scattano i 60 min, scrive "1 h fa", "2 h fa" ecc.
     return "${differenza.inHours} h fa";
   } else if (differenza.inDays < 7) {
-    // Appena scattano le 24 ore, scrive "1 d fa", "2 d fa" ecc.
     return "${differenza.inDays} g fa";
   } else {
-    // Se è passato più di una settimana, mostriamo la data esatta
     return "${ultimoInvio.day}/${ultimoInvio.month}/${ultimoInvio.year}";
   }
 }
@@ -133,15 +120,11 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
   late int selectedDateIndex;
   late String currentMonthName;
 
-  // --- VARIABILI DI STATO (Niente più FutureBuilder) ---
   DateTime? _ultimoAggiornamento;
   String _nomeZona = "Ricerca in corso...";
   bool _isLoading = true;
 
-  // L'antenna per lo stream in tempo reale
   StreamSubscription? _streamSubscription;
-
-  // Un timer per far scorrere i minuti ("1 min fa", "2 min fa") da soli
   Timer? _uiRefreshTimer;
 
   @override
@@ -149,15 +132,11 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     super.initState();
     _initializeDates();
 
-    // 1. Accendiamo l'antenna per lo stream in tempo reale
     _streamSubscription = scambio.posizioneStream.listen((nuovoRecord) async {
-      debugPrint('🏠 [HOME] Il tubo ha vibrato! Leggo il pacchetto...');
       try {
-        // Estrai orario
         String timeStr = nuovoRecord.getStringValue('timestamp');
         DateTime nuovoTempo = DateTime.parse(timeStr).toLocal();
 
-        // Estrai coordinate e calcola la zona
         double petLat = nuovoRecord.getDoubleValue('lat');
         double petLon = nuovoRecord.getDoubleValue('lon');
         String nuovaZona = await _calcolaZonaDalPunto(LatLng(petLat, petLon));
@@ -174,11 +153,8 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
       }
     });
 
-    // 2. Scarichiamo la "fotografia" iniziale
     _scaricaDatiIniziali();
 
-    // 3. Facciamo partire un orologio che rinfresca la UI ogni 30 secondi
-    // per far scorrere i "min fa" automaticamente.
     _uiRefreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
       if (mounted) setState(() {});
     });
@@ -186,13 +162,10 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
 
   @override
   void dispose() {
-    // Spengiamo antenna e timer quando usciamo
     _streamSubscription?.cancel();
     _uiRefreshTimer?.cancel();
     super.dispose();
   }
-
-  // --- FUNZIONI DI SUPPORTO ---
 
   Future<void> _scaricaDatiIniziali() async {
     final tempoIniziale = await scambio.getUltimoTimestamp();
@@ -227,20 +200,34 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     }
   }
 
+  // --- NUOVA LOGICA POINT-IN-POLYGON ---
   Future<String> _calcolaZonaDalPunto(LatLng petPos) async {
     try {
       final geoResult =
           await scambio.pb.collection('geofences_test').getFullList();
-      const distanceTool = Distance();
+
       for (var record in geoResult) {
-        // Consideriamo solo le zone attive!
         if (record.getBoolValue('is_active') == true) {
-          final zLat = record.getDoubleValue('center_lat');
-          final zLon = record.getDoubleValue('center_lon');
-          final radius = record.getDoubleValue('radius');
-          final dist =
-              distanceTool.as(LengthUnit.Meter, petPos, LatLng(zLat, zLon));
-          if (dist <= radius) return record.getStringValue('name');
+          // Leggiamo i vertici JSON dal database
+          List<LatLng> polygonPts = [];
+          try {
+            final rawList = record.getListValue<dynamic>('vertices');
+            for (var pt in rawList) {
+              if (pt is List && pt.length >= 2) {
+                polygonPts.add(LatLng(double.parse(pt[0].toString()),
+                    double.parse(pt[1].toString())));
+              }
+            }
+          } catch (e) {
+            continue; // Se non ha vertici validi, saltiamo questa zona
+          }
+
+          // Se ci sono almeno 3 vertici, facciamo il controllo geometrico
+          if (polygonPts.length >= 3) {
+            if (_isPointInsidePolygon(petPos, polygonPts)) {
+              return record.getStringValue('name');
+            }
+          }
         }
       }
       return "Fuori zona sicura";
@@ -248,6 +235,29 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
       return "Errore rilevamento";
     }
   }
+
+  // ALGORITMO RAY CASTING (Spara un raggio e conta quante volte taglia i confini)
+  bool _isPointInsidePolygon(LatLng point, List<LatLng> polygon) {
+    bool isInside = false;
+    int j = polygon.length - 1;
+
+    for (int i = 0; i < polygon.length; i++) {
+      final double xi = polygon[i].longitude;
+      final double yi = polygon[i].latitude;
+      final double xj = polygon[j].longitude;
+      final double yj = polygon[j].latitude;
+
+      final bool intersect = ((yi > point.latitude) != (yj > point.latitude)) &&
+          (point.longitude <
+              (xj - xi) * (point.latitude - yi) / (yj - yi) + xi);
+
+      if (intersect) isInside = !isInside;
+      j = i;
+    }
+
+    return isInside;
+  }
+  // -------------------------------------
 
   void _initializeDates() {
     DateTime today = DateTime.now();
@@ -279,8 +289,6 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     selectedDateIndex = today.weekday - 1;
   }
 
-  // --- COSTRUZIONE UI ---
-
   @override
   Widget build(BuildContext context) {
     return Stack(
@@ -311,26 +319,19 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
                     style:
                         TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 25),
-
-                _buildPositionCard(), // Usa la variabile di stato
-
+                _buildPositionCard(),
                 const SizedBox(height: 25),
                 _buildMonthHeader(),
                 const SizedBox(height: 10),
                 _buildHorizontalCalendar(),
-
                 const SizedBox(height: 30),
                 const Text("Attività Odierna",
                     style:
                         TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 20),
                 _buildActivityStats(),
-
                 const SizedBox(height: 30),
-
-                // Usa la variabile di stato per il pannello
                 _buildLoraInfoPanel(_ultimoAggiornamento),
-
                 const SizedBox(height: 30),
               ],
             ),
@@ -368,8 +369,6 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
                 children: [
                   const Text("Posizione Attuale",
                       style: TextStyle(color: Colors.black45)),
-
-                  // Se stiamo caricando mostra il testo grigio, altrimenti la zona
                   _isLoading
                       ? const Text("Caricamento...",
                           style: TextStyle(
