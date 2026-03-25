@@ -296,8 +296,8 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     _showPlaceDialog(isEditing: false, gpsLocation: _myLocation);
   }
 
-  // Rimosso il radius dai parametri!
-  Future<bool> _fetchCoordinatesAndSaveOrUpdate(
+  // ORA RESTITUISCE UNA MAPPA CON I DATI ESSENZIALI (ID, NOME, CENTRO)
+  Future<Map<String, dynamic>?> _fetchCoordinatesAndSaveOrUpdate(
       {bool isUpdating = false, int? updateIndex}) async {
     final String name = _nameController.text.trim();
     final String street = _streetController.text.trim();
@@ -333,7 +333,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                   backgroundColor: Colors.redAccent,
                   duration: const Duration(seconds: 4)),
             );
-            return false;
+            return null;
           }
 
           double lat = double.parse(data[0]['lat']);
@@ -367,38 +367,61 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
             }
 
             await _caricaZoneDalDatabase(forceSelectId: changedRecordId);
+
+            _isPlaceInView.value = true;
+            _mapController.move(newCenter, 18.0);
+
+            _nameController.clear();
+            _streetController.clear();
+            _civicController.clear();
+            _cityController.clear();
+            _capController.clear();
+
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text(isUpdating
+                    ? "Zona '$name' aggiornata!"
+                    : "Zona '$name' creata!"),
+                backgroundColor: Colors.green));
+
+            // Restituiamo i dati espliciti per la navigazione
+            return {'id': changedRecordId, 'name': name, 'center': newCenter};
           } catch (e) {
             debugPrint("Errore salvataggio DB: $e");
+            return null;
           }
-
-          _isPlaceInView.value = true;
-          _mapController.move(newCenter, 18.0);
-
-          _nameController.clear();
-          _streetController.clear();
-          _civicController.clear();
-          _cityController.clear();
-          _capController.clear();
-
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              content: Text(isUpdating
-                  ? "Zona '$name' aggiornata!"
-                  : "Zona '$name' creata!"),
-              backgroundColor: Colors.green));
-          return true;
         } else {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
               content: Text("Errore: Indirizzo inesistente."),
               backgroundColor: Colors.red));
-          return false;
+          return null;
         }
       } else {
-        return false;
+        return null;
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text("Errore di rete: $e"), backgroundColor: Colors.red));
-      return false;
+      return null;
+    }
+  }
+
+  // NUOVO METODO: Prende i parametri diretti senza cercare nella lista
+  Future<void> _navigateToPolygonEditor(
+      String placeId, String placeName, LatLng center) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PolygonEditorScreen(
+          placeId: placeId,
+          placeName: placeName,
+          initialCenter: center,
+          initialVertices: const <LatLng>[], // Se siamo qui, è una nuova zona, quindi niente vertici
+        ),
+      ),
+    );
+
+    if (result == true) {
+      await _caricaZoneDalDatabase(forceSelectId: placeId);
     }
   }
 
@@ -521,6 +544,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
 
                         setDialogState(() => isLoading = true);
 
+                        // PERCORSO 1: Creazione tramite GPS
                         if (gpsLocation != null && !isEditing) {
                           final body = {
                             "name": name,
@@ -543,11 +567,18 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                             _isPlaceInView.value = true;
                             _mapController.move(gpsLocation, 18.0);
 
-                            if (context.mounted) Navigator.pop(dialogContext);
+                            if (context.mounted) {
+                              Navigator.pop(
+                                  dialogContext); // Chiudiamo prima il dialog
+                              _navigateToPolygonEditor(rec.id, name,
+                                  gpsLocation); // Naviga direttamente!
+                            }
                           } catch (e) {
                             setDialogState(() => isLoading = false);
                           }
-                        } else {
+                        }
+                        // PERCORSO 2: Creazione/Modifica Manuale
+                        else {
                           if (street.isEmpty || civic.isEmpty || cap.isEmpty) {
                             setDialogState(() => isLoading = false);
                             ScaffoldMessenger.of(context).showSnackBar(
@@ -558,11 +589,19 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                             return;
                           }
 
-                          bool success = await _fetchCoordinatesAndSaveOrUpdate(
-                              isUpdating: isEditing, updateIndex: editIndex);
+                          Map<String, dynamic>? resultData =
+                              await _fetchCoordinatesAndSaveOrUpdate(
+                                  isUpdating: isEditing,
+                                  updateIndex: editIndex);
 
-                          if (success && dialogContext.mounted) {
-                            Navigator.pop(dialogContext);
+                          if (resultData != null && dialogContext.mounted) {
+                            Navigator.pop(dialogContext); // Chiudiamo il dialog
+
+                            // Navighiamo solo se NON stiamo modificando
+                            if (!isEditing) {
+                              _navigateToPolygonEditor(resultData['id'],
+                                  resultData['name'], resultData['center']);
+                            }
                           } else if (dialogContext.mounted) {
                             setDialogState(() => isLoading = false);
                           }
