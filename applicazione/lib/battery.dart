@@ -176,9 +176,9 @@ class _BatteryScreenState extends State<BatteryScreen> {
           // Dettagli Tecnici
           _buildTechDetail("Capacità Batteria", "3000 mAh", Icons.battery_full),
           const SizedBox(height: 15),
-          _buildTechDetail("Consumo ad Invio", "~ 45 mA", Icons.sensors),
+          _buildTechDetail("Consumo ad Invio", "~ ? mA", Icons.sensors),
           const SizedBox(height: 15),
-          _buildTechDetail("Intervallo medio", "2 min", Icons.history),
+          _buildTechDetail("Intervallo medio", "1 min", Icons.history),
 
           const SizedBox(height: 40),
 

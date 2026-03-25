@@ -676,9 +676,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     var currentPlace = hasPlaces ? savedPlaces[selectedPlaceIndex!] : null;
 
     bool isCurrentPlaceActive = currentPlace?['is_active'] ?? false;
-    List<LatLng> polygonVertices =
-        hasPlaces ? currentPlace!['vertices'] as List<LatLng> : [];
-    bool hasPolygon = polygonVertices.length >= 3;
 
     LatLng initialCenter = const LatLng(41.8719, 12.5674);
     if (_myLocation != null)
@@ -714,20 +711,32 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                     : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.example.pet_tracker',
               ),
-              if (hasPlaces && hasPolygon)
-                PolygonLayer(polygons: [
-                  Polygon(
-                    points: polygonVertices,
-                    color: isCurrentPlaceActive
-                        ? const Color(0xFF00C6B8).withOpacity(0.3)
-                        : Colors.grey.withOpacity(0.4),
-                    borderColor: isCurrentPlaceActive
+
+              // DISEGNA TUTTE LE ZONE SALVATE CHE HANNO ALMENO 3 VERTICI
+              PolygonLayer(
+                polygons: savedPlaces.where((place) {
+                  final pts = place['vertices'] as List<LatLng>? ?? [];
+                  return pts.length >= 3;
+                }).map((place) {
+                  bool isActive = place['is_active'] ?? false;
+                  // Evidenziamo leggermente di più la zona attualmente selezionata nel menu
+                  bool isSelected =
+                      hasPlaces && place['id'] == currentPlace!['id'];
+
+                  return Polygon(
+                    points: place['vertices'] as List<LatLng>,
+                    color: isActive
                         ? const Color(0xFF00C6B8)
-                        : Colors.grey,
-                    borderStrokeWidth: 3,
+                            .withOpacity(isSelected ? 0.4 : 0.15)
+                        : Colors.grey.withOpacity(isSelected ? 0.4 : 0.15),
+                    borderColor:
+                        isActive ? const Color(0xFF00C6B8) : Colors.grey,
+                    borderStrokeWidth: isSelected ? 3 : 1.5,
                     isFilled: true,
-                  )
-                ]),
+                  );
+                }).toList(),
+              ),
+
               if (_myLocation != null)
                 MarkerLayer(
                   markers: [
@@ -768,21 +777,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                             color: Colors.orange, size: 30)),
                   ],
                 ),
-              if (hasPlaces)
-                MarkerLayer(
-                  markers: [
-                    Marker(
-                      point: currentPlace!['center'],
-                      width: 30,
-                      height: 30,
-                      child: Icon(Icons.location_on,
-                          color: isCurrentPlaceActive
-                              ? Colors.red
-                              : Colors.grey.shade700,
-                          size: 30),
-                    ),
-                  ],
-                ),
             ],
           ),
           Align(
@@ -813,6 +807,22 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                                   menuMaxHeight: 240,
                                   itemHeight: 48,
                                   value: selectedPlaceIndex,
+                                  // MOSTRA "Geofence" INVECE DEL NOME ZONA QUANDO E' CHIUSO
+                                  selectedItemBuilder: (BuildContext context) {
+                                    return savedPlaces.map<Widget>((item) {
+                                      return const Align(
+                                        alignment: Alignment.centerLeft,
+                                        child: Text(
+                                          "Geofence",
+                                          style: TextStyle(
+                                            color: Colors.black87,
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      );
+                                    }).toList();
+                                  },
                                   style: const TextStyle(
                                       color: Colors.black87,
                                       fontSize: 15,
