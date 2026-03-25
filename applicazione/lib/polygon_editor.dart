@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'dart:math' as math;
 import 'scambio.dart' as scambio;
 
 class PolygonEditorScreen extends StatefulWidget {
@@ -26,18 +27,27 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
   bool _isSatellite = true;
   bool _isSaving = false;
 
-  late bool _isNewZone; // Determina se siamo in Creazione o Modifica
+  late bool _isNewZone;
   bool _isForceExiting = false;
+
+  // Controller e chiave per mappare le coordinate dello schermo
+  final MapController _mapController = MapController();
+  final GlobalKey _mapKey = GlobalKey();
+
+  // Indice del punto che stiamo trascinando in questo momento
+  int? _draggedPointIndex;
 
   @override
   void initState() {
     super.initState();
     _points = List.from(widget.initialVertices);
-    // Se non ci sono vertici iniziali, è matematicamente una nuova zona
     _isNewZone = widget.initialVertices.isEmpty;
   }
 
   void _addPoint(TapPosition tapPosition, LatLng point) {
+    // Evitiamo di aggiungere punti se stiamo attualmente trascinando qualcosa
+    if (_draggedPointIndex != null) return;
+
     setState(() {
       _points.add(point);
     });
@@ -100,17 +110,14 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
     }
   }
 
-  // Gestione del tasto indietro (fisico/swipe Android)
   Future<bool> _onWillPop() async {
-    if (_isForceExiting) return true; // Salvataggio avvenuto con successo
+    if (_isForceExiting) return true;
 
     if (_isNewZone) {
-      // È una zona nuova: non si può uscire senza salvare
       _showExitErrorDialog();
       return false;
     }
 
-    // È una zona in modifica: ha già i punti nel DB, può uscire liberamente
     return true;
   }
 
@@ -145,10 +152,18 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
         body: Stack(
           children: [
             FlutterMap(
+              key: _mapKey,
+              mapController: _mapController,
               options: MapOptions(
                 initialCenter: widget.initialCenter,
                 initialZoom: 19.0,
                 onTap: _addPoint,
+                // --- DISABILITA IL TRASCINAMENTO DELLA MAPPA SE TRASCINIAMO UN PUNTO ---
+                interactionOptions: InteractionOptions(
+                  flags: _draggedPointIndex != null
+                      ? InteractiveFlag.all & ~InteractiveFlag.drag
+                      : InteractiveFlag.all,
+                ),
               ),
               children: [
                 TileLayer(
@@ -179,23 +194,77 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
                       ),
                     ],
                   ),
+
+                // --- LOGICA DI TRASCINAMENTO (USANDO LISTENER INVECE DI GESTUREDETECTOR) ---
                 MarkerLayer(
-                  markers: _points
-                      .map((point) => Marker(
-                            point: point,
-                            width: 15,
-                            height: 15,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                shape: BoxShape.circle,
-                                border:
-                                    Border.all(color: Colors.black, width: 2),
-                              ),
+                  markers: List.generate(_points.length, (index) {
+                    return Marker(
+                      point: _points[index],
+                      width: 60, // Hitbox molto comoda
+                      height: 60,
+                      child: Listener(
+                        behavior: HitTestBehavior.opaque,
+                        onPointerDown: (event) {
+                          setState(() {
+                            _draggedPointIndex =
+                                index; // Blocca la mappa all'istante
+                          });
+                        },
+                        onPointerMove: (event) {
+                          // Aggiorniamo la posizione solo se è il punto che abbiamo afferrato
+                          if (_draggedPointIndex == index &&
+                              _mapKey.currentContext != null) {
+                            final RenderBox box = _mapKey.currentContext!
+                                .findRenderObject() as RenderBox;
+                            // Convertiamo la posizione "globale" del tocco in posizione locale
+                            final localPos = box.globalToLocal(event.position);
+
+                            final latLng = _mapController.camera.pointToLatLng(
+                                math.Point(localPos.dx, localPos.dy));
+
+                            if (latLng != null) {
+                              setState(() {
+                                _points[index] = latLng; // Muove il punto!
+                              });
+                            }
+                          }
+                        },
+                        onPointerUp: (_) {
+                          setState(() {
+                            _draggedPointIndex =
+                                null; // Rilascia il punto e sblocca la mappa
+                          });
+                        },
+                        onPointerCancel: (_) {
+                          setState(() {
+                            _draggedPointIndex = null;
+                          });
+                        },
+                        child: Center(
+                          child: Container(
+                            width: 20,
+                            height: 20,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                  color: Colors.blueAccent, width: 3),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Colors.black45,
+                                  blurRadius: 4,
+                                  offset: Offset(0, 2),
+                                )
+                              ],
                             ),
-                          ))
-                      .toList(),
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
                 ),
+                // --- FINE LOGICA TRASCINAMENTO ---
+
                 MarkerLayer(
                   markers: [
                     Marker(
@@ -234,7 +303,6 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
                                 left: 8, right: 20, top: 12, bottom: 8),
                             child: Row(
                               children: [
-                                // MOSTRA IL TASTO SOLO SE NON E' UNA NUOVA ZONA
                                 if (!_isNewZone)
                                   IconButton(
                                     icon: const Icon(Icons.arrow_back_ios_new,
@@ -249,11 +317,9 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
                                   ),
                                 Expanded(
                                   child: Padding(
-                                    // Aggiunge un po' di margine se il tasto back non c'è
                                     padding: EdgeInsets.only(
                                         left: _isNewZone ? 12.0 : 0.0),
                                     child: Text(
-                                      // CAMBIA TESTO IN BASE ALLO STATO
                                       _isNewZone
                                           ? "Crea Zona: ${widget.placeName}"
                                           : "Modifica Area: ${widget.placeName}",
@@ -316,7 +382,7 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
                                 const SizedBox(width: 8),
                                 Text(
                                   _points.length >= 3
-                                      ? "Area valida, puoi salvare o aggiungere punti."
+                                      ? "Area valida, trascina i punti per affinarla."
                                       : "Tocca la mappa per creare almeno 3 vertici.",
                                   style: TextStyle(
                                     fontSize: 13,
