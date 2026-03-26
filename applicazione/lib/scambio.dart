@@ -1,6 +1,7 @@
 import 'package:http/http.dart' as http;
 import 'package:pocketbase/pocketbase.dart';
-import 'dart:async'; // <-- 1. NUOVO IMPORT NECESSARIO PER GLI STREAM
+import 'dart:async';
+import 'package:flutter_dotenv/flutter_dotenv.dart'; // <-- NUOVO IMPORT
 
 class NgrokClient extends http.BaseClient {
   final http.Client _inner = http.Client();
@@ -12,9 +13,9 @@ class NgrokClient extends http.BaseClient {
   }
 }
 
-// URL PULITO (Rimosso /_/#/login)
+// 🔐 URL PRESO DAL FILE .ENV
 final pb = PocketBase(
-  'https://harvey-chairless-shenna.ngrok-free.dev',
+  dotenv.env['PB_URL'] ?? 'URL_MANCANTE',
   httpClientFactory: () => NgrokClient(),
 );
 
@@ -24,22 +25,16 @@ bool isReady = false;
 // 📡 IL NOSTRO "CANALE RADIO" (STREAM)
 // ==========================================
 
-// Creiamo il controller dello Stream. "Broadcast" significa che più
-// pagine possono "ascoltare" la diretta contemporaneamente senza darsi fastidio.
 final StreamController<RecordModel> _streamController =
     StreamController<RecordModel>.broadcast();
 
-// Questa è la variabile pubblica che le pagine UI ascolteranno
 Stream<RecordModel> get posizioneStream => _streamController.stream;
 
-/// Si iscrive al database e resta in ascolto
 Future<void> avviaAscoltoInTempoReale() async {
   try {
-    // Ci sintonizziamo su TUTTI i cambiamenti ('*') della tabella 'positions_test'
     pb.collection('positions_test').subscribe('*', (e) {
       print('📡 [STREAM] È arrivato un nuovo pacchetto! Azione: ${e.action}');
 
-      // Quando arriva un nuovo record, lo inseriamo nel canale radio
       if (e.record != null) {
         _streamController.add(e.record!);
       }
@@ -56,17 +51,17 @@ Future<void> avviaAscoltoInTempoReale() async {
 
 Future<bool> autenticazione() async {
   try {
-    print('🔑 Autenticazione Superuser (v0.36.6) in corso...');
+    print('🔑 Autenticazione Superuser in corso...');
 
-    await pb.collection('_superusers').authWithPassword(
-          'nadalmattia.kennedy@gmail.com',
-          'Pocketbase26#',
-        );
+    // 🔐 RECUPERO CREDENZIALI DAL FILE .ENV IN MODO SICURO
+    final email = dotenv.env['PB_USER']!;
+    final password = dotenv.env['PB_PASS']!;
+
+    await pb.collection('_superusers').authWithPassword(email, password);
 
     print('✅ Superuser autenticato: ${pb.authStore.model?.id}');
     isReady = true;
 
-    // <-- 2. MAGIA: Appena entriamo nell'app, accendiamo l'ascolto in tempo reale!
     await avviaAscoltoInTempoReale();
 
     return true;
@@ -77,7 +72,7 @@ Future<bool> autenticazione() async {
 }
 
 // ==========================================
-// 📊 LETTURE STATICHE (Servono per la prima volta che apri l'app)
+// 📊 LETTURE STATICHE
 // ==========================================
 
 Future<int?> getUltimoLivelloBatteria() async {
