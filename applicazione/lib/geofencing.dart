@@ -54,6 +54,25 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     super.dispose();
   }
 
+  // ALGORITMO PER RILEVARE IL TOCCO DENTRO UN POLIGONO
+  bool _isPointInPolygon(LatLng point, List<LatLng> polygon) {
+    bool isInside = false;
+    int i, j = polygon.length - 1;
+    for (i = 0; i < polygon.length; i++) {
+      if ((polygon[i].latitude > point.latitude) !=
+              (polygon[j].latitude > point.latitude) &&
+          point.longitude <
+              (polygon[j].longitude - polygon[i].longitude) *
+                      (point.latitude - polygon[i].latitude) /
+                      (polygon[j].latitude - polygon[i].latitude) +
+                  polygon[i].longitude) {
+        isInside = !isInside;
+      }
+      j = i;
+    }
+    return isInside;
+  }
+
   Future<void> _scaricaPosizioneInizialeAnimale() async {
     if (!scambio.isReady) await scambio.autenticazione();
 
@@ -93,7 +112,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
           .collection('geofences_test')
           .getFullList(sort: '-created');
       final List<Map<String, dynamic>> nuoveZone = records.map((res) {
-        // --- LETTURA DEI VERTICI JSON DAL DATABASE ---
         List<LatLng> polygonPts = [];
         try {
           final rawList = res.getListValue<dynamic>('vertices');
@@ -296,7 +314,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     _showPlaceDialog(isEditing: false, gpsLocation: _myLocation);
   }
 
-  // ORA RESTITUISCE UNA MAPPA CON I DATI ESSENZIALI (ID, NOME, CENTRO)
   Future<Map<String, dynamic>?> _fetchCoordinatesAndSaveOrUpdate(
       {bool isUpdating = false, int? updateIndex}) async {
     final String name = _nameController.text.trim();
@@ -339,6 +356,24 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
           double lat = double.parse(data[0]['lat']);
           double lon = double.parse(data[0]['lon']);
           LatLng newCenter = LatLng(lat, lon);
+
+          // --- CONTROLLO DUPLICATI ESATTI (Ricerca Manuale) ---
+          bool isDuplicateLocation = savedPlaces.asMap().entries.any((e) {
+            if (isUpdating && e.key == updateIndex)
+              return false; // Escludo se stesso
+            LatLng existingCenter = e.value['center'];
+            return existingCenter.latitude == newCenter.latitude &&
+                existingCenter.longitude == newCenter.longitude;
+          });
+
+          if (isDuplicateLocation) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                content: Text(
+                    "Attenzione: Esiste già una zona in questa posizione esatta!"),
+                backgroundColor: Colors.redAccent));
+            return null;
+          }
+          // ----------------------------------------------
 
           final body = {
             "name": name,
@@ -383,7 +418,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                     : "Zona '$name' creata!"),
                 backgroundColor: Colors.green));
 
-            // Restituiamo i dati espliciti per la navigazione
             return {'id': changedRecordId, 'name': name, 'center': newCenter};
           } catch (e) {
             debugPrint("Errore salvataggio DB: $e");
@@ -405,7 +439,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     }
   }
 
-  // NUOVO METODO: Prende i parametri diretti senza cercare nella lista
   Future<void> _navigateToPolygonEditor(
       String placeId, String placeName, LatLng center) async {
     final result = await Navigator.push(
@@ -415,7 +448,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
           placeId: placeId,
           placeName: placeName,
           initialCenter: center,
-          initialVertices: const <LatLng>[], // Se siamo qui, è una nuova zona, quindi niente vertici
+          initialVertices: const <LatLng>[],
         ),
       ),
     );
@@ -546,6 +579,26 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
 
                         // PERCORSO 1: Creazione tramite GPS
                         if (gpsLocation != null && !isEditing) {
+                          // --- CONTROLLO DUPLICATI ESATTI (GPS) ---
+                          bool isDuplicateLocation = savedPlaces.any((p) {
+                            LatLng existingCenter = p['center'];
+                            return existingCenter.latitude ==
+                                    gpsLocation.latitude &&
+                                existingCenter.longitude ==
+                                    gpsLocation.longitude;
+                          });
+
+                          if (isDuplicateLocation) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content: Text(
+                                        "Attenzione: Esiste già una zona in questa posizione esatta!"),
+                                    backgroundColor: Colors.redAccent));
+                            setDialogState(() => isLoading = false);
+                            return;
+                          }
+                          // ---------------------------------
+
                           final body = {
                             "name": name,
                             "center_lat": gpsLocation.latitude,
@@ -568,10 +621,9 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                             _mapController.move(gpsLocation, 18.0);
 
                             if (context.mounted) {
-                              Navigator.pop(
-                                  dialogContext); // Chiudiamo prima il dialog
-                              _navigateToPolygonEditor(rec.id, name,
-                                  gpsLocation); // Naviga direttamente!
+                              Navigator.pop(dialogContext);
+                              _navigateToPolygonEditor(
+                                  rec.id, name, gpsLocation);
                             }
                           } catch (e) {
                             setDialogState(() => isLoading = false);
@@ -595,9 +647,8 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                                   updateIndex: editIndex);
 
                           if (resultData != null && dialogContext.mounted) {
-                            Navigator.pop(dialogContext); // Chiudiamo il dialog
+                            Navigator.pop(dialogContext);
 
-                            // Navighiamo solo se NON stiamo modificando
                             if (!isEditing) {
                               _navigateToPolygonEditor(resultData['id'],
                                   resultData['name'], resultData['center']);
@@ -691,6 +742,36 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
               initialCenter: initialCenter,
               initialZoom:
                   hasPlaces ? 18.0 : (_myLocation != null ? 16.0 : 6.0),
+
+              // --- RILEVA IL TOCCO SULLE ZONE ---
+              onTap: (tapPosition, point) {
+                for (int i = 0; i < savedPlaces.length; i++) {
+                  final place = savedPlaces[i];
+                  List<LatLng> vertices =
+                      place['vertices'] as List<LatLng>? ?? [];
+
+                  if (vertices.length >= 3 &&
+                      _isPointInPolygon(point, vertices)) {
+                    // Mostra un messaggio
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                            "📍 Hai selezionato la zona: ${place['name']}"),
+                        backgroundColor: const Color(0xFF00C6B8),
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                    // Seleziona la zona nel menu a tendina
+                    setState(() {
+                      selectedPlaceIndex = i;
+                    });
+                    _isPlaceInView.value = true;
+                    return; // Si ferma alla prima zona trovata
+                  }
+                }
+              },
+              // ------------------------------------
+
               onPositionChanged: (MapPosition position, bool hasGesture) {
                 if (hasPlaces && position.bounds != null) {
                   final placeCenter =
@@ -711,15 +792,12 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                     : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.example.pet_tracker',
               ),
-
-              // DISEGNA TUTTE LE ZONE SALVATE CHE HANNO ALMENO 3 VERTICI
               PolygonLayer(
                 polygons: savedPlaces.where((place) {
                   final pts = place['vertices'] as List<LatLng>? ?? [];
                   return pts.length >= 3;
                 }).map((place) {
                   bool isActive = place['is_active'] ?? false;
-                  // Evidenziamo leggermente di più la zona attualmente selezionata nel menu
                   bool isSelected =
                       hasPlaces && place['id'] == currentPlace!['id'];
 
@@ -736,7 +814,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                   );
                 }).toList(),
               ),
-
               if (_myLocation != null)
                 MarkerLayer(
                   markers: [
@@ -807,17 +884,19 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                                   menuMaxHeight: 240,
                                   itemHeight: 48,
                                   value: selectedPlaceIndex,
-                                  // MOSTRA "Geofence" INVECE DEL NOME ZONA QUANDO E' CHIUSO
                                   selectedItemBuilder: (BuildContext context) {
                                     return savedPlaces.map<Widget>((item) {
                                       return const Align(
                                         alignment: Alignment.centerLeft,
-                                        child: Text(
-                                          "Geofence",
-                                          style: TextStyle(
-                                            color: Colors.black87,
-                                            fontSize: 15,
-                                            fontWeight: FontWeight.w600,
+                                        child: FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          child: Text(
+                                            "Geofence",
+                                            style: TextStyle(
+                                              color: Colors.black87,
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w600,
+                                            ),
                                           ),
                                         ),
                                       );
