@@ -772,11 +772,11 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
               },
               // ------------------------------------
 
-              onPositionChanged: (MapPosition position, bool hasGesture) {
-                if (hasPlaces && position.bounds != null) {
+              onPositionChanged: (MapCamera camera, bool hasGesture) {
+                if (hasPlaces && camera.visibleBounds != null) {
                   final placeCenter =
                       savedPlaces[selectedPlaceIndex!]['center'] as LatLng;
-                  final isVisible = position.bounds!.contains(placeCenter);
+                  final isVisible = camera.visibleBounds!.contains(placeCenter);
                   if (_isPlaceInView.value != isVisible) {
                     WidgetsBinding.instance.addPostFrameCallback((_) {
                       _isPlaceInView.value = isVisible;
@@ -793,26 +793,29 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                 userAgentPackageName: 'com.example.pet_tracker',
               ),
               PolygonLayer(
-                polygons: savedPlaces.where((place) {
-                  final pts = place['vertices'] as List<LatLng>? ?? [];
-                  return pts.length >= 3;
-                }).map((place) {
-                  bool isActive = place['is_active'] ?? false;
-                  bool isSelected =
-                      hasPlaces && place['id'] == currentPlace!['id'];
+                polygons: savedPlaces
+                    .where((place) {
+                      final pts = place['vertices'] as List<LatLng>? ?? [];
+                      return pts.length >= 3;
+                    })
+                    .map((place) {
+                      bool isActive = place['is_active'] ?? false;
+                      bool isSelected =
+                          hasPlaces && place['id'] == currentPlace!['id'];
 
-                  return Polygon(
-                    points: place['vertices'] as List<LatLng>,
-                    color: isActive
-                        ? const Color(0xFF00C6B8)
-                            .withOpacity(isSelected ? 0.4 : 0.15)
-                        : Colors.grey.withOpacity(isSelected ? 0.4 : 0.15),
-                    borderColor:
-                        isActive ? const Color(0xFF00C6B8) : Colors.grey,
-                    borderStrokeWidth: isSelected ? 3 : 1.5,
-                    isFilled: true,
-                  );
-                }).toList(),
+                      return Polygon(
+                        points: place['vertices'] as List<LatLng>,
+                        color: isActive
+                            ? const Color(0xFF00C6B8)
+                                .withOpacity(isSelected ? 0.4 : 0.15)
+                            : Colors.grey.withOpacity(isSelected ? 0.4 : 0.15),
+                        borderColor:
+                            isActive ? const Color(0xFF00C6B8) : Colors.grey,
+                        borderStrokeWidth: isSelected ? 3 : 1.5,
+                      );
+                    })
+                    .cast<Polygon<Object>>()
+                    .toList(),
               ),
               if (_myLocation != null)
                 MarkerLayer(

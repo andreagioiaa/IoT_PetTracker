@@ -180,7 +180,6 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
                         color: const Color(0xFF00C6B8).withOpacity(0.4),
                         borderColor: const Color(0xFF00C6B8),
                         borderStrokeWidth: 3,
-                        isFilled: true,
                       ),
                     ],
                   ),
@@ -216,17 +215,17 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
                               _mapKey.currentContext != null) {
                             final RenderBox box = _mapKey.currentContext!
                                 .findRenderObject() as RenderBox;
-                            // Convertiamo la posizione "globale" del tocco in posizione locale
+
+                            // 1. Prendiamo la posizione esatta del dito sullo schermo
                             final localPos = box.globalToLocal(event.position);
 
-                            final latLng = _mapController.camera.pointToLatLng(
-                                math.Point(localPos.dx, localPos.dy));
+                            // 2. La magia di flutter_map 8: converte i pixel dello schermo in coordinate GPS!
+                            final latLng =
+                                _mapController.camera.offsetToCrs(localPos);
 
-                            if (latLng != null) {
-                              setState(() {
-                                _points[index] = latLng; // Muove il punto!
-                              });
-                            }
+                            setState(() {
+                              _points[index] = latLng; // Muove il punto!
+                            });
                           }
                         },
                         onPointerUp: (_) {
