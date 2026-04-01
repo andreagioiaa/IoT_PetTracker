@@ -5,18 +5,20 @@ import 'dart:math' as math;
 import 'scambio.dart' as scambio;
 
 class PolygonEditorScreen extends StatefulWidget {
-  final String placeId;
+  final String? placeId;
+  final Map<String, dynamic>? newZoneData;
   final String placeName;
   final LatLng initialCenter;
   final List<LatLng> initialVertices;
 
   const PolygonEditorScreen({
-    Key? key,
-    required this.placeId,
+    super.key,
+    this.placeId,
+    this.newZoneData,
     required this.placeName,
     required this.initialCenter,
     required this.initialVertices,
-  }) : super(key: key);
+  });
 
   @override
   State<PolygonEditorScreen> createState() => _PolygonEditorScreenState();
@@ -84,11 +86,22 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
       final jsonVertices =
           _points.map((p) => [p.latitude, p.longitude]).toList();
 
-      await scambio.pb
-          .collection('geofences_test')
-          .update(widget.placeId, body: {
-        "vertices": jsonVertices,
-      });
+      // --- NUOVA LOGICA DI SALVATAGGIO ---
+      if (widget.placeId != null) {
+        // 1. MODIFICA ZONA ESISTENTE
+        await scambio.pb
+            .collection('geofences_test')
+            .update(widget.placeId!, body: {
+          "vertices": jsonVertices,
+        });
+      } else if (widget.newZoneData != null) {
+        // 2. CREAZIONE NUOVA ZONA (Avviene solo ora!)
+        final bodyToSave = Map<String, dynamic>.from(widget.newZoneData!);
+        bodyToSave["vertices"] =
+            jsonVertices; // Aggiungiamo il perimetro disegnato
+        await scambio.pb.collection('geofences_test').create(body: bodyToSave);
+      }
+      // -----------------------------------
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -125,19 +138,27 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Azione non consentita",
-            style: TextStyle(color: Colors.red)),
+        title: const Text("Interrompere creazione?"),
         content: const Text(
-          "Stai configurando una nuova zona.\n\n"
-          "Devi tracciare e salvare un'area di almeno 3 vertici per poter proseguire.",
+          "Se esci ora, la nuova zona non verrà salvata nel database.\n\n"
+          "Vuoi davvero annullare l'operazione?",
         ),
         actions: [
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF00C6B8)),
+          TextButton(
             onPressed: () => Navigator.pop(context),
-            child:
-                const Text("Ho capito", style: TextStyle(color: Colors.white)),
+            child: const Text("Continua a disegnare",
+                style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () {
+              Navigator.pop(context); // Chiude il dialog
+              _isForceExiting = true;
+              Navigator.pop(
+                  context, false); // Esce tornando alla mappa senza salvare
+            },
+            child: const Text("Annulla creazione",
+                style: TextStyle(color: Colors.white)),
           ),
         ],
       ),

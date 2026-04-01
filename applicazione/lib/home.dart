@@ -6,7 +6,7 @@ import 'dart:async';
 import 'scambio.dart' as scambio;
 
 class PetTrackerApp extends StatelessWidget {
-  const PetTrackerApp({Key? key}) : super(key: key);
+  const PetTrackerApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -59,7 +59,7 @@ Color getColoreStato(DateTime? ultimoInvio) {
 }
 
 class PetTrackerNavigation extends StatefulWidget {
-  const PetTrackerNavigation({Key? key}) : super(key: key);
+  const PetTrackerNavigation({super.key});
 
   @override
   State<PetTrackerNavigation> createState() => _PetTrackerNavigationState();
@@ -109,7 +109,7 @@ class _PetTrackerNavigationState extends State<PetTrackerNavigation> {
 }
 
 class PetTrackerDashboard extends StatefulWidget {
-  const PetTrackerDashboard({Key? key}) : super(key: key);
+  const PetTrackerDashboard({super.key});
 
   @override
   State<PetTrackerDashboard> createState() => _PetTrackerDashboardState();
@@ -173,9 +173,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
 
     if (mounted) {
       setState(() {
-        if (_ultimoAggiornamento == null) {
-          _ultimoAggiornamento = tempoIniziale;
-        }
+        _ultimoAggiornamento ??= tempoIniziale;
         if (_nomeZona == "Ricerca in corso...") {
           _nomeZona = zonaIniziale;
         }

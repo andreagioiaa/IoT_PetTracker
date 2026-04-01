@@ -4,7 +4,7 @@ import 'dart:async'; // Serve per lo StreamSubscription
 import 'scambio.dart' as scambio;
 
 class BatteryScreen extends StatefulWidget {
-  const BatteryScreen({Key? key}) : super(key: key);
+  const BatteryScreen({super.key});
 
   @override
   State<BatteryScreen> createState() => _BatteryScreenState();
@@ -139,7 +139,7 @@ class _BatteryScreenState extends State<BatteryScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      '${batteryInt}%',
+                      '$batteryInt%',
                       style: TextStyle(
                           fontSize: 54,
                           fontWeight: FontWeight.bold,
@@ -255,11 +255,11 @@ class GradientCircularProgress extends StatelessWidget {
   final List<Color> colors;
 
   const GradientCircularProgress({
-    Key? key,
+    super.key,
     required this.percentage,
     required this.strokeWidth,
     required this.colors,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
