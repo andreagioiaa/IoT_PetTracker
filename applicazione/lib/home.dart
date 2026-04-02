@@ -283,7 +283,6 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    // Fattore di scala calcolato sull'altezza (l'emulatore base è ~800px)
     double screenHeight = MediaQuery.of(context).size.height;
     double scale = (screenHeight / 800).clamp(0.65, 1.2);
 
@@ -328,29 +327,12 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
 
                   const Spacer(flex: 2),
 
-                  // 3. Intestazione Calendario
-                  _buildMonthHeader(scale),
-
-                  const Spacer(flex: 1),
-
-                  // 4. Calendario
-                  _buildHorizontalCalendar(scale),
+                  // 3. Card Unificata Attività e Calendario
+                  _buildUnifiedActivityCard(scale),
 
                   const Spacer(flex: 2),
 
-                  // 5. Intestazione Attività
-                  Text("Attività Odierna",
-                      style: TextStyle(
-                          fontSize: 20 * scale, fontWeight: FontWeight.bold)),
-
-                  const Spacer(flex: 1),
-
-                  // 6. Statistiche
-                  _buildActivityStats(scale),
-
-                  const Spacer(flex: 2),
-
-                  // 7. Pannello LoRaWAN
+                  // 4. Pannello LoRaWAN
                   _buildLoraInfoPanel(_ultimoAggiornamento, scale),
 
                   const Spacer(flex: 1),
@@ -419,106 +401,127 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     );
   }
 
-  Widget _buildMonthHeader(double scale) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Icon(Icons.calendar_month,
-            color: const Color(0xFF00C6B8), size: 20 * scale),
-        SizedBox(width: 8 * scale),
-        Text(currentMonthName,
-            style: TextStyle(
-                fontSize: 18 * scale,
-                color: Colors.black54,
-                fontWeight: FontWeight.w600)),
-      ],
-    );
-  }
-
-  Widget _buildHorizontalCalendar(double scale) {
-    return SizedBox(
-      height: 85 * scale,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: List.generate(dates.length, (index) {
-          bool isSelected = index == selectedDateIndex;
-          return Expanded(
-            child: GestureDetector(
-              onTap: () => setState(() => selectedDateIndex = index),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                margin: EdgeInsets.symmetric(horizontal: 3 * scale),
-                decoration: BoxDecoration(
-                  gradient: isSelected
-                      ? const LinearGradient(
-                          colors: [Color(0xFF00E2C1), Color(0xFF00C6B8)])
-                      : null,
-                  color: isSelected ? null : Colors.white,
-                  borderRadius: BorderRadius.circular(15 * scale),
-                  boxShadow: isSelected
-                      ? null
-                      : [
-                          BoxShadow(
-                              color: Colors.black.withOpacity(0.03),
-                              blurRadius: 5)
-                        ],
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(dates[index]['day']!,
-                        style: TextStyle(
-                            fontSize: 16 * scale,
-                            fontWeight: FontWeight.bold,
-                            color: isSelected
-                                ? Colors.white
-                                : const Color(0xFF2D3142))),
-                    SizedBox(height: 2 * scale),
-                    Text(dates[index]['weekDay']!,
-                        style: TextStyle(
-                            fontSize: 11 * scale,
-                            color:
-                                isSelected ? Colors.white70 : Colors.black45)),
-                  ],
+  Widget _buildUnifiedActivityCard(double scale) {
+    return Container(
+      padding: EdgeInsets.all(16 * scale),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24 * scale),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 15,
+            offset: const Offset(0, 4),
+          )
+        ],
+      ),
+      child: Column(
+        mainAxisSize:
+            MainAxisSize.min, // Ottimizza l'altezza per schermi piccoli
+        children: [
+          // Header Mese
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                "Attività di $currentMonthName",
+                style: TextStyle(
+                  fontSize: 16 * scale,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
                 ),
               ),
+              Icon(Icons.calendar_month,
+                  size: 20 * scale, color: const Color(0xFF00C6B8)),
+            ],
+          ),
+          SizedBox(height: 16 * scale),
+
+          // Calendario Orizzontale Compatto
+          SizedBox(
+            height: 70 * scale,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: List.generate(dates.length, (index) {
+                bool isSelected = index == selectedDateIndex;
+                return GestureDetector(
+                  onTap: () => setState(() => selectedDateIndex = index),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 250),
+                    width: 40 * scale,
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? const Color(0xFF00C6B8)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(12 * scale),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          dates[index]['weekDay']![0], // Solo la prima lettera
+                          style: TextStyle(
+                            fontSize: 12 * scale,
+                            color: isSelected ? Colors.white70 : Colors.black38,
+                          ),
+                        ),
+                        SizedBox(height: 4 * scale),
+                        Text(
+                          dates[index]['day']!,
+                          style: TextStyle(
+                            fontSize: 14 * scale,
+                            fontWeight: FontWeight.bold,
+                            color: isSelected ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
             ),
-          );
-        }),
+          ),
+
+          Padding(
+            padding: EdgeInsets.symmetric(vertical: 12 * scale),
+            child: Divider(color: Colors.grey.withOpacity(0.1), thickness: 1),
+          ),
+
+          // Statistiche contestuali al giorno selezionato
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildCompactStat(
+                  "Passi", "1.240", Icons.pets, Colors.orange, scale),
+              _buildCompactStat(
+                  "Km", "2.4", Icons.straighten, Colors.blue, scale),
+              _buildCompactStat(
+                  "Minuti", "45", Icons.timer, Colors.purple, scale),
+            ],
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildActivityStats(double scale) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
-      children: [
-        _buildStatCircle("Passi", "1.240", Icons.pets, Colors.orange, scale),
-        _buildStatCircle("Km", "2.4", Icons.straighten, Colors.blue, scale),
-        _buildStatCircle("Minuti", "45", Icons.timer, Colors.purple, scale),
-      ],
-    );
-  }
-
-  Widget _buildStatCircle(
+  Widget _buildCompactStat(
       String label, String value, IconData icon, Color color, double scale) {
-    double circleSize = 55 * scale;
     return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Container(
-          width: circleSize,
-          height: circleSize,
+          padding: EdgeInsets.all(8 * scale),
           decoration: BoxDecoration(
-              color: color.withOpacity(0.1), shape: BoxShape.circle),
-          child: Icon(icon, color: color, size: circleSize * 0.45),
+            color: color.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: color, size: 20 * scale),
         ),
-        SizedBox(height: 8 * scale),
+        SizedBox(height: 6 * scale),
         Text(value,
             style:
-                TextStyle(fontWeight: FontWeight.bold, fontSize: 16 * scale)),
+                TextStyle(fontWeight: FontWeight.bold, fontSize: 14 * scale)),
         Text(label,
-            style: TextStyle(color: Colors.black38, fontSize: 12 * scale)),
+            style: TextStyle(color: Colors.black38, fontSize: 11 * scale)),
       ],
     );
   }

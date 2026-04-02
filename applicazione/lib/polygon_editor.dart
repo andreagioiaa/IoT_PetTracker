@@ -68,6 +68,45 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
     });
   }
 
+  // --- ALGORITMO GEOMETRICO (Usato per calcolare le sovrapposizioni) ---
+  bool _isPointInPolygon(LatLng point, List<LatLng> polygon) {
+    bool isInside = false;
+    int i, j = polygon.length - 1;
+    for (i = 0; i < polygon.length; i++) {
+      if ((polygon[i].latitude > point.latitude) !=
+              (polygon[j].latitude > point.latitude) &&
+          point.longitude <
+              (polygon[j].longitude - polygon[i].longitude) *
+                      (point.latitude - polygon[i].latitude) /
+                      (polygon[j].latitude - polygon[i].latitude) +
+                  polygon[i].longitude) {
+        isInside = !isInside;
+      }
+      j = i;
+    }
+    return isInside;
+  }
+
+  // --- DIALOG DI ERRORE PERSONALIZZATO ---
+  void _showValidationDialog(String title, String message) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        content: Text(message),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF00C6B8)),
+            onPressed: () => Navigator.pop(ctx),
+            child:
+                const Text("Ho capito", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _savePolygon() async {
     if (_points.length < 3) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -82,25 +121,123 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
     setState(() => _isSaving = true);
 
     try {
+      // ---------------------------------------------------------
+      // 1. CONTROLLO DI LONTANANZA (Troppo distanti dal marker rosso)
+      // ---------------------------------------------------------
+      double sumLat = 0;
+      double sumLon = 0;
+      for (var p in _points) {
+        sumLat += p.latitude;
+        sumLon += p.longitude;
+      }
+      // Calcoliamo il baricentro del disegno
+      LatLng centroid =
+          LatLng(sumLat / _points.length, sumLon / _points.length);
+
+      const distance = Distance();
+      double distFromCenter = distance(widget.initialCenter, centroid);
+
+      if (distFromCenter > 50) {
+        setState(() => _isSaving = false);
+        _showValidationDialog(
+          "Area troppo lontana",
+          "L'area che hai disegnato dista circa ${(distFromCenter / 1000).toStringAsFixed(1)} km dall'indirizzo selezionato.\n\nAvvicina il perimetro al segnaposto rosso o inserisci un nuovo indirizzo.",
+        );
+        return;
+      }
+
+      // ---------------------------------------------------------
+      // 2. CONTROLLO DI SOVRAPPOSIZIONE (Anti-Conflitto tra Aree)
+      // ---------------------------------------------------------
+      final records =
+          await scambio.pb.collection('geofences_test').getFullList();
+      List<Map<String, dynamic>> existingZones = [];
+
+      for (var res in records) {
+        // Ignoriamo la zona stessa se la stiamo solo modificando
+        if (res.id == widget.placeId) continue;
+
+        List<LatLng> pts = [];
+        try {
+          final rawList = res.getListValue<dynamic>('vertices');
+          for (var pt in rawList) {
+            if (pt is List && pt.length >= 2) {
+              pts.add(LatLng(double.parse(pt[0].toString()),
+                  double.parse(pt[1].toString())));
+            }
+          }
+        } catch (_) {} // ignoriamo errori di parsing sui vecchi record
+
+        if (pts.length >= 3) {
+          existingZones
+              .add({"name": res.getStringValue('name'), "vertices": pts});
+        }
+      }
+
+      String? overlappingZoneName;
+
+      for (var zone in existingZones) {
+        List<LatLng> existingPoly = zone['vertices'];
+        bool overlap = false;
+
+        // Caso A: I punti della zona in creazione cadono in una vecchia zona?
+        for (var p in _points) {
+          if (_isPointInPolygon(p, existingPoly)) {
+            overlap = true;
+            break;
+          }
+        }
+
+        // Caso B: I punti di una vecchia zona cadono nel disegno attuale?
+        if (!overlap) {
+          for (var p in existingPoly) {
+            if (_isPointInPolygon(p, _points)) {
+              overlap = true;
+              break;
+            }
+          }
+        }
+
+        if (overlap) {
+          overlappingZoneName = zone['name'];
+          break;
+        }
+      }
+
+      if (overlappingZoneName != null) {
+        setState(() => _isSaving = false);
+        _showValidationDialog(
+          "Sovrapposizione rilevata",
+          "Il perimetro che stai creando si sovrappone a un'Area Sicura già esistente ('$overlappingZoneName').\n\nNon è possibile avere aree che si incrociano. Modifica i vertici e riprova.",
+        );
+        return;
+      }
+
+      // ---------------------------------------------------------
+      // 3. SALVATAGGIO SUL DATABASE
+      // ---------------------------------------------------------
       final jsonVertices =
           _points.map((p) => [p.latitude, p.longitude]).toList();
 
-      // --- NUOVA LOGICA DI SALVATAGGIO ---
+      String? savedZoneId;
+
       if (widget.placeId != null) {
-        // 1. MODIFICA ZONA ESISTENTE
-        await scambio.pb
+        // MODIFICA ZONA ESISTENTE
+        final rec = await scambio.pb
             .collection('geofences_test')
             .update(widget.placeId!, body: {
           "vertices": jsonVertices,
         });
+        savedZoneId = rec.id;
       } else if (widget.newZoneData != null) {
-        // 2. CREAZIONE NUOVA ZONA (Avviene solo ora!)
+        // CREAZIONE NUOVA ZONA
         final bodyToSave = Map<String, dynamic>.from(widget.newZoneData!);
-        bodyToSave["vertices"] =
-            jsonVertices; // Aggiungiamo il perimetro disegnato
-        await scambio.pb.collection('geofences_test').create(body: bodyToSave);
+        bodyToSave["vertices"] = jsonVertices;
+        final rec = await scambio.pb
+            .collection('geofences_test')
+            .create(body: bodyToSave);
+        savedZoneId = rec.id;
       }
-      // -----------------------------------
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -110,15 +247,17 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
         );
 
         _isForceExiting = true;
-        Navigator.pop(context, true);
+        Navigator.pop(context, savedZoneId);
       }
     } catch (e) {
       setState(() => _isSaving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text("Errore salvataggio: $e"),
-            backgroundColor: Colors.red),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text("Errore salvataggio: $e"),
+              backgroundColor: Colors.red),
+        );
+      }
     }
   }
 
@@ -164,8 +303,33 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
     );
   }
 
+  // Helper per i pulsanti FAB compatti
+  Widget _miniFAB(IconData icon, Color color, VoidCallback onPressed,
+      bool isSmallScreen, String heroTag) {
+    return SizedBox(
+      width: isSmallScreen ? 40 : 48,
+      height: isSmallScreen ? 40 : 48,
+      child: FloatingActionButton(
+        heroTag: heroTag,
+        backgroundColor: color,
+        onPressed: onPressed,
+        child: Icon(icon, color: Colors.white, size: isSmallScreen ? 20 : 24),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    // 1. Lettura delle dimensioni dello schermo
+    final mediaQuery = MediaQuery.of(context);
+    final screenWidth = mediaQuery.size.width;
+    final isSmallScreen = screenWidth < 360;
+
+    // 2. Calcolo dinamico della grandezza del font del titolo
+    double titleFontSize = screenWidth * 0.045;
+    if (titleFontSize > 18) titleFontSize = 18;
+    if (titleFontSize < 14) titleFontSize = 14;
+
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
@@ -178,7 +342,7 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
                 initialCenter: widget.initialCenter,
                 initialZoom: 19.0,
                 onTap: _addPoint,
-                // --- DISABILITA IL TRASCINAMENTO DELLA MAPPA SE TRASCINIAMO UN PUNTO ---
+                // Disabilita il trascinamento della mappa se stiamo spostando un punto
                 interactionOptions: InteractionOptions(
                   flags: _draggedPointIndex != null
                       ? InteractiveFlag.all & ~InteractiveFlag.drag
@@ -214,44 +378,38 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
                     ],
                   ),
 
-                // --- LOGICA DI TRASCINAMENTO (USANDO LISTENER INVECE DI GESTUREDETECTOR) ---
+                // --- LOGICA DI TRASCINAMENTO ---
                 MarkerLayer(
                   markers: List.generate(_points.length, (index) {
                     return Marker(
                       point: _points[index],
-                      width: 60, // Hitbox molto comoda
+                      width: 60, // Hitbox comoda per il tocco mobile
                       height: 60,
                       child: Listener(
                         behavior: HitTestBehavior.opaque,
                         onPointerDown: (event) {
                           setState(() {
-                            _draggedPointIndex =
-                                index; // Blocca la mappa all'istante
+                            _draggedPointIndex = index;
                           });
                         },
                         onPointerMove: (event) {
-                          // Aggiorniamo la posizione solo se è il punto che abbiamo afferrato
                           if (_draggedPointIndex == index &&
                               _mapKey.currentContext != null) {
                             final RenderBox box = _mapKey.currentContext!
                                 .findRenderObject() as RenderBox;
 
-                            // 1. Prendiamo la posizione esatta del dito sullo schermo
                             final localPos = box.globalToLocal(event.position);
-
-                            // 2. La magia di flutter_map 8: converte i pixel dello schermo in coordinate GPS!
                             final latLng =
                                 _mapController.camera.offsetToCrs(localPos);
 
                             setState(() {
-                              _points[index] = latLng; // Muove il punto!
+                              _points[index] = latLng;
                             });
                           }
                         },
                         onPointerUp: (_) {
                           setState(() {
-                            _draggedPointIndex =
-                                null; // Rilascia il punto e sblocca la mappa
+                            _draggedPointIndex = null;
                           });
                         },
                         onPointerCancel: (_) {
@@ -299,9 +457,11 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
             ),
             SafeArea(
               child: Padding(
-                padding: const EdgeInsets.all(15.0),
+                // Padding dinamico ai lati
+                padding: EdgeInsets.all(screenWidth * 0.04),
                 child: Column(
                   children: [
+                    // --- HEADER ---
                     Container(
                       decoration: BoxDecoration(
                         color: Colors.white,
@@ -319,7 +479,7 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
                         children: [
                           Padding(
                             padding: const EdgeInsets.only(
-                                left: 8, right: 20, top: 12, bottom: 8),
+                                left: 8, right: 16, top: 12, bottom: 8),
                             child: Row(
                               children: [
                                 if (!_isNewZone)
@@ -338,16 +498,34 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
                                   child: Padding(
                                     padding: EdgeInsets.only(
                                         left: _isNewZone ? 12.0 : 0.0),
-                                    child: Text(
-                                      _isNewZone
-                                          ? "Crea Zona: ${widget.placeName}"
-                                          : "Modifica Area: ${widget.placeName}",
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                        color: Color(0xFF2D3142),
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          _isNewZone
+                                              ? "CREA ZONA"
+                                              : "MODIFICA AREA",
+                                          style: const TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.black54,
+                                            letterSpacing: 1.2,
+                                          ),
+                                        ),
+                                        Text(
+                                          widget.placeName,
+                                          style: TextStyle(
+                                            fontSize: titleFontSize,
+                                            fontWeight: FontWeight.bold,
+                                            color: const Color(0xFF2D3142),
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ),
@@ -361,7 +539,9 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Text(
-                                    "${_points.length} punto/i",
+                                    isSmallScreen
+                                        ? "${_points.length} pts"
+                                        : "${_points.length} punto/i",
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 12,
@@ -399,18 +579,21 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
                                         ? Colors.green
                                         : Colors.black54),
                                 const SizedBox(width: 8),
-                                Text(
-                                  _points.length >= 3
-                                      ? "Area valida, trascina i punti per affinarla."
-                                      : "Tocca la mappa per creare almeno 3 vertici.",
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: _points.length >= 3
-                                        ? Colors.green[700]
-                                        : Colors.black54,
-                                    fontWeight: _points.length >= 3
-                                        ? FontWeight.bold
-                                        : FontWeight.normal,
+                                Flexible(
+                                  child: Text(
+                                    _points.length >= 3
+                                        ? "Area valida, trascina i punti."
+                                        : "Tocca per creare almeno 3 vertici.",
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: _points.length >= 3
+                                          ? Colors.green[700]
+                                          : Colors.black54,
+                                      fontWeight: _points.length >= 3
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                               ],
@@ -420,50 +603,51 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
                       ),
                     ),
                     const Spacer(),
+
+                    // --- FABs (Pulsanti in basso) ---
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        FloatingActionButton(
-                          heroTag: "polySat",
-                          backgroundColor: Colors.white,
-                          onPressed: () =>
-                              setState(() => _isSatellite = !_isSatellite),
-                          child: Icon(
-                              _isSatellite ? Icons.map : Icons.satellite_alt,
-                              color: Colors.blue),
+                        SizedBox(
+                          width: isSmallScreen ? 48 : 56,
+                          height: isSmallScreen ? 48 : 56,
+                          child: FloatingActionButton(
+                            heroTag: "polySat",
+                            backgroundColor: Colors.white,
+                            onPressed: () =>
+                                setState(() => _isSatellite = !_isSatellite),
+                            child: Icon(
+                                _isSatellite ? Icons.map : Icons.satellite_alt,
+                                color: Colors.blue,
+                                size: isSmallScreen ? 22 : 24),
+                          ),
                         ),
                         Row(
                           children: [
                             if (_points.isNotEmpty)
-                              FloatingActionButton(
-                                heroTag: "polyClear",
-                                backgroundColor: Colors.redAccent,
-                                mini: true,
-                                onPressed: _clearAll,
-                                child: const Icon(Icons.delete_sweep,
-                                    color: Colors.white),
-                              ),
-                            const SizedBox(width: 10),
+                              _miniFAB(Icons.delete_sweep, Colors.redAccent,
+                                  _clearAll, isSmallScreen, "polyClear"),
+                            if (_points.isNotEmpty) const SizedBox(width: 8),
                             if (_points.isNotEmpty)
-                              FloatingActionButton(
-                                heroTag: "polyUndo",
-                                backgroundColor: Colors.orange,
-                                onPressed: _undoLastPoint,
-                                child:
-                                    const Icon(Icons.undo, color: Colors.white),
+                              _miniFAB(Icons.undo, Colors.orange,
+                                  _undoLastPoint, isSmallScreen, "polyUndo"),
+                            const SizedBox(width: 8),
+                            SizedBox(
+                              width: isSmallScreen ? 48 : 56,
+                              height: isSmallScreen ? 48 : 56,
+                              child: FloatingActionButton(
+                                heroTag: "polySave",
+                                backgroundColor: _points.length >= 3
+                                    ? Colors.green
+                                    : Colors.grey,
+                                onPressed: _isSaving ? null : _savePolygon,
+                                child: _isSaving
+                                    ? const CircularProgressIndicator(
+                                        color: Colors.white)
+                                    : Icon(Icons.check,
+                                        color: Colors.white,
+                                        size: isSmallScreen ? 24 : 28),
                               ),
-                            const SizedBox(width: 10),
-                            FloatingActionButton(
-                              heroTag: "polySave",
-                              backgroundColor: _points.length >= 3
-                                  ? Colors.green
-                                  : Colors.grey,
-                              onPressed: _isSaving ? null : _savePolygon,
-                              child: _isSaving
-                                  ? const CircularProgressIndicator(
-                                      color: Colors.white)
-                                  : const Icon(Icons.check,
-                                      color: Colors.white),
                             ),
                           ],
                         )

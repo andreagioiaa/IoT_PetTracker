@@ -29,6 +29,9 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
   String _userAddress = "Rilevamento indirizzo in corso...";
   String _petAddress = "Rilevamento indirizzo in corso...";
 
+  // Variabile per capire se l'utente ha modificato l'indirizzo trovato dal GPS
+  String _indirizzoPrecompilatoGps = "";
+
   @override
   void initState() {
     super.initState();
@@ -61,6 +64,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     super.dispose();
   }
 
+  // ALGORITMO PER RILEVARE IL TOCCO DENTRO UN POLIGONO
   bool _isPointInPolygon(LatLng point, List<LatLng> polygon) {
     bool isInside = false;
     int i, j = polygon.length - 1;
@@ -117,6 +121,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
       final records = await scambio.pb
           .collection('geofences_test')
           .getFullList(sort: '-created');
+
       final List<Map<String, dynamic>> nuoveZone = records.map((res) {
         List<LatLng> polygonPts = [];
         try {
@@ -145,22 +150,49 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
         };
       }).toList();
 
+      // FIX ORDINAMENTO
+      nuoveZone.sort((a, b) {
+        bool isActiveA = a['is_active'] ?? false;
+        bool isActiveB = b['is_active'] ?? false;
+
+        if (isActiveA && !isActiveB) return -1;
+        if (!isActiveA && isActiveB) return 1;
+
+        return a['name']
+            .toString()
+            .toLowerCase()
+            .compareTo(b['name'].toString().toLowerCase());
+      });
+
       setState(() {
         savedPlaces = nuoveZone;
         isLoading = false;
 
         if (savedPlaces.isEmpty) {
           selectedPlaceIndex = null;
-          _activeCard.value = ActiveCard.none;
+          if (_activeCard.value == ActiveCard.zone) {
+            _activeCard.value = ActiveCard.none;
+          }
         } else {
           if (idAttuale != null) {
             int nuovoIndice =
                 savedPlaces.indexWhere((z) => z['id'] == idAttuale);
-            selectedPlaceIndex = nuovoIndice != -1 ? nuovoIndice : 0;
+            if (nuovoIndice != -1) {
+              selectedPlaceIndex = nuovoIndice;
+              // Se abbiamo forzato l'id (es. appena salvato), mostriamo la card
+              if (forceSelectId != null) {
+                _activeCard.value = ActiveCard.zone;
+              }
+            } else {
+              selectedPlaceIndex = null;
+              if (_activeCard.value == ActiveCard.zone) {
+                _activeCard.value = ActiveCard.none;
+              }
+            }
           } else {
-            selectedPlaceIndex = 0;
+            // Avvio pulito: nessuna area selezionata!
+            selectedPlaceIndex = null;
           }
-          _activeCard.value = ActiveCard.zone;
         }
       });
     } catch (e) {
@@ -235,17 +267,17 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
       await _caricaZoneDalDatabase();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(newStatus ? "Zona attivata." : "Zona disattivata."),
+          content: Text(newStatus ? "Area attivata." : "Area disattivata."),
           backgroundColor: newStatus ? Colors.green : Colors.orange,
           duration: const Duration(seconds: 2),
         ));
       }
     } catch (e) {
-      debugPrint("Errore attivazione zona: $e");
+      debugPrint("Errore attivazione Area: $e");
     }
   }
 
-  int? selectedPlaceIndex = 0;
+  int? selectedPlaceIndex;
   final MapController _mapController = MapController();
 
   final TextEditingController _nameController = TextEditingController();
@@ -282,7 +314,10 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
         setState(() {
           _myLocation = LatLng(position.latitude, position.longitude);
         });
-        _mapController.move(_myLocation!, 16.0);
+
+        _mapController.move(_myLocation!, 18.0);
+        _activeCard.value = ActiveCard.user;
+        _resolveAddress(_myLocation!, false);
       }
     } catch (e) {
       debugPrint("Errore geolocalizzazione: $e");
@@ -291,6 +326,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
 
   Future<void> _promptAddLocation() async {
     if (_myLocation == null) {
+      _indirizzoPrecompilatoGps = "";
       _showPlaceDialog(isEditing: false);
       return;
     }
@@ -298,9 +334,9 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     bool? useCurrentLocation = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Nuova Zona Sicura"),
+        title: const Text("Nuova Area Sicura"),
         content: const Text(
-            "Vuoi creare una zona basata esattamente sulla tua posizione attuale?"),
+            "Vuoi creare un'Area basata esattamente sulla tua posizione attuale?"),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -323,6 +359,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     if (useCurrentLocation) {
       await _performReverseGeocodingAndShowDialog();
     } else {
+      _indirizzoPrecompilatoGps = "";
       _showPlaceDialog(isEditing: false);
     }
   }
@@ -374,21 +411,24 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     _cityController.text = city;
     _capController.text = cap;
 
+    _indirizzoPrecompilatoGps =
+        "$street$civic$city$cap".toLowerCase().replaceAll(" ", "");
+
     _showPlaceDialog(isEditing: false, gpsLocation: _myLocation);
   }
 
-  Future<Map<String, dynamic>?> _fetchCoordinatesAndSaveOrUpdate(
+  Future<Map<String, dynamic>> _fetchCoordinatesAndSaveOrUpdate(
       {bool isUpdating = false, int? updateIndex}) async {
-    final String name = _nameController.text.trim();
-    final String street = _streetController.text.trim();
-    final String civic = _civicController.text.trim();
-    final String city = _cityController.text.trim();
-    final String cap = _capController.text.trim();
+    final String rawName = _nameController.text.trim();
+    final String rawStreet = _streetController.text.trim();
+    final String rawCivic = _civicController.text.trim();
+    final String rawCity = _cityController.text.trim();
+    final String rawCap = _capController.text.trim();
 
     final url = Uri.parse('https://nominatim.openstreetmap.org/search?'
-        'street=${Uri.encodeComponent("$civic $street")}'
-        '&city=${Uri.encodeComponent(city)}'
-        '&postalcode=${Uri.encodeComponent(cap)}'
+        'street=${Uri.encodeComponent("$rawCivic $rawStreet")}'
+        '&city=${Uri.encodeComponent(rawCity)}'
+        '&postalcode=${Uri.encodeComponent(rawCap)}'
         '&format=json&addressdetails=1&limit=1');
 
     try {
@@ -399,18 +439,19 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
         List data = json.decode(response.body);
 
         if (data.isNotEmpty) {
-          var addressDetails = data[0]['address'];
-          String? returnedCap =
-              addressDetails != null ? addressDetails['postcode'] : null;
+          var addressDetails = data[0]['address'] ?? {};
 
-          if (returnedCap != null && !returnedCap.contains(cap)) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text(
-                    "Attenzione: Il CAP inserito ($cap) non corrisponde (CAP reale: $returnedCap)."),
-                backgroundColor: Colors.redAccent,
-                duration: const Duration(seconds: 4)));
-            return null;
-          }
+          String finalStreet = addressDetails['road'] ??
+              addressDetails['pedestrian'] ??
+              addressDetails['square'] ??
+              rawStreet;
+          String finalCivic = addressDetails['house_number'] ?? rawCivic;
+          String finalCity = addressDetails['city'] ??
+              addressDetails['town'] ??
+              addressDetails['village'] ??
+              addressDetails['municipality'] ??
+              rawCity;
+          String finalCap = addressDetails['postcode'] ?? rawCap;
 
           double lat = double.parse(data[0]['lat']);
           double lon = double.parse(data[0]['lon']);
@@ -418,26 +459,45 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
 
           bool isDuplicateLocation = savedPlaces.asMap().entries.any((e) {
             if (isUpdating && e.key == updateIndex) return false;
-            LatLng existingCenter = e.value['center'];
-            return existingCenter.latitude == newCenter.latitude &&
-                existingCenter.longitude == newCenter.longitude;
+
+            final existingZone = e.value;
+            LatLng existingCenter = existingZone['center'];
+
+            String existingStreet =
+                (existingZone['street'] ?? '').toString().trim().toLowerCase();
+            String existingCivic =
+                (existingZone['civic'] ?? '').toString().trim().toLowerCase();
+            String existingCap =
+                (existingZone['cap'] ?? '').toString().trim().toLowerCase();
+
+            bool sameAddress = existingStreet == finalStreet.toLowerCase() &&
+                existingCivic == finalCivic.toLowerCase() &&
+                existingCap == finalCap.toLowerCase();
+
+            if (sameAddress) {
+              const Distance distance = Distance();
+              final double meterDistance = distance(existingCenter, newCenter);
+
+              if (meterDistance < 500) {
+                return true;
+              }
+            }
+
+            return false;
           });
 
           if (isDuplicateLocation) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                content: Text("Esiste già una zona in questa posizione!"),
-                backgroundColor: Colors.redAccent));
-            return null;
+            return {'error': "Esiste già un'Area in questo indirizzo!"};
           }
 
           final body = {
-            "name": name,
+            "name": rawName,
             "center_lat": newCenter.latitude,
             "center_lon": newCenter.longitude,
-            "street": street,
-            "civic": civic,
-            "city": city,
-            "cap": cap,
+            "street": finalStreet,
+            "civic": finalCivic,
+            "city": finalCity,
+            "cap": finalCap,
             "is_active": true
           };
 
@@ -450,32 +510,42 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
               await _caricaZoneDalDatabase(forceSelectId: rec.id);
               _activeCard.value = ActiveCard.zone;
               _mapController.move(newCenter, 18.0);
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text("Zona aggiornata!"),
-                  backgroundColor: Colors.green));
-              return {'id': rec.id, 'name': name, 'center': newCenter};
+
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text("Area aggiornata!"),
+                    backgroundColor: Colors.green));
+              }
+              return {
+                'success': true,
+                'id': rec.id,
+                'name': rawName,
+                'center': newCenter
+              };
             } else {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                  content: Text("Traccia il perimetro!"),
-                  backgroundColor: Colors.blueAccent));
-              return {'newZoneData': body, 'name': name, 'center': newCenter};
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text("Traccia il perimetro!"),
+                    backgroundColor: Colors.blueAccent));
+              }
+              return {
+                'success': true,
+                'newZoneData': body,
+                'name': rawName,
+                'center': newCenter
+              };
             }
           } catch (e) {
-            return null;
+            return {'error': "Errore durante il salvataggio nel database."};
           }
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text("Indirizzo inesistente."),
-              backgroundColor: Colors.red));
-          return null;
+          return {'error': "Indirizzo inesistente sulla mappa."};
         }
       } else {
-        return null;
+        return {'error': "Errore di connessione al servizio mappe."};
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text("Errore rete: $e"), backgroundColor: Colors.red));
-      return null;
+      return {'error': "Errore di rete: $e"};
     }
   }
 
@@ -495,7 +565,14 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                 placeName: placeName,
                 initialCenter: center,
                 initialVertices: initialVertices)));
-    if (result == true) await _caricaZoneDalDatabase(forceSelectId: placeId);
+
+    if (result != null && result is String) {
+      await _caricaZoneDalDatabase(forceSelectId: result);
+    } else if (result == true && placeId != null) {
+      await _caricaZoneDalDatabase(forceSelectId: placeId);
+    } else {
+      await _caricaZoneDalDatabase();
+    }
   }
 
   void _showPlaceDialog(
@@ -520,94 +597,209 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
       barrierDismissible: false,
       builder: (dialogContext) {
         bool isLoading = false;
+
+        String? nameError;
+        String? cityError;
+        String? generalError;
+
         return StatefulBuilder(builder: (context, setDialogState) {
           return AlertDialog(
-            title: Text(isEditing ? "Modifica Zona" : "Nuova Zona"),
-            content: SingleChildScrollView(
+            scrollable: true,
+            insetPadding: const EdgeInsets.all(15),
+            titlePadding:
+                const EdgeInsets.only(top: 20, left: 20, right: 20, bottom: 10),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+            actionsPadding:
+                const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            title: Text(isEditing ? "Modifica Area" : "Nuova Area",
+                style:
+                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            content: SizedBox(
+              width: double.maxFinite,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  if (generalError != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Text(generalError!,
+                          style: const TextStyle(
+                              color: Colors.red,
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold)),
+                    ),
                   TextField(
-                      controller: _nameController,
-                      maxLength: 15,
-                      decoration:
-                          const InputDecoration(labelText: "Nome luogo"),
-                      enabled: !isLoading),
+                    controller: _nameController,
+                    maxLength: 20,
+                    decoration: InputDecoration(
+                      labelText: "Nome luogo",
+                      errorText: nameError,
+                    ),
+                    enabled: !isLoading,
+                    onChanged: (_) => setDialogState(() => nameError = null),
+                  ),
                   const SizedBox(height: 10),
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
-                          flex: 2,
-                          child: TextField(
-                              controller: _cityController,
-                              decoration:
-                                  const InputDecoration(labelText: "Città"),
-                              enabled: !isLoading)),
+                        flex: 2,
+                        child: TextField(
+                          controller: _cityController,
+                          decoration: InputDecoration(
+                            labelText: "Città",
+                            errorText: cityError,
+                          ),
+                          enabled: !isLoading,
+                          onChanged: (_) =>
+                              setDialogState(() => cityError = null),
+                        ),
+                      ),
                       const SizedBox(width: 10),
                       Expanded(
-                          flex: 1,
-                          child: TextField(
-                              controller: _capController,
-                              keyboardType: TextInputType.number,
-                              decoration:
-                                  const InputDecoration(labelText: "CAP"),
-                              enabled: !isLoading)),
+                        flex: 1,
+                        child: TextField(
+                          controller: _capController,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(labelText: "CAP"),
+                          enabled: !isLoading,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 10),
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
-                          flex: 3,
-                          child: TextField(
-                              controller: _streetController,
-                              decoration: const InputDecoration(
-                                  labelText: "Via / Piazza"),
-                              enabled: !isLoading)),
+                        flex: 3,
+                        child: TextField(
+                          controller: _streetController,
+                          decoration:
+                              const InputDecoration(labelText: "Via / Piazza"),
+                          enabled: !isLoading,
+                        ),
+                      ),
                       const SizedBox(width: 10),
                       Expanded(
-                          flex: 1,
-                          child: TextField(
-                              controller: _civicController,
-                              decoration:
-                                  const InputDecoration(labelText: "N°"),
-                              enabled: !isLoading)),
+                        flex: 1,
+                        child: TextField(
+                          controller: _civicController,
+                          decoration: const InputDecoration(labelText: "N°"),
+                          enabled: !isLoading,
+                        ),
+                      ),
                     ],
                   ),
+                  const SizedBox(height: 10),
                 ],
               ),
             ),
             actions: [
               TextButton(
-                  onPressed:
-                      isLoading ? null : () => Navigator.pop(dialogContext),
-                  child: const Text("Annulla")),
+                onPressed:
+                    isLoading ? null : () => Navigator.pop(dialogContext),
+                child: const Text("Annulla"),
+              ),
               ElevatedButton(
                 onPressed: isLoading
                     ? null
                     : () async {
+                        setDialogState(() {
+                          nameError = null;
+                          cityError = null;
+                          generalError = null;
+                        });
+
                         final name = _nameController.text.trim();
                         final city = _cityController.text.trim();
-                        if (name.isEmpty || city.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text("Inserisci Nome e Città."),
-                                  backgroundColor: Colors.orange));
+                        final street = _streetController.text.trim();
+                        final civic = _civicController.text.trim();
+                        final cap = _capController.text.trim();
+
+                        bool hasError = false;
+                        if (name.isEmpty) {
+                          nameError = "Inserisci un nome";
+                          hasError = true;
+                        }
+                        if (city.isEmpty) {
+                          cityError = "Inserisci la città";
+                          hasError = true;
+                        }
+
+                        if (hasError) {
+                          setDialogState(() {});
                           return;
                         }
+
+                        bool isNameDuplicate =
+                            savedPlaces.asMap().entries.any((e) {
+                          if (isEditing && e.key == editIndex) return false;
+                          String existingName = (e.value['name'] ?? '')
+                              .toString()
+                              .trim()
+                              .toLowerCase();
+                          return existingName == name.toLowerCase();
+                        });
+
+                        if (isNameDuplicate) {
+                          setDialogState(() => nameError = "Nome già in uso");
+                          return;
+                        }
+
                         setDialogState(() => isLoading = true);
 
-                        if (gpsLocation != null && !isEditing) {
+                        String indirizzoAttuale = "$street$civic$city$cap"
+                            .toLowerCase()
+                            .replaceAll(" ", "");
+
+                        if (gpsLocation != null &&
+                            !isEditing &&
+                            indirizzoAttuale == _indirizzoPrecompilatoGps) {
+                          bool isAddressDuplicate = savedPlaces.any((zone) {
+                            String existingStreet = (zone['street'] ?? '')
+                                .toString()
+                                .trim()
+                                .toLowerCase();
+                            String existingCivic = (zone['civic'] ?? '')
+                                .toString()
+                                .trim()
+                                .toLowerCase();
+                            String existingCap = (zone['cap'] ?? '')
+                                .toString()
+                                .trim()
+                                .toLowerCase();
+
+                            if (existingStreet == street.toLowerCase() &&
+                                existingCivic == civic.toLowerCase() &&
+                                existingCap == cap.toLowerCase()) {
+                              const Distance distance = Distance();
+                              if (distance(zone['center'], gpsLocation) < 500)
+                                return true;
+                            }
+                            return false;
+                          });
+
+                          if (isAddressDuplicate) {
+                            setDialogState(() {
+                              generalError =
+                                  "Esiste già un'Area in questo indirizzo";
+                              isLoading = false;
+                            });
+                            return;
+                          }
+
                           final body = {
                             "name": name,
                             "center_lat": gpsLocation.latitude,
                             "center_lon": gpsLocation.longitude,
-                            "street": _streetController.text.trim(),
-                            "civic": _civicController.text.trim(),
+                            "street": street,
+                            "civic": civic,
                             "city": city,
-                            "cap": _capController.text.trim(),
+                            "cap": cap,
                             "is_active": true
                           };
+
                           if (context.mounted) {
                             Navigator.pop(dialogContext);
                             _navigateToPolygonEditor(
@@ -616,19 +808,29 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                                 center: gpsLocation);
                           }
                         } else {
-                          Map<String, dynamic>? resultData =
+                          Map<String, dynamic> resultData =
                               await _fetchCoordinatesAndSaveOrUpdate(
-                                  isUpdating: isEditing,
-                                  updateIndex: editIndex);
-                          if (resultData != null && dialogContext.mounted) {
-                            Navigator.pop(dialogContext);
-                            if (!isEditing)
-                              _navigateToPolygonEditor(
-                                  newZoneData: resultData['newZoneData'],
-                                  placeName: resultData['name'],
-                                  center: resultData['center']);
-                          } else if (dialogContext.mounted) {
-                            setDialogState(() => isLoading = false);
+                                      isUpdating: isEditing,
+                                      updateIndex: editIndex) ??
+                                  {};
+
+                          if (dialogContext.mounted) {
+                            if (resultData.containsKey('error')) {
+                              setDialogState(() {
+                                generalError = resultData['error'];
+                                isLoading = false;
+                              });
+                            } else if (resultData['success'] == true) {
+                              Navigator.pop(dialogContext);
+                              if (!isEditing) {
+                                _navigateToPolygonEditor(
+                                    newZoneData: resultData['newZoneData'],
+                                    placeName: resultData['name'],
+                                    center: resultData['center']);
+                              }
+                            } else {
+                              setDialogState(() => isLoading = false);
+                            }
                           }
                         }
                       },
@@ -656,7 +858,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text("Elimina"),
-          content: Text("Vuoi eliminare la zona '$placeName'?"),
+          content: Text("Vuoi eliminare la Area '$placeName'?"),
           actions: [
             TextButton(
                 child: const Text("Annulla"),
@@ -665,6 +867,12 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
               style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
               onPressed: () async {
                 final idDaEliminare = savedPlaces[selectedPlaceIndex!]['id'];
+
+                setState(() {
+                  selectedPlaceIndex = null;
+                  _activeCard.value = ActiveCard.none;
+                });
+
                 try {
                   await scambio.pb
                       .collection('geofences_test')
@@ -713,15 +921,23 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                       _isPointInPolygon(point, vertices)) {
                     setState(() => selectedPlaceIndex = i);
                     _activeCard.value = ActiveCard.zone;
+                    _mapController.move(savedPlaces[i]['center'], 18.0);
                     return;
                   }
                 }
               },
               onPositionChanged: (MapCamera camera, bool hasGesture) {
+                if (!hasGesture) return;
+
                 if (_activeCard.value == ActiveCard.zone && hasPlaces) {
                   if (!camera.visibleBounds.contains(currentPlace!['center'])) {
-                    WidgetsBinding.instance.addPostFrameCallback(
-                        (_) => _activeCard.value = ActiveCard.none);
+                    // PULIZIA: Deseleziona l'area se l'utente sposta la mappa altrove
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      setState(() {
+                        selectedPlaceIndex = null;
+                      });
+                      _activeCard.value = ActiveCard.none;
+                    });
                   }
                 } else if (_activeCard.value == ActiveCard.user &&
                     _myLocation != null) {
@@ -774,8 +990,10 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                       height: 60,
                       child: GestureDetector(
                         onTap: () {
+                          setState(() => selectedPlaceIndex = null);
                           _activeCard.value = ActiveCard.user;
                           _resolveAddress(_myLocation!, false);
+                          _mapController.move(_myLocation!, 18.0);
                         },
                         child: Stack(
                           alignment: Alignment.center,
@@ -809,8 +1027,10 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                         height: 60,
                         child: GestureDetector(
                           onTap: () {
+                            setState(() => selectedPlaceIndex = null);
                             _activeCard.value = ActiveCard.pet;
                             _resolveAddress(_petLocation!, true);
+                            _mapController.move(_petLocation!, 18.0);
                           },
                           child: const Icon(Icons.pets,
                               color: Colors.orange, size: 30),
@@ -829,7 +1049,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Expanded(
-                      child: hasPlaces
+                      child: hasPlaces || savedPlaces.isNotEmpty
                           ? Container(
                               padding:
                                   EdgeInsets.symmetric(horizontal: 10 * scale),
@@ -847,13 +1067,21 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                                   isExpanded: true,
                                   menuMaxHeight: 240,
                                   value: selectedPlaceIndex,
+                                  hint: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text("Seleziona Area...",
+                                        style: TextStyle(
+                                            color: Colors.black54,
+                                            fontSize: 15 * scale,
+                                            fontWeight: FontWeight.w600)),
+                                  ),
                                   selectedItemBuilder: (BuildContext context) {
                                     return savedPlaces.map<Widget>((item) {
                                       return Align(
                                         alignment: Alignment.centerLeft,
                                         child: FittedBox(
                                           fit: BoxFit.scaleDown,
-                                          child: Text("Geofence",
+                                          child: Text("Area Sicura",
                                               style: TextStyle(
                                                   color: Colors.black87,
                                                   fontSize: 15 * scale,
@@ -925,7 +1153,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                                   color: Colors.white,
                                   borderRadius:
                                       BorderRadius.circular(15 * scale)),
-                              child: Text("Nessuna zona",
+                              child: Text("Nessuna Area",
                                   style: TextStyle(
                                       color: Colors.grey,
                                       fontSize: 14 * scale)),
@@ -946,6 +1174,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                           heroTag: "locatePet",
                           onPressed: () {
                             if (_petLocation != null) {
+                              setState(() => selectedPlaceIndex = null);
                               _mapController.move(_petLocation!, 18.0);
                               _activeCard.value = ActiveCard.pet;
                               _resolveAddress(_petLocation!, true);
@@ -960,6 +1189,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                           onPressed: () async {
                             if (_myLocation == null) await _determinePosition();
                             if (_myLocation != null) {
+                              setState(() => selectedPlaceIndex = null);
                               _mapController.move(_myLocation!, 18.0);
                               _activeCard.value = ActiveCard.user;
                               _resolveAddress(_myLocation!, false);
@@ -996,7 +1226,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                 if (activeCard == ActiveCard.none)
                   return const SizedBox.shrink();
 
-                // CARD ZONA GEOFENCE
                 if (activeCard == ActiveCard.zone && hasPlaces) {
                   return Container(
                     padding: EdgeInsets.all(15 * scale),
@@ -1010,7 +1239,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // FIX: Stack per centrare perfettamente il titolo e avere la X a destra
                         Stack(
                           alignment: Alignment.center,
                           children: [
@@ -1024,8 +1252,13 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                             Align(
                               alignment: Alignment.centerRight,
                               child: InkWell(
-                                  onTap: () =>
-                                      _activeCard.value = ActiveCard.none,
+                                  onTap: () {
+                                    // PULIZIA: Deseleziona la zona se clicchi sulla "X" della sua card
+                                    setState(() {
+                                      selectedPlaceIndex = null;
+                                    });
+                                    _activeCard.value = ActiveCard.none;
+                                  },
                                   child: Icon(Icons.close,
                                       color: Colors.black45, size: 24 * scale)),
                             )
@@ -1096,7 +1329,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                   );
                 }
 
-                // CARD POSIZIONE UTENTE O ANIMALE
                 if (activeCard == ActiveCard.user ||
                     activeCard == ActiveCard.pet) {
                   bool isPet = activeCard == ActiveCard.pet;
@@ -1113,7 +1345,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // FIX: Stack per centrare perfettamente il titolo
                         Stack(
                           alignment: Alignment.center,
                           children: [
