@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import 'battery.dart';
 import 'geofencing.dart';
+import 'tracking_screen.dart'; // <-- AGGIUNTO L'IMPORT DELLA NUOVA PAGINA
 import 'dart:async';
 import 'scambio.dart' as scambio;
 
@@ -348,10 +349,22 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
   Widget _buildPositionCard(double scale) {
     return GestureDetector(
       onTap: () {
-        final navState =
-            context.findAncestorStateOfType<_PetTrackerNavigationState>();
-        if (navState != null) {
-          navState.setState(() => navState._currentIndex = 1);
+        // --- LOGICA DI NAVIGAZIONE A BIVIO ---
+        if (_nomeZona == "Fuori zona sicura") {
+          // Apre a tutto schermo il nuovo file tracking_screen.dart
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const TrackingScreen(),
+            ),
+          );
+        } else {
+          // Cambia tab per andare alla Mappa Geofencing
+          final navState =
+              context.findAncestorStateOfType<_PetTrackerNavigationState>();
+          if (navState != null) {
+            navState.setState(() => navState._currentIndex = 1);
+          }
         }
       },
       child: Container(
@@ -366,7 +379,10 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
         child: Row(
           children: [
             Icon(Icons.location_on,
-                color: const Color(0xFF00C6B8), size: 36 * scale),
+                color: _nomeZona == "Fuori zona sicura"
+                    ? Colors.red
+                    : const Color(0xFF00C6B8),
+                size: 36 * scale),
             SizedBox(width: 15 * scale),
             Expanded(
               child: Column(
@@ -416,8 +432,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
         ],
       ),
       child: Column(
-        mainAxisSize:
-            MainAxisSize.min, // Ottimizza l'altezza per schermi piccoli
+        mainAxisSize: MainAxisSize.min,
         children: [
           // Header Mese
           Row(
