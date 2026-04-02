@@ -26,7 +26,7 @@ class PetTrackerApp extends StatelessWidget {
 
 // --- LOGICA DI FORMATTAZIONE ---
 String formattaUltimoAggiornamento(DateTime? ultimoInvio) {
-  if (ultimoInvio == null) return "Dato non disponibile";
+  if (ultimoInvio == null) return "N.D.";
 
   final oraAttuale = DateTime.now();
   final differenza = oraAttuale.difference(ultimoInvio);
@@ -48,14 +48,13 @@ String formattaUltimoAggiornamento(DateTime? ultimoInvio) {
   }
 }
 
-// Funzione helper per il colore dello stato
 Color getColoreStato(DateTime? ultimoInvio) {
   if (ultimoInvio == null) return Colors.grey;
   final differenza = DateTime.now().difference(ultimoInvio);
 
-  if (differenza.inMinutes < 30) return const Color(0xFF00C6B8); // Tutto ok
-  if (differenza.inMinutes < 60) return Colors.orange; // Ritardo lieve
-  return Colors.red; // Ritardo critico
+  if (differenza.inMinutes < 30) return const Color(0xFF00C6B8);
+  if (differenza.inMinutes < 60) return Colors.orange;
+  return Colors.red;
 }
 
 class PetTrackerNavigation extends StatefulWidget {
@@ -198,7 +197,6 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     }
   }
 
-  // --- NUOVA LOGICA POINT-IN-POLYGON ---
   Future<String> _calcolaZonaDalPunto(LatLng petPos) async {
     try {
       final geoResult =
@@ -206,7 +204,6 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
 
       for (var record in geoResult) {
         if (record.getBoolValue('is_active') == true) {
-          // Leggiamo i vertici JSON dal database
           List<LatLng> polygonPts = [];
           try {
             final rawList = record.getListValue<dynamic>('vertices');
@@ -217,10 +214,9 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
               }
             }
           } catch (e) {
-            continue; // Se non ha vertici validi, saltiamo questa zona
+            continue;
           }
 
-          // Se ci sono almeno 3 vertici, facciamo il controllo geometrico
           if (polygonPts.length >= 3) {
             if (_isPointInsidePolygon(petPos, polygonPts)) {
               return record.getStringValue('name');
@@ -234,7 +230,6 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     }
   }
 
-  // ALGORITMO RAY CASTING (Spara un raggio e conta quante volte taglia i confini)
   bool _isPointInsidePolygon(LatLng point, List<LatLng> polygon) {
     bool isInside = false;
     int j = polygon.length - 1;
@@ -255,26 +250,25 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
 
     return isInside;
   }
-  // -------------------------------------
 
   void _initializeDates() {
     DateTime today = DateTime.now();
     List<String> monthNames = [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December'
+      'Gennaio',
+      'Febbraio',
+      'Marzo',
+      'Aprile',
+      'Maggio',
+      'Giugno',
+      'Luglio',
+      'Agosto',
+      'Settembre',
+      'Ottobre',
+      'Novembre',
+      'Dicembre'
     ];
     currentMonthName = monthNames[today.month - 1];
-    List<String> weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    List<String> weekDays = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
     DateTime monday = today.subtract(Duration(days: today.weekday - 1));
 
     dates = List.generate(7, (index) {
@@ -289,57 +283,87 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Positioned(
-          top: 0,
-          right: 0,
-          child: Container(
-            width: 200,
-            height: 150,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                  colors: [Color(0xFF00E2C1), Color(0xFF00C6B8)]),
-              borderRadius: BorderRadius.only(bottomLeft: Radius.circular(100)),
+    // Fattore di scala calcolato sull'altezza (l'emulatore base è ~800px)
+    double screenHeight = MediaQuery.of(context).size.height;
+    double scale = (screenHeight / 800).clamp(0.65, 1.2);
+
+    return Scaffold(
+      body: Stack(
+        children: [
+          Positioned(
+            top: 0,
+            right: 0,
+            child: Container(
+              width: MediaQuery.of(context).size.width * 0.5,
+              height: screenHeight * 0.18,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                    colors: [Color(0xFF00E2C1), Color(0xFF00C6B8)]),
+                borderRadius:
+                    BorderRadius.only(bottomLeft: Radius.circular(100)),
+              ),
             ),
           ),
-        ),
-        SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 20),
-                const Text('Bentornato,',
-                    style: TextStyle(fontSize: 16, color: Colors.black54)),
-                const Text('Alberto Angela',
-                    style:
-                        TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 25),
-                _buildPositionCard(),
-                const SizedBox(height: 25),
-                _buildMonthHeader(),
-                const SizedBox(height: 10),
-                _buildHorizontalCalendar(),
-                const SizedBox(height: 30),
-                const Text("Attività Odierna",
-                    style:
-                        TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 20),
-                _buildActivityStats(),
-                const SizedBox(height: 30),
-                _buildLoraInfoPanel(_ultimoAggiornamento),
-                const SizedBox(height: 30),
-              ],
+          SafeArea(
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                  horizontal: 20 * scale, vertical: 10 * scale),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Spacer(flex: 1),
+
+                  // 1. Intestazione Utente
+                  Text('Bentornato,',
+                      style: TextStyle(
+                          fontSize: 16 * scale, color: Colors.black54)),
+                  Text('Alberto Angela',
+                      style: TextStyle(
+                          fontSize: 30 * scale, fontWeight: FontWeight.bold)),
+
+                  const Spacer(flex: 2),
+
+                  // 2. Card Posizione
+                  _buildPositionCard(scale),
+
+                  const Spacer(flex: 2),
+
+                  // 3. Intestazione Calendario
+                  _buildMonthHeader(scale),
+
+                  const Spacer(flex: 1),
+
+                  // 4. Calendario
+                  _buildHorizontalCalendar(scale),
+
+                  const Spacer(flex: 2),
+
+                  // 5. Intestazione Attività
+                  Text("Attività Odierna",
+                      style: TextStyle(
+                          fontSize: 20 * scale, fontWeight: FontWeight.bold)),
+
+                  const Spacer(flex: 1),
+
+                  // 6. Statistiche
+                  _buildActivityStats(scale),
+
+                  const Spacer(flex: 2),
+
+                  // 7. Pannello LoRaWAN
+                  _buildLoraInfoPanel(_ultimoAggiornamento, scale),
+
+                  const Spacer(flex: 1),
+                ],
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
-  Widget _buildPositionCard() {
+  Widget _buildPositionCard(double scale) {
     return GestureDetector(
       onTap: () {
         final navState =
@@ -349,66 +373,71 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
         }
       },
       child: Container(
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.all(15 * scale),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(25),
+          borderRadius: BorderRadius.circular(20 * scale),
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15)
+            BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)
           ],
         ),
         child: Row(
           children: [
-            const Icon(Icons.location_on, color: Color(0xFF00C6B8), size: 40),
-            const SizedBox(width: 15),
+            Icon(Icons.location_on,
+                color: const Color(0xFF00C6B8), size: 36 * scale),
+            SizedBox(width: 15 * scale),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text("Posizione Attuale",
-                      style: TextStyle(color: Colors.black45)),
+                  Text("Posizione Attuale",
+                      style: TextStyle(
+                          color: Colors.black45, fontSize: 13 * scale)),
+                  SizedBox(height: 4 * scale),
                   _isLoading
-                      ? const Text("Caricamento...",
+                      ? Text("Caricamento...",
                           style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              fontSize: 18,
+                              fontSize: 16 * scale,
                               color: Colors.grey))
                       : Text(_nomeZona,
                           style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              fontSize: 18,
+                              fontSize: 16 * scale,
                               color: _nomeZona == "Fuori zona sicura"
                                   ? Colors.red
                                   : Colors.black)),
                 ],
               ),
             ),
-            const Icon(Icons.arrow_forward_ios,
-                color: Colors.black12, size: 16),
+            Icon(Icons.arrow_forward_ios,
+                color: Colors.black12, size: 16 * scale),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildMonthHeader() {
+  Widget _buildMonthHeader(double scale) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        const Icon(Icons.calendar_month, color: Color(0xFF00C6B8), size: 20),
-        const SizedBox(width: 8),
+        Icon(Icons.calendar_month,
+            color: const Color(0xFF00C6B8), size: 20 * scale),
+        SizedBox(width: 8 * scale),
         Text(currentMonthName,
-            style: const TextStyle(
-                fontSize: 18,
+            style: TextStyle(
+                fontSize: 18 * scale,
                 color: Colors.black54,
-                fontWeight: FontWeight.w500)),
+                fontWeight: FontWeight.w600)),
       ],
     );
   }
 
-  Widget _buildHorizontalCalendar() {
+  Widget _buildHorizontalCalendar(double scale) {
     return SizedBox(
-      width: double.infinity,
-      height: 90,
+      height: 85 * scale,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: List.generate(dates.length, (index) {
@@ -418,14 +447,14 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
               onTap: () => setState(() => selectedDateIndex = index),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                margin: const EdgeInsets.symmetric(horizontal: 4),
+                margin: EdgeInsets.symmetric(horizontal: 3 * scale),
                 decoration: BoxDecoration(
                   gradient: isSelected
                       ? const LinearGradient(
                           colors: [Color(0xFF00E2C1), Color(0xFF00C6B8)])
                       : null,
                   color: isSelected ? null : Colors.white,
-                  borderRadius: BorderRadius.circular(15),
+                  borderRadius: BorderRadius.circular(15 * scale),
                   boxShadow: isSelected
                       ? null
                       : [
@@ -439,15 +468,15 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
                   children: [
                     Text(dates[index]['day']!,
                         style: TextStyle(
-                            fontSize: 18,
+                            fontSize: 16 * scale,
                             fontWeight: FontWeight.bold,
                             color: isSelected
                                 ? Colors.white
                                 : const Color(0xFF2D3142))),
-                    const SizedBox(height: 4),
+                    SizedBox(height: 2 * scale),
                     Text(dates[index]['weekDay']!,
                         style: TextStyle(
-                            fontSize: 10,
+                            fontSize: 11 * scale,
                             color:
                                 isSelected ? Colors.white70 : Colors.black45)),
                   ],
@@ -460,60 +489,67 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     );
   }
 
-  Widget _buildActivityStats() {
+  Widget _buildActivityStats(double scale) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      mainAxisAlignment: MainAxisAlignment.spaceAround,
       children: [
-        _buildStatCircle("Passi", "1.240", Icons.pets, Colors.orange),
-        _buildStatCircle("Km", "2.4", Icons.straighten, Colors.blue),
-        _buildStatCircle("Minuti", "45", Icons.timer, Colors.purple),
+        _buildStatCircle("Passi", "1.240", Icons.pets, Colors.orange, scale),
+        _buildStatCircle("Km", "2.4", Icons.straighten, Colors.blue, scale),
+        _buildStatCircle("Minuti", "45", Icons.timer, Colors.purple, scale),
       ],
     );
   }
 
   Widget _buildStatCircle(
-      String label, String value, IconData icon, Color color) {
+      String label, String value, IconData icon, Color color, double scale) {
+    double circleSize = 55 * scale;
     return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Container(
-          width: 65,
-          height: 65,
+          width: circleSize,
+          height: circleSize,
           decoration: BoxDecoration(
               color: color.withOpacity(0.1), shape: BoxShape.circle),
-          child: Icon(icon, color: color, size: 25),
+          child: Icon(icon, color: color, size: circleSize * 0.45),
         ),
-        const SizedBox(height: 10),
+        SizedBox(height: 8 * scale),
         Text(value,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            style:
+                TextStyle(fontWeight: FontWeight.bold, fontSize: 16 * scale)),
         Text(label,
-            style: const TextStyle(color: Colors.black38, fontSize: 13)),
+            style: TextStyle(color: Colors.black38, fontSize: 12 * scale)),
       ],
     );
   }
 
-  Widget _buildLoraInfoPanel(DateTime? ultimoInvio) {
+  Widget _buildLoraInfoPanel(DateTime? ultimoInvio, double scale) {
     final coloreStato = getColoreStato(ultimoInvio);
     final testoTempo = formattaUltimoAggiornamento(ultimoInvio);
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 500),
       width: double.infinity,
-      padding: const EdgeInsets.all(15),
+      padding:
+          EdgeInsets.symmetric(horizontal: 10 * scale, vertical: 15 * scale),
       decoration: BoxDecoration(
         color: coloreStato.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(15),
+        borderRadius: BorderRadius.circular(15 * scale),
         border: Border.all(color: coloreStato.withOpacity(0.3)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.sync, color: coloreStato, size: 18),
-          const SizedBox(width: 10),
+          Icon(Icons.sync, color: coloreStato, size: 18 * scale),
+          SizedBox(width: 8 * scale),
           Text(
             "Ultimo aggiornamento: $testoTempo",
+            textAlign: TextAlign.center,
             style: TextStyle(
-                color: coloreStato.withOpacity(0.8),
-                fontWeight: FontWeight.w600),
+              color: coloreStato.withOpacity(0.8),
+              fontWeight: FontWeight.w600,
+              fontSize: 13 * scale,
+            ),
           ),
         ],
       ),

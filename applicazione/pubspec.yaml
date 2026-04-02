@@ -40,6 +40,7 @@ dependencies:
   geolocator: ^14.0.2
   pocketbase: ^0.23.2
   flutter_dotenv: ^6.0.0
+  auto_size_text: ^3.0.0
 
 dev_dependencies:
   flutter_test:

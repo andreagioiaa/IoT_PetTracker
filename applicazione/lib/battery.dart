@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
-import 'dart:async'; // Serve per lo StreamSubscription
+import 'dart:async';
 import 'scambio.dart' as scambio;
 
 class BatteryScreen extends StatefulWidget {
@@ -11,7 +11,6 @@ class BatteryScreen extends StatefulWidget {
 }
 
 class _BatteryScreenState extends State<BatteryScreen> {
-  // Le nostre variabili di stato (addio FutureBuilder!)
   int? _currentBattery;
   bool _isLoading = true;
   StreamSubscription? _streamSubscription;
@@ -20,26 +19,25 @@ class _BatteryScreenState extends State<BatteryScreen> {
   void initState() {
     super.initState();
 
-    // 1. ACCENDIAMO L'ANTENNA IMMEDIATAMENTE!
     _streamSubscription = scambio.posizioneStream.listen((nuovoRecord) {
-      print('🔊 [BATTERY SCREEN] Leggo il pacchetto...');
+      debugPrint('🔊 [BATTERY SCREEN] Leggo il pacchetto...');
 
       try {
         final nuovaBatteria = nuovoRecord.getIntValue('battery');
-        print('🔋 [BATTERY SCREEN] Nuova batteria in diretta: $nuovaBatteria%');
+        debugPrint(
+            '🔋 [BATTERY SCREEN] Nuova batteria in diretta: $nuovaBatteria%');
 
         if (mounted) {
           setState(() {
-            _currentBattery = nuovaBatteria; // Aggiorna la variabile
-            _isLoading = false; // Ferma il caricamento
+            _currentBattery = nuovaBatteria;
+            _isLoading = false;
           });
         }
       } catch (e) {
-        print('❌ [BATTERY SCREEN] Errore lettura pacchetto: $e');
+        debugPrint('❌ [BATTERY SCREEN] Errore lettura pacchetto: $e');
       }
     });
 
-    // 2. SCARICHIAMO LA FOTOGRAFIA INIZIALE
     _scaricaDatoIniziale();
   }
 
@@ -55,154 +53,168 @@ class _BatteryScreenState extends State<BatteryScreen> {
 
   @override
   void dispose() {
-    // Spengiamo l'antenna quando usciamo dalla pagina
     _streamSubscription?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: _buildBody(),
+    return Scaffold(
+      backgroundColor: const Color(0xFFF7F8FA),
+      body: SafeArea(
+        child: _buildBody(context),
+      ),
     );
   }
 
-  // Sostituisce il FutureBuilder
-  Widget _buildBody() {
-    // 1. Stato di Caricamento
+  Widget _buildBody(BuildContext context) {
     if (_isLoading) {
       return const Center(
           child: CircularProgressIndicator(color: Color(0xFF00C6B8)));
     }
 
-    // 2. Stato di Errore
     if (_currentBattery == null) {
       return const Center(child: Text("Errore nel recupero dati batteria"));
     }
 
-    // 3. Dati Ricevuti
     final int batteryInt = _currentBattery!;
     final double batteryLevel = batteryInt / 100.0;
 
-    // --- LOGICA DINAMICA DEI COLORI E TESTI ---
     List<Color> ringColors;
     Color mainColor;
     String statusText;
 
     if (batteryInt <= 0) {
-      // Batteria morta
       ringColors = [Colors.red.shade900, Colors.red.shade700];
       mainColor = Colors.red;
       statusText = "Scarica";
     } else if (batteryInt <= 20) {
-      // Batteria in esaurimento (<= 20%)
       ringColors = [Colors.orange, Colors.redAccent];
       mainColor = Colors.redAccent;
       statusText = "In esaurimento";
     } else {
-      // Batteria ok (> 20%)
       ringColors = const [Color(0xFF00E2C1), Color(0xFF00C6B8)];
       mainColor = const Color(0xFF00C6B8);
       statusText = "Carica";
     }
 
-    // Calcolo stimato realistico
     double estimatedDays = (batteryInt / 100.0) * 7.0;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 25.0),
-      child: Column(
-        children: [
-          const SizedBox(height: 40),
-          const Text(
-            'Stato Batteria',
-            style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF2D3142)),
-          ),
-          const SizedBox(height: 40),
+    double screenHeight = MediaQuery.of(context).size.height;
+    double scale = (screenHeight / 800).clamp(0.7, 1.2);
 
-          // Anello di progresso batteria
-          SizedBox(
-            width: 220,
-            height: 220,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                GradientCircularProgress(
-                  percentage: batteryLevel,
-                  strokeWidth: 22,
-                  colors: ringColors,
-                ),
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      '$batteryInt%',
-                      style: TextStyle(
-                          fontSize: 54,
-                          fontWeight: FontWeight.bold,
-                          color: mainColor),
-                    ),
-                    Text(
-                      statusText,
-                      style: TextStyle(
-                          fontSize: 16,
-                          color: batteryInt <= 20 ? mainColor : Colors.black38,
-                          fontWeight: batteryInt <= 20
-                              ? FontWeight.bold
-                              : FontWeight.normal),
-                    ),
-                  ],
-                ),
-              ],
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 25.0 * scale),
+      child: Column(
+        // Cambiato in center per allineare tutto al centro
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          SizedBox(height: 20 * scale),
+
+          // 1. Titolo Centrato
+          Text(
+            'Stato Batteria',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                fontSize: 26 * scale, // Leggermente più piccolo per eleganza
+                fontWeight: FontWeight.bold,
+                color: const Color(0xFF2D3142)),
+          ),
+
+          const Spacer(flex: 2),
+
+          // 2. Anello di progresso batteria RIDOTTO
+          Center(
+            child: SizedBox(
+              width: 200 * scale, // Ridotto da 240 a 200
+              height: 200 * scale, // Ridotto da 240 a 200
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  GradientCircularProgress(
+                    percentage: batteryLevel,
+                    strokeWidth: 18 * scale, // Ridotto spessore
+                    colors: ringColors,
+                  ),
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        '$batteryInt%',
+                        style: TextStyle(
+                            fontSize: 50 * scale, // Ridotto da 60 a 50
+                            fontWeight: FontWeight.bold,
+                            color: mainColor),
+                      ),
+                      Text(
+                        statusText,
+                        style: TextStyle(
+                            fontSize: 16 * scale,
+                            color:
+                                batteryInt <= 20 ? mainColor : Colors.black38,
+                            fontWeight: batteryInt <= 20
+                                ? FontWeight.bold
+                                : FontWeight.normal),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
 
-          const SizedBox(height: 50),
+          const Spacer(flex: 2),
 
-          // Card Unica: Durata Stimata
+          // 3. Card Durata Stimata
           _buildBatteryDetailCard(
               Icons.access_time,
               "Durata Stimata",
               batteryInt <= 0
                   ? "Spento"
                   : "~ ${estimatedDays.toStringAsFixed(1)} giorni",
-              batteryInt <= 20 ? Colors.redAccent : Colors.blue),
+              batteryInt <= 20 ? Colors.redAccent : Colors.blue,
+              scale),
 
-          const SizedBox(height: 40),
+          const Spacer(flex: 2),
 
-          // Dettagli Tecnici
-          _buildTechDetail("Capacità Batteria", "3000 mAh", Icons.battery_full),
-          const SizedBox(height: 15),
-          _buildTechDetail("Consumo ad Invio", "~ ? mA", Icons.sensors),
-          const SizedBox(height: 15),
-          _buildTechDetail("Intervallo medio", "1 min", Icons.history),
+          // 4. Dettagli Tecnici
+          _buildTechDetail(
+              "Capacità Batteria", "3000 mAh", Icons.battery_full, scale),
+          SizedBox(height: 15 * scale),
+          _buildTechDetail("Consumo ad Invio", "~ ? mA", Icons.sensors, scale),
+          SizedBox(height: 15 * scale),
+          _buildTechDetail("Intervallo medio", "1 min", Icons.history, scale),
 
-          const SizedBox(height: 40),
+          const Spacer(flex: 2),
 
-          const Text(
-            "NOTA: La durata è stimata sul consumo dei dati inviati dal collare.",
-            textAlign: TextAlign.center,
-            style: TextStyle(
-                fontStyle: FontStyle.italic, color: Colors.grey, fontSize: 12),
+          // 5. Nota a piè di pagina abbreviata e rimpicciolita
+          Center(
+            child: Text(
+              "Nota Bene: Stima basata sui dati inviati dal dispositivo",
+              maxLines: 1, // Forza una riga sola
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  fontStyle: FontStyle.italic,
+                  color: Colors.grey,
+                  fontSize: 10.5 * scale), // Ridotto da 12 a 10.5
+            ),
           ),
-          const SizedBox(height: 20),
+
+          SizedBox(height: 15 * scale),
         ],
       ),
     );
   }
 
-  // --- WIDGET HELPER ---
-
   Widget _buildBatteryDetailCard(
-      IconData icon, String title, String subtitle, Color color) {
+      IconData icon, String title, String subtitle, Color color, double scale) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding:
+          EdgeInsets.symmetric(horizontal: 20 * scale, vertical: 16 * scale),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(22 * scale),
         boxShadow: [
           BoxShadow(
               color: Colors.black.withOpacity(0.04),
@@ -213,20 +225,24 @@ class _BatteryScreenState extends State<BatteryScreen> {
       child: Row(
         children: [
           CircleAvatar(
+            radius: 24 * scale,
             backgroundColor: color.withOpacity(0.1),
-            child: Icon(icon, color: color),
+            child: Icon(icon, color: color, size: 24 * scale),
           ),
-          const SizedBox(width: 20),
+          SizedBox(width: 20 * scale),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(title,
-                  style: const TextStyle(fontSize: 14, color: Colors.black45)),
+                  style:
+                      TextStyle(fontSize: 14 * scale, color: Colors.black45)),
+              SizedBox(height: 4 * scale),
               Text(subtitle,
-                  style: const TextStyle(
-                      fontSize: 16,
+                  style: TextStyle(
+                      fontSize: 18 * scale,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF2D3142))),
+                      color: const Color(0xFF2D3142))),
             ],
           ),
         ],
@@ -234,16 +250,18 @@ class _BatteryScreenState extends State<BatteryScreen> {
     );
   }
 
-  Widget _buildTechDetail(String title, String value, IconData icon) {
+  Widget _buildTechDetail(
+      String title, String value, IconData icon, double scale) {
     return Row(
       children: [
-        Icon(icon, color: Colors.black26, size: 20),
-        const SizedBox(width: 15),
+        Icon(icon, color: Colors.black26, size: 22 * scale),
+        SizedBox(width: 15 * scale),
         Text(title,
-            style: const TextStyle(color: Colors.black54, fontSize: 16)),
+            style: TextStyle(color: Colors.black54, fontSize: 16 * scale)),
         const Spacer(),
         Text(value,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            style:
+                TextStyle(fontWeight: FontWeight.bold, fontSize: 16 * scale)),
       ],
     );
   }
