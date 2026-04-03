@@ -2,6 +2,7 @@ import getpass
 import random
 import datetime
 from pocketbase import PocketBase
+from shapely.geometry import Polygon, Point
 
 def migration_v36():
     url = "https://harvey-chairless-shenna.ngrok-free.dev"
@@ -103,5 +104,37 @@ def migration_v36():
     except Exception as e:
         print(f"🛑 Errore critico: {e}")
 
+
+
+def ottieni_punto_interno(lista_coordinate):
+    """
+    Riceve una lista di coppie [lat, lon] e restituisce 
+    latitudine e longitudine del centroide.
+    """
+    # Creazione del poligono
+    poligono = Polygon(lista_coordinate)
+    
+    # Calcolo del centroide
+    centroide = poligono.centroid
+    
+    # Restituisce i valori come tuple (lat, lon)
+    return centroide.x, centroide.y
+
+# Le tue coordinate (Polo Rizzi, Udine)
+POLO_RIZZI = [
+    [46.08147551947162, 13.232251357284623],
+    [46.081259893824694, 13.232491324551358],
+    [46.08099280513446, 13.231519864018704],
+    [46.081265077440044, 13.231377872970903]
+]
+
+
+def crea_punto():
+    lat, lon = ottieni_punto_interno(POLO_RIZZI)
+    print(f"Latitudine: {lat}")
+    print(f"Longitudine: {lon}")
+
+
 if __name__ == "__main__":
-    migration_v36()
+    # migration_v36()
+    crea_punto()
