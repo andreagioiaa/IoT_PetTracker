@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'home.dart';
 import 'data/mock_data.dart';
+import 'scambio.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -47,57 +48,51 @@ class _AuthScreenState extends State<AuthScreen> {
     return null; // Nessun errore trovato
   }
 
-  void _submitForm() {
-    // Eseguiamo prima il controllo sintattico
+// Aggiungi una variabile per il caricamento
+  bool _isLoading = false;
+
+  void _submitForm() async { // Aggiunto async
     final error = _getValidationError();
 
     if (error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error),
-          backgroundColor: Colors.orange.shade800,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return; // Blocca l'esecuzione se c'è un errore
+      _showSnackBar(error, Colors.orange.shade800);
+      return;
     }
 
-    if (isLoginMode) {
-      // LOGICA DI LOGIN CON MOCK DATA (Controllo Logico)
-      final usernameInput = _usernameController.text.trim();
-      final passwordInput = _passwordController.text.trim();
+    setState(() => _isLoading = true);
 
-      bool isAuthenticated = registeredUsers.any((user) =>
-          user.name.toLowerCase() == usernameInput.toLowerCase() &&
-          user.password == passwordInput);
+    try {
+      if (isLoginMode) {
+        final emailInput = _usernameController.text.trim();
+        final passwordInput = _passwordController.text.trim();
 
-      if (isAuthenticated) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const PetTrackerNavigation()),
-        );
+        // CHIAMATA A POCKETBASE
+        bool isAuthenticated = await loginUtente(emailInput, passwordInput);
+
+        if (isAuthenticated) {
+          if (!mounted) return;
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const PetTrackerNavigation()),
+          );
+        } else {
+          _showSnackBar('Credenziali non valide o errore di connessione', Colors.red);
+        }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Nome utente e/o Password errati'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        // TODO: Implementare registrazione su PocketBase
+        _showSnackBar('Registrazione non ancora implementata su PB', Colors.blue);
       }
-    } else {
-      // LOGICA SIGN IN (Simulata)
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Registrazione completata! Effettua il login.'),
-          backgroundColor: Colors.green,
-        ),
-      );
-      setState(() {
-        isLoginMode = true;
-      });
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
+  // Helper per snellire il codice
+  void _showSnackBar(String message, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: color, behavior: SnackBarBehavior.floating),
+    );
+  }
   @override
   void dispose() {
     _usernameController.dispose();
@@ -223,3 +218,4 @@ class _AuthScreenState extends State<AuthScreen> {
     );
   }
 }
+

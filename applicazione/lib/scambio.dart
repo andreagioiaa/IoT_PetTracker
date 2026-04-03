@@ -115,3 +115,67 @@ Future<DateTime?> getUltimoTimestamp() async {
     return null;
   }
 }
+
+// Aggiungi questa funzione in scambio.dart
+
+Future<bool> loginUtente(String email, String password) async {
+  try {
+    // Nota: Uso 'user' perché è il nome della tua collezione nello screenshot
+    final authData = await pb.collection('user').authWithPassword(email, password);
+
+    if (pb.authStore.isValid) {
+      print('✅ Utente autenticato: ${pb.authStore.model.id}');
+      isReady = true; 
+      
+      // Avviamo lo stream per le posizioni una volta loggati
+      await avviaAscoltoInTempoReale();
+      return true;
+    }
+    return false;
+  } catch (e) {
+    print('❌ Errore Login PocketBase: $e');
+    return false;
+  }
+}
+
+
+/// Se non è loggato, restituisce una stringa di default.
+Future<String> getNomeUtente() async {
+  try {
+    // Verifichiamo se c'è un modello utente valido nell'authStore
+    if (pb.authStore.isValid && pb.authStore.model != null) {
+      // Usiamo getStringValue per estrarre il campo 'name'
+      final nome = pb.authStore.model!.getStringValue('name');
+      return nome.isNotEmpty ? nome : 'Utente';
+    }
+    return 'Ospite';
+  } catch (e) {
+    print('❌ Errore getNomeUtente: $e');
+    return 'Errore';
+  }
+}
+
+/// Recupera il cognome dell'utente loggato.
+Future<String> getCognomeUtente() async {
+  try {
+    if (pb.authStore.isValid && pb.authStore.model != null) {
+      // Estraiamo il campo 'surname'
+      final cognome = pb.authStore.model!.getStringValue('surname');
+      return cognome.isNotEmpty ? cognome : '';
+    }
+    return '';
+  } catch (e) {
+    print('❌ Errore getCognomeUtente: $e');
+    return 'Errore';
+  }
+}
+
+Future<String> getNomeCompleto() async {
+  // Aspettiamo i risultati di entrambi i Future
+  final nome = await getNomeUtente();
+  final cognome = await getCognomeUtente();
+
+  // Usiamo l'interpolazione di stringhe e .trim() 
+  // per evitare spazi doppi se il cognome è vuoto
+  return '$nome $cognome'.trim();
+}

@@ -41,7 +41,8 @@ class PetTrackerApp extends StatelessWidget {
       // Se l'autenticazione fallisce (es. ngrok spento), mostriamo un errore invece della Home
       home: !isAuthSuccessful
           ? _buildErrorScreen()
-          : (kDebugMode ? const PetTrackerNavigation() : const SplashScreen()),
+          : (kDebugMode ? const SplashScreen() : const SplashScreen()),
+          // : (kDebugMode ? const PetTrackerNavigation() : const SplashScreen()),
     );
   }
 
