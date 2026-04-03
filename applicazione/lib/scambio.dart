@@ -118,10 +118,14 @@ Future<DateTime?> getUltimoTimestamp() async {
 
 // Aggiungi questa funzione in scambio.dart
 
-Future<bool> loginUtente(String email, String password) async {
+/// Effettua il login utilizzando l'identità (Email o Username) e la Password.
+Future<bool> loginUtente(String identity, String password) async {
   try {
-    // Nota: Uso 'user' perché è il nome della tua collezione nello screenshot
-    final authData = await pb.collection('user').authWithPassword(email, password);
+    // PocketBase gestisce automaticamente sia email che username nel primo parametro
+    final authData = await pb.collection('user').authWithPassword(
+      identity.trim(), 
+      password.trim(),
+    );
 
     if (pb.authStore.isValid) {
       print('✅ Utente autenticato: ${pb.authStore.model.id}');
@@ -178,4 +182,55 @@ Future<String> getNomeCompleto() async {
   // Usiamo l'interpolazione di stringhe e .trim() 
   // per evitare spazi doppi se il cognome è vuoto
   return '$nome $cognome'.trim();
+}
+
+
+/// Aggiorna lo stato dell'allarme su PocketBase per l'utente corrente.
+Future<bool> setAllarme(bool nuovoStato) async {
+  try {
+    if (pb.authStore.isValid && pb.authStore.model != null) {
+      final userId = pb.authStore.model!.id;
+      
+      // Aggiorniamo il record nella collezione 'user'
+      await pb.collection('user').update(userId, body: {
+        'alarm': nuovoStato,
+      });
+      
+      print('✅ Allarme aggiornato su PB: $nuovoStato');
+      return true;
+    }
+    return false;
+  } catch (e) {
+    print('❌ Errore setAllarme: $e');
+    return false;
+  }
+}
+
+/// Restituisce lo stato dell'allarme. 
+/// Ritorna [true/false] se il dato è letto correttamente.
+/// Ritorna [null] se c'è un errore o l'utente non è autenticato.
+Future<bool?> getAllarme() async {
+  try {
+    // Verifichiamo l'autenticazione tramite l'authStore
+    if (pb.authStore.isValid && pb.authStore.model != null) {
+      
+      // 1. Recuperiamo il valore come booleano direttamente
+      // Nota: Assicurati che il campo si chiami 'alarm' su PocketBase
+      final record = pb.authStore.model!;
+      
+      // Verifichiamo se il campo esiste effettivamente nel modello caricato
+      if (!record.data.containsKey('alarm')) {
+        print('⚠️ Campo "alarm" non trovato nella collezione user');
+        return null; 
+      }
+
+      return record.getBoolValue('alarm');
+    }
+    
+    print('⚠️ Tentativo di lettura allarme senza sessione valida.');
+    return null; 
+  } catch (e) {
+    print('❌ Errore critico getAllarme: $e');
+    return null; // Qui capisci che è un errore di sistema
+  }
 }

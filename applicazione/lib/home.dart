@@ -191,6 +191,8 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     });
   }
 
+  
+
   @override
   void dispose() {
     _streamSubscription?.cancel();
@@ -198,7 +200,26 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     super.dispose();
   }
 
+  String _nomeCompleto = "Caricamento..."; // Sostituisce il placeholder
+
   Future<void> _scaricaDatiIniziali() async {
+    // 1. Recuperiamo nome e cognome
+    final nomeIniziale = await scambio.getNomeCompleto();
+    
+    // 2. Recuperiamo lo stato dell'allarme dal database
+    final statoAllarme = await scambio.getAllarme();
+
+    if (mounted) {
+      setState(() {
+        _nomeCompleto = nomeIniziale;
+        // Sincronizziamo il ValueNotifier globale con il database
+        if (statoAllarme != null) {
+          isTrackingMode.value = statoAllarme;
+        }
+      });
+    }
+
+    // Logica pre-esistente per timestamp e zona
     final tempoIniziale = await scambio.getUltimoTimestamp();
     final zonaIniziale = await _calculateCurrentZone();
 
@@ -345,11 +366,9 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
                   const Spacer(flex: 1),
 
                   Text('Bentornato,',
-                      style: TextStyle(
-                          fontSize: 16 * scale, color: Colors.black54)),
-                  Text('Alberto Angela',
-                      style: TextStyle(
-                          fontSize: 30 * scale, fontWeight: FontWeight.bold)),
+                      style: TextStyle(fontSize: 16 * scale, color: Colors.black54)),
+                  Text(_nomeCompleto, // <-- VARIABILE DINAMICA
+                      style: TextStyle(fontSize: 30 * scale, fontWeight: FontWeight.bold)),
 
                   const Spacer(flex: 2),
 
@@ -501,13 +520,26 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
                       color: isActive ? Colors.red : const Color(0xFF00C6B8))),
             ],
           ),
+          // All'interno di _buildTrackingToggle in home.dart
           Switch(
             value: isActive,
             activeColor: Colors.red,
-            inactiveThumbColor: const Color(0xFF00C6B8),
-            inactiveTrackColor: const Color(0xFF00C6B8).withOpacity(0.3),
-            onChanged: (val) {
+            onChanged: (val) async {
+              // 1. Aggiorniamo prima la UI locale per fluidità
               isTrackingMode.value = val;
+              
+              // 2. Inviato il comando a PocketBase
+              bool successo = await scambio.setAllarme(val);
+              
+              if (!successo) {
+                // Se il server fallisce, torniamo indietro e avvisiamo
+                isTrackingMode.value = !val;
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Errore sincronizzazione allarme"))
+                  );
+                }
+              }
             },
           ),
         ],
