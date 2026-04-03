@@ -1,35 +1,62 @@
+// SIGN_IN.dart
 import 'package:flutter/material.dart';
+import 'login.dart'; 
 import 'home.dart';
 import 'scambio.dart' as scambio;
-import 'sign_in.dart'; // Import necessario per la navigazione verso la registrazione
 
-class AuthScreen extends StatefulWidget {
-  const AuthScreen({super.key});
+class SignInScreen extends StatefulWidget {
+  const SignInScreen({super.key});
 
   @override
-  State<AuthScreen> createState() => _AuthScreenState();
+  State<SignInScreen> createState() => _SignInScreenState();
 }
 
-class _AuthScreenState extends State<AuthScreen> {
+class _SignInScreenState extends State<SignInScreen> {
   bool _isLoading = false;
 
-  // Controller essenziali per il login
-  final TextEditingController _usernameController = TextEditingController();
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _surnameController = TextEditingController();
+  final TextEditingController _usernameController = TextEditingController(); 
+  final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
-  // --- VALIDAZIONE SINTATTICA ---
+  // --- LOGICA DI VALIDAZIONE PASSWORD "KING" ---
   String? _getValidationError() {
+    final name = _nameController.text.trim();
+    final surname = _surnameController.text.trim();
     final username = _usernameController.text.trim();
+    final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
-    
-    if (username.isEmpty || password.isEmpty) {
-      return "Inserisci credenziali";
+
+    if (name.isEmpty || surname.isEmpty || username.isEmpty || email.isEmpty || password.isEmpty) {
+      return "Tutti i campi sono obbligatori.";
     }
+
+    // Email Regex (per non essere "mediocri" nella cattura dati)
+    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+    if (!emailRegex.hasMatch(email)) {
+      return "Inserisci un indirizzo email valido.";
+    }
+
+    // Password Validation:
+    // r'^
+    //  (?=.*[A-Z])       // almeno una maiuscola
+    //  (?=.*[a-z])       // almeno una minuscola
+    //  (?=.*\d)          // almeno un numero
+    //  (?=.*[@$!%*?&])   // almeno un carattere speciale
+    //  .{8,}             // almeno 8 caratteri
+    // $'
+    final passwordRegex = RegExp(r'^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$');
+
+    if (!passwordRegex.hasMatch(password)) {
+      return "La password deve avere almeno 8 caratteri, una maiuscola, un numero e un carattere speciale.";
+    }
+
     return null;
   }
 
-  void _submitForm() async {
-    final error = _getValidationError();
+  void _submitSignInForm() async {
+    final error = _getValidationError(); //
     if (error != null) {
       _showSnackBar(error, Colors.orange.shade800);
       return;
@@ -38,40 +65,72 @@ class _AuthScreenState extends State<AuthScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final identity = _usernameController.text.trim();
+      final name = _nameController.text.trim();
+      final surname = _surnameController.text.trim();
+      final username = _usernameController.text.trim();
+      final email = _emailController.text.trim();
       final password = _passwordController.text.trim();
 
-      // Chiamata a PocketBase definita in scambio.dart
-      bool auth = await scambio.loginUtente(identity, password);
-      
-      if (auth) {
-        if (!mounted) return;
-        // Navigazione alla Home in caso di successo
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const PetTrackerNavigation()),
-        );
+      // Registrazione su PocketBase
+      bool success = await scambio.registraUtente(
+        email, 
+        password, 
+        name, 
+        surname,
+        username, 
+      );
+
+      if (success) {
+        // Login Automatico
+        bool loggedIn = await scambio.loginUtente(email, password);
+
+        if (loggedIn) {
+          if (!mounted) return;
+          _showSnackBar('Account creato! Benvenuto.', const Color(0xFF00C6B8));
+          
+          // Pulizia controller per sicurezza prima della navigazione
+          _clearControllers();
+
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const PetTrackerNavigation()),
+          );
+        } else {
+          if (!mounted) return;
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const AuthScreen()),
+          );
+        }
       } else {
-        _showSnackBar('Accesso fallito. Controlla i dati.', Colors.red);
+        _showSnackBar('Errore: Email o Username potrebbero essere già in uso.', Colors.red);
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
+  void _clearControllers() {
+    _nameController.clear();
+    _surnameController.clear();
+    _usernameController.clear();
+    _emailController.clear();
+    _passwordController.clear();
+  }
+
   void _showSnackBar(String message, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message), 
-        backgroundColor: color, 
-        behavior: SnackBarBehavior.floating
-      ),
+      SnackBar(content: Text(message), backgroundColor: color, behavior: SnackBarBehavior.floating),
     );
   }
 
   @override
   void dispose() {
+    _clearControllers();
+    _nameController.dispose();
+    _surnameController.dispose();
     _usernameController.dispose();
+    _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -85,7 +144,6 @@ class _AuthScreenState extends State<AuthScreen> {
       backgroundColor: const Color(0xFFF7F8FA),
       body: Stack(
         children: [
-          // Decorazione Gradiente (In alto a destra)
           Positioned(
             top: -20,
             right: -20,
@@ -120,10 +178,9 @@ class _AuthScreenState extends State<AuthScreen> {
                         )),
                     ],
                   ),
-                  SizedBox(height: 60 * scale),
+                  SizedBox(height: 40 * scale),
                   
-                  // Titolo
-                  Text('Accedi ora',
+                  Text('Crea Account',
                       style: TextStyle(
                         fontSize: 34 * scale, 
                         fontWeight: FontWeight.bold, 
@@ -131,20 +188,33 @@ class _AuthScreenState extends State<AuthScreen> {
                         letterSpacing: -0.5
                       )),
                   
-                  SizedBox(height: 40 * scale),
+                  SizedBox(height: 30 * scale),
 
-                  // Campi Form
-                  _buildTextField(_usernameController, 'Email o Username', Icons.person_outline, scale),
-                  SizedBox(height: 15 * scale),
+                  _buildTextField(_nameController, 'Nome', Icons.badge_outlined, scale),
+                  SizedBox(height: 12 * scale),
+                  _buildTextField(_surnameController, 'Cognome', Icons.badge_outlined, scale),
+                  SizedBox(height: 12 * scale),
+                  _buildTextField(_usernameController, 'Username', Icons.alternate_email, scale),
+                  SizedBox(height: 12 * scale),
+                  _buildTextField(_emailController, 'Email', Icons.email_outlined, scale),
+                  SizedBox(height: 12 * scale),
                   _buildTextField(_passwordController, 'Password', Icons.lock_outline, scale, obscure: true),
                   
-                  SizedBox(height: 40 * scale),
+                  // Suggerimento visivo per l'utente (Opzionale ma utile)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8.0, left: 4.0),
+                    child: Text(
+                      "Min. 8 caratteri: A-z, 0-9, !@#\$%",
+                      style: TextStyle(fontSize: 10 * scale, color: Colors.black38),
+                    ),
+                  ),
 
-                  // Bottone Login
+                  SizedBox(height: 35 * scale),
+
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: _isLoading ? null : _submitForm,
+                      onPressed: _isLoading ? null : _submitSignInForm,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF00C6B8),
                         foregroundColor: Colors.white,
@@ -155,29 +225,27 @@ class _AuthScreenState extends State<AuthScreen> {
                       ),
                       child: _isLoading 
                         ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : const Text('ACCEDI', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        : const Text('REGISTRATI', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                     ),
                   ),
 
                   SizedBox(height: 20 * scale),
                   
-                  // Link per andare alla registrazione
                   Center(
                     child: TextButton(
                       onPressed: () {
-                        // Navigazione verso SignInScreen
                         Navigator.pushReplacement(
                           context,
-                          MaterialPageRoute(builder: (context) => const SignInScreen()),
+                          MaterialPageRoute(builder: (context) => const AuthScreen()),
                         );
                       },
                       child: RichText(
                         text: const TextSpan(
                           style: TextStyle(color: Colors.black54, fontSize: 14),
                           children: [
-                            TextSpan(text: "Non hai un account? "),
+                            TextSpan(text: "Hai già un account? "),
                             TextSpan(
-                              text: "Registrati",
+                              text: "Accedi",
                               style: TextStyle(color: Color(0xFF00C6B8), fontWeight: FontWeight.bold),
                             ),
                           ],

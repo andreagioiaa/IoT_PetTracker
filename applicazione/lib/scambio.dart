@@ -234,3 +234,26 @@ Future<bool?> getAllarme() async {
     return null; // Qui capisci che è un errore di sistema
   }
 }
+
+
+Future<bool> registraUtente(String email, String password, String name, String surname, String username) async {
+  try {
+    final body = {
+      'email': email,
+      'password': password,
+      'passwordConfirm': password,
+      'name': name,
+      'surname': surname,
+      'username': username,
+      'role': 'user',
+      'alarm': false,
+    };
+
+    await pb.collection('user').create(body: body);
+    print('✅ Utente registrato: $email');
+    return true;
+  } catch (e) {
+    print('❌ Errore Registrazione: $e');
+    return false;
+  }
+}
