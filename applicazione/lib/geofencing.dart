@@ -7,6 +7,7 @@ import 'package:geolocator/geolocator.dart';
 import 'dart:async';
 import 'scambio.dart' as scambio;
 import 'polygon_editor.dart';
+import 'home.dart';
 
 enum ActiveCard { none, zone, user, pet }
 
@@ -264,7 +265,11 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
       await scambio.pb.collection('geofences_test').update(id, body: {
         "is_active": newStatus,
       });
+
       await _caricaZoneDalDatabase();
+
+      geofenceUpdateSignal.value++;
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(newStatus ? "Area attivata." : "Area disattivata."),
@@ -878,6 +883,9 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                       .collection('geofences_test')
                       .delete(idDaEliminare);
                   await _caricaZoneDalDatabase();
+
+                  geofenceUpdateSignal.value++;
+
                   if (context.mounted) Navigator.of(context).pop();
                 } catch (e) {}
               },

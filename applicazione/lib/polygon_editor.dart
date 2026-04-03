@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'scambio.dart' as scambio;
+import 'home.dart';
 
 class PolygonEditorScreen extends StatefulWidget {
   final String? placeId;
@@ -245,6 +246,8 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
               content: Text("Perimetro salvato con successo!"),
               backgroundColor: Colors.green),
         );
+
+        geofenceUpdateSignal.value++;
 
         _isForceExiting = true;
         Navigator.pop(context, savedZoneId);

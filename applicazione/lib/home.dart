@@ -9,6 +9,9 @@ import 'scambio.dart' as scambio;
 // --- VARIABILE GLOBALE PER IL TASTO ALLARME ---
 final ValueNotifier<bool> isTrackingMode = ValueNotifier(false);
 
+// --- VARIABILE GLOBALE PER AGGIORNARE LE ZONE ---
+final ValueNotifier<int> geofenceUpdateSignal = ValueNotifier(0);
+
 class PetTrackerApp extends StatelessWidget {
   const PetTrackerApp({super.key});
 
@@ -146,6 +149,19 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
   void initState() {
     super.initState();
     _initializeDates();
+
+    // Ricalcola la zona se le impostazioni del geofencing vengono modificate
+    geofenceUpdateSignal.addListener(() async {
+      // Usa l'ultima posizione nota per ricalcolare
+      if (_ultimoAggiornamento != null) {
+        String nuovaZona = await _calculateCurrentZone();
+        if (mounted) {
+          setState(() {
+            _nomeZona = nuovaZona;
+          });
+        }
+      }
+    });
 
     _streamSubscription = scambio.posizioneStream.listen((nuovoRecord) async {
       try {
