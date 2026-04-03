@@ -3,8 +3,11 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_compass/flutter_compass.dart';
 import 'dart:async';
+import 'dart:math' as math;
 import 'scambio.dart' as scambio;
+import 'home.dart';
 
 class TrackingScreen extends StatefulWidget {
   const TrackingScreen({super.key});
@@ -24,19 +27,104 @@ class _TrackingScreenState extends State<TrackingScreen> {
 
   StreamSubscription? _petStreamSubscription;
   StreamSubscription<Position>? _userLocationStream;
+  StreamSubscription<CompassEvent>? _compassSubscription;
+
+  // Variabili per la bussola e stato
+  double? _directionToPet;
+  double? _phoneHeading;
+  bool _isSatellite = true;
+
+  // --- IL CUORE DEL CAMALEONTE: Il cane è al sicuro? ---
+  bool _isPetSafe =
+      true; // Di base assumiamo sia al sicuro finché non calcoliamo
 
   @override
   void initState() {
     super.initState();
     _inizializzaDati();
+    _inizializzaBussola();
+  }
+
+  void _inizializzaBussola() {
+    _compassSubscription = FlutterCompass.events?.listen((event) {
+      if (mounted && event.heading != null) {
+        setState(() {
+          _phoneHeading = event.heading;
+        });
+      }
+    });
+  }
+
+  // ALGORITMO PER CALCOLARE L'ANGOLO (BEARING)
+  void _ricalcolaDirezione() {
+    if (_userLocation == null || _petLocation == null) return;
+
+    final lat1 = _userLocation!.latitude * math.pi / 180;
+    final lon1 = _userLocation!.longitude * math.pi / 180;
+    final lat2 = _petLocation!.latitude * math.pi / 180;
+    final lon2 = _petLocation!.longitude * math.pi / 180;
+
+    final dLon = lon2 - lon1;
+
+    final y = math.sin(dLon) * math.cos(lat2);
+    final x = math.cos(lat1) * math.sin(lat2) -
+        math.sin(lat1) * math.cos(lat2) * math.cos(dLon);
+
+    double brng = math.atan2(y, x) * 180 / math.pi;
+    brng = (brng + 360) % 360;
+
+    setState(() {
+      _directionToPet = brng;
+    });
+  }
+
+  // --- ALGORITMO GEOMETRICO PER CAPIRE SE È DENTRO UNA ZONA ---
+  bool _isPointInPolygon(LatLng point, List<LatLng> polygon) {
+    bool isInside = false;
+    int i, j = polygon.length - 1;
+    for (i = 0; i < polygon.length; i++) {
+      if ((polygon[i].latitude > point.latitude) !=
+              (polygon[j].latitude > point.latitude) &&
+          point.longitude <
+              (polygon[j].longitude - polygon[i].longitude) *
+                      (point.latitude - polygon[i].latitude) /
+                      (polygon[j].latitude - polygon[i].latitude) +
+                  polygon[i].longitude) {
+        isInside = !isInside;
+      }
+      j = i;
+    }
+    return isInside;
+  }
+
+  // --- CONTROLLA LO STATO DI SICUREZZA ---
+  void _checkPetSafety() {
+    if (_petLocation == null) return;
+
+    // Se non ci sono zone attive salvate, vuol dire che è fuori da qualsiasi controllo
+    if (_savedZones.isEmpty) {
+      if (_isPetSafe != false) setState(() => _isPetSafe = false);
+      return;
+    }
+
+    bool safe = false;
+    for (var zone in _savedZones) {
+      if (_isPointInPolygon(_petLocation!, zone['vertices'])) {
+        safe = true;
+        break;
+      }
+    }
+
+    if (_isPetSafe != safe) {
+      setState(() => _isPetSafe = safe);
+    }
   }
 
   Future<void> _inizializzaDati() async {
-    // 1. Scarica le zone sicure per disegnarle sbiadite (effetto "zona vietata")
     try {
       final geoResult =
           await scambio.pb.collection('geofences_test').getFullList();
-      List<Map<String, dynamic>> zones = [];
+      List<Map<String, dynamic>> activeZones = [];
       for (var record in geoResult) {
         if (record.getBoolValue('is_active') == true) {
           List<LatLng> pts = [];
@@ -47,15 +135,14 @@ class _TrackingScreenState extends State<TrackingScreen> {
                   double.parse(pt[1].toString())));
             }
           }
-          if (pts.length >= 3) zones.add({'vertices': pts});
+          if (pts.length >= 3) activeZones.add({'vertices': pts});
         }
       }
-      if (mounted) setState(() => _savedZones = zones);
+      if (mounted) setState(() => _savedZones = activeZones);
     } catch (e) {
       debugPrint("Errore caricamento zone: $e");
     }
 
-    // 2. Prende l'ultima posizione nota per centrare subito la mappa
     try {
       final posResult = await scambio.pb
           .collection('positions_test')
@@ -67,7 +154,9 @@ class _TrackingScreenState extends State<TrackingScreen> {
           setState(() {
             _petLocation = LatLng(lat, lon);
             _history.add(_petLocation!);
+            _ricalcolaDirezione();
           });
+          _checkPetSafety(); // Controlla subito se è al sicuro
           _mapController.move(_petLocation!, 17.0);
         }
       }
@@ -75,7 +164,6 @@ class _TrackingScreenState extends State<TrackingScreen> {
       debugPrint("Errore ultima pos: $e");
     }
 
-    // 3. Si mette in ascolto sul TUBO in tempo reale!
     _petStreamSubscription = scambio.posizioneStream.listen((nuovoRecord) {
       try {
         final lat = nuovoRecord.getDoubleValue('lat');
@@ -85,18 +173,16 @@ class _TrackingScreenState extends State<TrackingScreen> {
         if (mounted) {
           setState(() {
             _petLocation = newPos;
-            // Aggiunge alla scia solo se si è mosso
             if (_history.isEmpty || _history.last != newPos) {
               _history.add(newPos);
             }
+            _ricalcolaDirezione();
           });
-          _mapController.move(
-              newPos, 17.0); // Segue il cane come una telecamera
+          _checkPetSafety(); // Controlla ogni volta che si muove!
         }
       } catch (e) {}
     });
 
-    // 4. Accende il GPS del telefono dell'utente per calcolare la distanza
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (serviceEnabled) {
       LocationPermission permission = await Geolocator.checkPermission();
@@ -109,6 +195,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
           if (mounted) {
             setState(() {
               _userLocation = LatLng(pos.latitude, pos.longitude);
+              _ricalcolaDirezione();
             });
           }
         });
@@ -120,10 +207,10 @@ class _TrackingScreenState extends State<TrackingScreen> {
   void dispose() {
     _petStreamSubscription?.cancel();
     _userLocationStream?.cancel();
+    _compassSubscription?.cancel();
     super.dispose();
   }
 
-  // --- MAGIA: APRE GOOGLE MAPS SUL TELEFONO ---
   Future<void> _apriNavigatore() async {
     if (_petLocation == null) return;
     final url = Uri.parse(
@@ -151,16 +238,41 @@ class _TrackingScreenState extends State<TrackingScreen> {
     return "A ${metri.toInt()} metri da te";
   }
 
+  Widget _miniFAB(IconData icon, Color color, VoidCallback onPressed,
+      bool isSmallScreen, String heroTag,
+      {Color iconColor = Colors.white}) {
+    return SizedBox(
+      width: isSmallScreen ? 40 : 48,
+      height: isSmallScreen ? 40 : 48,
+      child: FloatingActionButton(
+        heroTag: heroTag,
+        backgroundColor: color,
+        onPressed: onPressed,
+        child: Icon(icon, color: iconColor, size: isSmallScreen ? 20 : 24),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     double screenWidth = MediaQuery.of(context).size.width;
     double scale = (screenWidth / 400).clamp(0.75, 1.1);
+    final isSmallScreen = screenWidth < 360;
+
+    double compassRotation = 0.0;
+    if (_directionToPet != null && _phoneHeading != null) {
+      compassRotation = (_directionToPet! - _phoneHeading!) * (math.pi / 180);
+    }
+
+    // Colore primario adattivo per banner e UI, l'arancione resta fisso per il pet
+    final Color primaryColor =
+        _isPetSafe ? const Color(0xFF00C6B8) : Colors.red.shade900;
+    final Color petColor = Colors.orange; // Fisso!
 
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // --- 1. LA MAPPA SATELLITARE ---
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
@@ -168,56 +280,66 @@ class _TrackingScreenState extends State<TrackingScreen> {
               initialZoom: 17.0,
             ),
             children: [
-              // Satellitare di Google: perfetto per orientarsi al volo
               TileLayer(
-                urlTemplate:
-                    'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
+                urlTemplate: _isSatellite
+                    ? 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}'
+                    : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.example.pet_tracker',
               ),
-
-              // Disegna le tue "Aree Sicure" in grigio opaco per capire dove sono i confini
               PolygonLayer(
                 polygons: _savedZones.map((zone) {
                   return Polygon(
                     points: zone['vertices'],
-                    color: Colors.white.withOpacity(0.15),
-                    borderColor: Colors.white54,
-                    borderStrokeWidth: 2,
+                    color: const Color(0xFF00C6B8).withOpacity(0.3),
+                    borderColor: const Color(0xFF00C6B8),
+                    borderStrokeWidth: 3,
                   );
                 }).toList(),
               ),
-
-              // La Scia del percorso dell'animale
               if (_history.length > 1)
                 PolylineLayer(
                   polylines: [
                     Polyline(
                       points: _history,
-                      color: Colors.orangeAccent,
+                      color: petColor.withOpacity(0.8), // Scia arancione
                       strokeWidth: 5.0,
                     ),
                   ],
                 ),
-
-              // I Segnaposti (Io e il Cane)
               MarkerLayer(
                 markers: [
                   if (_userLocation != null)
                     Marker(
                       point: _userLocation!,
-                      width: 40,
-                      height: 40,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.blueAccent,
-                          border: Border.all(color: Colors.white, width: 3),
-                          boxShadow: const [
-                            BoxShadow(color: Colors.black54, blurRadius: 5)
-                          ],
-                        ),
-                        child: const Icon(Icons.person,
-                            color: Colors.white, size: 20),
+                      width: 60,
+                      height: 60,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Container(
+                            width: 30,
+                            height: 30,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.blue.withOpacity(0.3),
+                            ),
+                          ),
+                          Container(
+                            width: 15,
+                            height: 15,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.blue,
+                              border: Border.all(color: Colors.white, width: 2),
+                              boxShadow: const [
+                                BoxShadow(
+                                    color: Colors.black26,
+                                    blurRadius: 3,
+                                    offset: Offset(0, 2))
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   if (_petLocation != null)
@@ -233,15 +355,16 @@ class _TrackingScreenState extends State<TrackingScreen> {
                             height: 60,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: Colors.red.withOpacity(0.3),
+                              color:
+                                  petColor.withOpacity(0.3), // Sempre arancione
                             ),
                           ),
                           Container(
                             width: 30,
                             height: 30,
-                            decoration: const BoxDecoration(
+                            decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: Colors.redAccent,
+                              color: petColor, // Sempre arancione
                             ),
                             child: const Icon(Icons.pets,
                                 color: Colors.white, size: 18),
@@ -254,12 +377,13 @@ class _TrackingScreenState extends State<TrackingScreen> {
             ],
           ),
 
-          // --- 2. BANNER ROSSO IN ALTO ---
+          // --- BANNER IN ALTO ADATTIVO ---
           Positioned(
             top: 0,
             left: 0,
             right: 0,
-            child: Container(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 500),
               padding: EdgeInsets.only(
                   top: MediaQuery.of(context).padding.top + 15,
                   bottom: 20,
@@ -270,46 +394,92 @@ class _TrackingScreenState extends State<TrackingScreen> {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.red.shade900.withOpacity(0.9),
-                    Colors.red.shade900.withOpacity(0.0)
+                    primaryColor.withOpacity(0.9),
+                    primaryColor.withOpacity(0.0)
                   ],
                 ),
               ),
               child: Column(
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.warning_rounded,
-                          color: Colors.white, size: 30),
-                      const SizedBox(width: 10),
-                      Text("INSEGUIMENTO LIVE",
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 22 * scale,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 1.2)),
-                    ],
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                            _isPetSafe
+                                ? Icons.verified_user
+                                : Icons.warning_rounded,
+                            color: Colors.white,
+                            size: 28 * scale),
+                        SizedBox(width: 10 * scale),
+                        Text(_isPetSafe ? "MONITORAGGIO" : "INSEGUIMENTO",
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 24 * scale,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 1.5)),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 8),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 15, vertical: 6),
-                    decoration: BoxDecoration(
-                        color: Colors.black45,
-                        borderRadius: BorderRadius.circular(20)),
-                    child: Text(_calcolaTestoDistanza(),
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16 * scale,
-                            fontWeight: FontWeight.bold)),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 15, vertical: 8),
+                      decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(25),
+                          border: Border.all(color: Colors.white24)),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(_calcolaTestoDistanza(),
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16 * scale,
+                                  fontWeight: FontWeight.bold)),
+                          if (_directionToPet != null &&
+                              _phoneHeading != null) ...[
+                            SizedBox(width: 15 * scale),
+                            Container(
+                              width: 30 * scale,
+                              height: 30 * scale,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.white.withOpacity(0.1),
+                              ),
+                              child: Transform.rotate(
+                                angle: compassRotation,
+                                child: Icon(
+                                  Icons.navigation,
+                                  color: petColor, // Sempre arancione
+                                  size: 20 * scale,
+                                ),
+                              ),
+                            )
+                          ] else ...[
+                            SizedBox(width: 15 * scale),
+                            SizedBox(
+                              width: 15 * scale,
+                              height: 15 * scale,
+                              child: const CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white54,
+                              ),
+                            )
+                          ]
+                        ],
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
           ),
 
-          // --- 3. PANNELLO TASTI IN BASSO ---
+          // --- PANNELLO TASTI IN BASSO ---
           Positioned(
             bottom: 30,
             left: 20,
@@ -317,67 +487,82 @@ class _TrackingScreenState extends State<TrackingScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                // Tasto "Centra Mappa"
-                FloatingActionButton(
-                  heroTag: "centerPet",
-                  backgroundColor: Colors.white,
-                  onPressed: () {
-                    if (_petLocation != null) {
-                      _mapController.move(_petLocation!, 17.0);
-                    }
-                  },
-                  child: const Icon(Icons.my_location, color: Colors.red),
-                ),
-                const SizedBox(height: 15),
+                _miniFAB(Icons.pets, Colors.white, () {
+                  if (_petLocation != null) {
+                    _mapController.move(_petLocation!, 18.0);
+                  }
+                }, isSmallScreen, "trackLocatePet", iconColor: petColor),
+                const SizedBox(height: 10),
+                _miniFAB(Icons.smartphone, Colors.white, () {
+                  if (_userLocation != null) {
+                    _mapController.move(_userLocation!, 18.0);
+                  }
+                }, isSmallScreen, "trackLocateMe",
+                    iconColor: Colors.blueAccent),
+                const SizedBox(height: 10),
+                _miniFAB(
+                    _isSatellite ? Icons.map : Icons.satellite_alt,
+                    Colors.white,
+                    () => setState(() => _isSatellite = !_isSatellite),
+                    isSmallScreen,
+                    "trackMapSwitch",
+                    iconColor: const Color(0xFF00C6B8)),
+                const SizedBox(height: 20),
 
-                // Due super bottoni
-                Row(
-                  children: [
-                    // Tasto Apri Navigatore
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: Colors.blueAccent,
-                          padding: const EdgeInsets.symmetric(vertical: 15),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(15)),
-                          elevation: 10,
+                // --- BOTTONI DINAMICI ---
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  child: _isPetSafe
+                      ? const SizedBox.shrink(
+                          key: ValueKey(
+                              "SafeEmpty")) // <-- RIMOSSO IL TASTO QUI!
+                      : Row(
+                          key: const ValueKey("AlarmButtons"),
+                          children: [
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.white,
+                                  foregroundColor: Colors.blueAccent,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 15),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(15)),
+                                  elevation: 10,
+                                ),
+                                icon: const Icon(Icons.directions_run),
+                                label: Text("Portami Lì",
+                                    style: TextStyle(
+                                        fontSize: 14 * scale,
+                                        fontWeight: FontWeight.bold)),
+                                onPressed: _apriNavigatore,
+                              ),
+                            ),
+                            const SizedBox(width: 15),
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF00C6B8),
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 15),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(15)),
+                                  elevation: 10,
+                                ),
+                                icon: const Icon(Icons.check_circle_outline),
+                                label: Text("Trovato!",
+                                    style: TextStyle(
+                                        fontSize: 14 * scale,
+                                        fontWeight: FontWeight.bold)),
+                                onPressed: () async {
+                                  await scambio.setAllarme(false);
+                                  isTrackingMode.value = false;
+                                },
+                              ),
+                            ),
+                          ],
                         ),
-                        icon: const Icon(Icons.directions_run),
-                        label: Text("Portami Lì",
-                            style: TextStyle(
-                                fontSize: 14 * scale,
-                                fontWeight: FontWeight.bold)),
-                        onPressed: _apriNavigatore,
-                      ),
-                    ),
-                    const SizedBox(width: 15),
-
-                    // Tasto Chiudi Emergenza
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                              const Color(0xFF00C6B8), // Verde Acqua
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 15),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(15)),
-                          elevation: 10,
-                        ),
-                        icon: const Icon(Icons.check_circle_outline),
-                        label: Text("Trovato!",
-                            style: TextStyle(
-                                fontSize: 14 * scale,
-                                fontWeight: FontWeight.bold)),
-                        onPressed: () {
-                          // Chiude la pagina e torna alla Home!
-                          Navigator.pop(context);
-                        },
-                      ),
-                    ),
-                  ],
                 ),
               ],
             ),
