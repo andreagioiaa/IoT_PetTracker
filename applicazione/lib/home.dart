@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import 'battery.dart';
 import 'geofencing.dart';
-import 'tracking_screen.dart'; // <-- AGGIUNTO L'IMPORT DELLA NUOVA PAGINA
+import 'tracking_screen.dart'; // <-- LA TUA NUOVA PAGINA
 import 'dart:async';
 import 'scambio.dart' as scambio;
+
+// --- VARIABILE GLOBALE PER IL TASTO ALLARME ---
+final ValueNotifier<bool> isTrackingMode = ValueNotifier(false);
 
 class PetTrackerApp extends StatelessWidget {
   const PetTrackerApp({super.key});
@@ -68,18 +71,30 @@ class PetTrackerNavigation extends StatefulWidget {
 class _PetTrackerNavigationState extends State<PetTrackerNavigation> {
   int _currentIndex = 0;
 
-  final List<Widget> _screens = [
-    const PetTrackerDashboard(),
-    const GeofencingScreen(),
-    const BatteryScreen(),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    // Ascolta l'interruttore: se cambia, ricostruisce il menu in basso!
+    isTrackingMode.addListener(() {
+      if (mounted) setState(() {});
+    });
+  }
+
+  // Questa lista ora è "dinamica": cambia la pagina centrale in base al bottone!
+  List<Widget> get _currentScreens => [
+        const PetTrackerDashboard(),
+        isTrackingMode.value
+            ? const TrackingScreen()
+            : const GeofencingScreen(),
+        const BatteryScreen(),
+      ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex,
-        children: _screens,
+        children: _currentScreens,
       ),
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
@@ -313,7 +328,6 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
                 children: [
                   const Spacer(flex: 1),
 
-                  // 1. Intestazione Utente
                   Text('Bentornato,',
                       style: TextStyle(
                           fontSize: 16 * scale, color: Colors.black54)),
@@ -323,17 +337,48 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
 
                   const Spacer(flex: 2),
 
-                  // 2. Card Posizione
-                  _buildPositionCard(scale),
+                  // Qui usiamo il ValueListenableBuilder per ascoltare l'interruttore
+                  ValueListenableBuilder<bool>(
+                    valueListenable: isTrackingMode,
+                    builder: (context, isTracking, child) {
+                      String displayZone = _nomeZona;
+                      Color zoneColor = Colors.black;
+                      IconData locationIcon = Icons.location_on;
+
+                      // --- LA TUA LOGICA CUSTOM SULLA POSIZIONE ---
+                      if (_nomeZona == "Fuori zona sicura") {
+                        if (isTracking) {
+                          displayZone = "ALLARME: È USCITO!";
+                          zoneColor = Colors.red;
+                          locationIcon = Icons.warning_rounded;
+                        } else {
+                          displayZone = "In passeggiata";
+                          zoneColor =
+                              const Color(0xFF00C6B8); // O verde se preferisci
+                          locationIcon = Icons.directions_walk;
+                        }
+                      } else {
+                        // Se è dentro casa, colore normale
+                        zoneColor = Colors.black;
+                      }
+
+                      return Column(
+                        children: [
+                          _buildDynamicPositionCard(
+                              scale, displayZone, zoneColor, locationIcon),
+                          SizedBox(height: 15 * scale),
+                          _buildTrackingToggle(scale, isTracking),
+                        ],
+                      );
+                    },
+                  ),
 
                   const Spacer(flex: 2),
 
-                  // 3. Card Unificata Attività e Calendario
                   _buildUnifiedActivityCard(scale),
 
                   const Spacer(flex: 2),
 
-                  // 4. Pannello LoRaWAN
                   _buildLoraInfoPanel(_ultimoAggiornamento, scale),
 
                   const Spacer(flex: 1),
@@ -346,25 +391,17 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     );
   }
 
-  Widget _buildPositionCard(double scale) {
+  // Card posizione modificata per ricevere il testo "dinamico" calcolato sopra
+  Widget _buildDynamicPositionCard(
+      double scale, String displayZone, Color zoneColor, IconData icon) {
     return GestureDetector(
       onTap: () {
-        // --- LOGICA DI NAVIGAZIONE A BIVIO ---
-        if (_nomeZona == "Fuori zona sicura") {
-          // Apre a tutto schermo il nuovo file tracking_screen.dart
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const TrackingScreen(),
-            ),
-          );
-        } else {
-          // Cambia tab per andare alla Mappa Geofencing
-          final navState =
-              context.findAncestorStateOfType<_PetTrackerNavigationState>();
-          if (navState != null) {
-            navState.setState(() => navState._currentIndex = 1);
-          }
+        // Ora il bottone naviga SEMPRE alla tab 1 (Mappa).
+        // Ma siccome la tab 1 cambia in base al toggle, l'effetto è perfetto!
+        final navState =
+            context.findAncestorStateOfType<_PetTrackerNavigationState>();
+        if (navState != null) {
+          navState.setState(() => navState._currentIndex = 1);
         }
       },
       child: Container(
@@ -378,10 +415,10 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
         ),
         child: Row(
           children: [
-            Icon(Icons.location_on,
-                color: _nomeZona == "Fuori zona sicura"
-                    ? Colors.red
-                    : const Color(0xFF00C6B8),
+            Icon(icon,
+                color: zoneColor == Colors.black
+                    ? const Color(0xFF00C6B8)
+                    : zoneColor,
                 size: 36 * scale),
             SizedBox(width: 15 * scale),
             Expanded(
@@ -399,13 +436,11 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
                               fontWeight: FontWeight.bold,
                               fontSize: 16 * scale,
                               color: Colors.grey))
-                      : Text(_nomeZona,
+                      : Text(displayZone,
                           style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 16 * scale,
-                              color: _nomeZona == "Fuori zona sicura"
-                                  ? Colors.red
-                                  : Colors.black)),
+                              color: zoneColor)),
                 ],
               ),
             ),
@@ -413,6 +448,53 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
                 color: Colors.black12, size: 16 * scale),
           ],
         ),
+      ),
+    );
+  }
+
+  // --- IL TUO NUOVO TASTO ON/OFF ---
+  Widget _buildTrackingToggle(double scale, bool isActive) {
+    return Container(
+      padding:
+          EdgeInsets.symmetric(horizontal: 15 * scale, vertical: 5 * scale),
+      decoration: BoxDecoration(
+          color: isActive
+              ? Colors.red.withOpacity(0.08)
+              : const Color(0xFF00C6B8).withOpacity(0.08),
+          borderRadius: BorderRadius.circular(15 * scale),
+          border: Border.all(
+              color: isActive
+                  ? Colors.red.withOpacity(0.3)
+                  : const Color(0xFF00C6B8).withOpacity(0.3))),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Icon(isActive ? Icons.verified_user : Icons.remove_moderator,
+                  color: isActive ? Colors.red : const Color(0xFF00C6B8),
+                  size: 24 * scale),
+              SizedBox(width: 10 * scale),
+              Text(
+                  isActive
+                      ? "Allarme Antifuga ATTIVO"
+                      : "Allarme Antifuga SPENTO",
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14 * scale,
+                      color: isActive ? Colors.red : const Color(0xFF00C6B8))),
+            ],
+          ),
+          Switch(
+            value: isActive,
+            activeColor: Colors.red,
+            inactiveThumbColor: const Color(0xFF00C6B8),
+            inactiveTrackColor: const Color(0xFF00C6B8).withOpacity(0.3),
+            onChanged: (val) {
+              isTrackingMode.value = val;
+            },
+          ),
+        ],
       ),
     );
   }
@@ -434,7 +516,6 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Header Mese
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -451,8 +532,6 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
             ],
           ),
           SizedBox(height: 16 * scale),
-
-          // Calendario Orizzontale Compatto
           SizedBox(
             height: 70 * scale,
             child: Row(
@@ -474,7 +553,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          dates[index]['weekDay']![0], // Solo la prima lettera
+                          dates[index]['weekDay']![0],
                           style: TextStyle(
                             fontSize: 12 * scale,
                             color: isSelected ? Colors.white70 : Colors.black38,
@@ -496,13 +575,10 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
               }),
             ),
           ),
-
           Padding(
             padding: EdgeInsets.symmetric(vertical: 12 * scale),
             child: Divider(color: Colors.grey.withOpacity(0.1), thickness: 1),
           ),
-
-          // Statistiche contestuali al giorno selezionato
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
