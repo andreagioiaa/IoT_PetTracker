@@ -26,37 +26,65 @@ POLO_RIZZI = [
     [46.08099280513446, 13.231519864018704],
     [46.081265077440044, 13.231377872970903]
 ]
-POLIGONO_RIZZI = Polygon(POLO_RIZZI)
+
+CASA_ALESSIO = [
+  [
+    46.05220151354545,
+    12.6702283647513
+  ],
+  [
+    46.05212718776478,
+    12.67050773612082
+  ],
+  [
+    46.05208988155404,
+    12.670547207637034
+  ],
+  [
+    46.05194064799087,
+    12.670327885329279
+  ],
+  [
+    46.0521045941646,
+    12.670197692805758
+  ]
+]
+
+POLIGONO = Polygon(CASA_ALESSIO)
 
 # --- FUNZIONI DI SUPPORTO ---
 
 def check_interno(lat, lon):
     """Verifica se un punto è all'interno del Polo Rizzi."""
     punto = Point(lat, lon)
-    return POLIGONO_RIZZI.intersects(punto)
+    return POLIGONO.intersects(punto)
 
 def genera_punto_casuale_interno():
     """Genera un punto casuale rigorosamente dentro il perimetro."""
-    min_lat, min_lon, max_lat, max_lon = POLIGONO_RIZZI.bounds
+    min_lat, min_lon, max_lat, max_lon = POLIGONO.bounds
     while True:
         lat_gen = random.uniform(min_lat, max_lat)
         lon_gen = random.uniform(min_lon, max_lon)
         if check_interno(lat_gen, lon_gen):
-            print("Punto interno valido!\n")
+            # print("Punto interno valido!\n")
             return lat_gen, lon_gen
 
 # --- FUNZIONI PRINCIPALI ---
 
-def popolaDB_datiTestZoneInterni(target_collection="positions_test"):
+def popolaDB_datiTestZoneInterni(n_cicli = None, target_collection="positions_test"):
     """La tua funzione originale: genera punti sparsi internamente."""
     pb = PocketBase(URL)
     try:
         pb.admins.auth_with_password(EMAIL, PASSWORD)
         print(f"✅ [INTERNI] Autenticato come {EMAIL}.")
         
-        durata_totale = 5 * 60 
-        intervallo = 20         
-        cicli = durata_totale // intervallo
+        intervallo = 10
+        cicli = n_cicli
+
+        if(cicli == None):
+            durata_totale = 5 * 60     
+            cicli = durata_totale // intervallo
+        
         livello_batteria = random.randint(70, 95)
 
         for i in range(cicli):
@@ -83,19 +111,38 @@ def popolaDB_datiTestZoneInterni(target_collection="positions_test"):
     except Exception as e:
         print(f"🛑 Errore critico (Interni): {e}")
 
-def popolaDB_datiTestZoneEsterni(target_collection="positions_test"):
+
+def genera_punto_partenza_esterno():
+    """
+    Genera un punto di partenza casuale 'vicino' al Polo Rizzi.
+    Prende i confini del poligono e aggiunge un offset di circa 100-200 metri.
+    """
+    min_lat, min_lon, max_lat, max_lon = POLIGONO.bounds
+    # Espandiamo il raggio di ricerca (circa 0.002 gradi ~= 200m)
+    offset = 0.002
+    while True:
+        lat_gen = random.uniform(min_lat - offset, max_lat + offset)
+        lon_gen = random.uniform(min_lon - offset, max_lon + offset)
+        if not check_interno(lat_gen, lon_gen):
+            return lat_gen, lon_gen
+
+def popolaDB_datiTestZoneEsterni(n_cicli=None, target_collection="positions_test"):
     """Nuova funzione: simula un percorso reale (Random Walk) all'esterno."""
     pb = PocketBase(URL)
     try:
         pb.admins.auth_with_password(EMAIL, PASSWORD)
         print(f"✅ [ESTERNI] Autenticato come {EMAIL}.")
 
-        durata_totale = 5 * 60 
-        intervallo = 20         
-        cicli = durata_totale // intervallo
+        
+        intervallo = 10    
+        cicli = n_cicli 
+
+        if(cicli == None):
+            durata_totale = 5 * 60     
+            cicli = durata_totale // intervallo
         
         # Punto di partenza esterno (leggermente a Nord del Polo)
-        curr_lat, curr_lon = 46.0820, 13.2315
+        curr_lat, curr_lon = genera_punto_partenza_esterno()
         livello_batteria = random.randint(80, 99)
         step_size = 0.00012 # Circa 10-15 metri per simulare camminata
 
@@ -135,17 +182,30 @@ def popolaDB_datiTestZoneEsterni(target_collection="positions_test"):
     except Exception as e:
         print(f"🛑 Errore critico (Esterni): {e}")
 
+
+def percorsoMisto():
+    # numero_cicli=int(input("Numero cicli da eseguire: "))
+    popolaDB_datiTestZoneInterni(1)
+    popolaDB_datiTestZoneEsterni(2)
+    popolaDB_datiTestZoneInterni(2)
+
+    return
+
+
 if __name__ == "__main__":
     print("--- SIMULATORE POSIZIONI POCKETBASE ---")
-    print("1. Popola Interni (punti casuali nel Polo)")
-    print("2. Popola Esterni (percorso reale fuori dal Polo)")
-    scelta = input("Seleziona opzione (1/2): ")
-
+    print("1. Popola Interni (punti casuali nel POLIGONO)")
+    print("2. Popola Esterni (percorso reale fuori dal POLIGONO)")
+    print("3. Popola Mista (percorso reale misto: interno ed esterno al POLIGONO)")
+    scelta = input("Seleziona opzione (1/2/3): ")
+    
     if scelta == "1":
         popolaDB_datiTestZoneInterni()
         print("✨ Missione compiuta. Dati inviati con successo.")
     elif scelta == "2":
         popolaDB_datiTestZoneEsterni()
         print("✨ Missione compiuta. Dati inviati con successo.")
+    elif scelta == "3":
+        percorsoMisto()
     else:
         print("❌ Scelta non valida.")
