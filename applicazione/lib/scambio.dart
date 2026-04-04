@@ -6,6 +6,7 @@ import 'package:pet_tracker/login.dart';
 import 'package:pocketbase/pocketbase.dart';
 import 'dart:async';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'dart:typed_data';
 
 // --- NUOVA CLASSE PER LA PERSISTENZA SICURA ---
 class SecureAuthStore extends AuthStore {
@@ -333,3 +334,123 @@ void eseguiLogout(BuildContext context) {
     (route) => false,
   );
 }
+
+// Aggiungi queste funzioni in scambio.dart
+
+/// Aggiorna i dati anagrafici dell'utente
+Future<bool> aggiornaProfilo(String nuovoNome, String nuovoCognome) async {
+  try {
+    if (pb.authStore.isValid && pb.authStore.model != null) {
+      final userId = pb.authStore.model!.id;
+      await pb.collection('user').update(userId, body: {
+        'name': nuovoNome,
+        'surname': nuovoCognome,
+      });
+      print('✅ Profilo aggiornato: $nuovoNome $nuovoCognome');
+      return true;
+    }
+    return false;
+  } catch (e) {
+    print('❌ Errore aggiornaProfilo: $e');
+    return false;
+  }
+}
+
+/// Aggiorna la password dell'utente
+Future<bool> aggiornaPassword(String vecchiaPassword, String nuovaPassword) async {
+  try {
+    if (pb.authStore.isValid && pb.authStore.model != null) {
+      final userId = pb.authStore.model!.id;
+      
+      await pb.collection('user').update(userId, body: {
+        'oldPassword': vecchiaPassword, // <--- RICHIESTO DA POCKETBASE
+        'password': nuovaPassword,
+        'passwordConfirm': nuovaPassword,
+      });
+      
+      print('✅ Password aggiornata con successo');
+      return true;
+    }
+    return false;
+  } catch (e) {
+    // Stampiamo l'errore completo per debugging, ma restituiamo false
+    print('❌ Errore aggiornaPassword: $e');
+    return false;
+  }
+}
+
+
+
+/// Restituisce l'URL completo dell'avatar dell'utente loggato.
+String getAvatarUrl() {
+  if (pb.authStore.isValid && pb.authStore.model != null) {
+    final record = pb.authStore.model!;
+    final avatarName = record.getStringValue('avatar');
+    
+    if (avatarName.isEmpty) return "";
+
+    final baseUrl = pb.files.getUrl(record, avatarName).toString();
+    
+    // Aggiungiamo un timestamp per evitare che la cache di Flutter ci mostri dati vecchi
+    return "$baseUrl?t=${DateTime.now().millisecondsSinceEpoch}";
+  }
+  return "";
+}
+
+/// Carica un nuovo file avatar su PocketBase.
+Future<bool> aggiornaAvatar(Uint8List imageBytes, String fileName) async {
+  try {
+    if (pb.authStore.isValid && pb.authStore.model != null) {
+      final userId = pb.authStore.model!.id;
+      
+      await pb.collection('user').update(
+        userId,
+        files: [
+          http.MultipartFile.fromBytes(
+            'avatar',
+            imageBytes,
+            filename: fileName, // PocketBase ha bisogno di un nome file con estensione
+          ),
+        ],
+      );
+      return true;
+    }
+    return false;
+  } catch (e) {
+    print('❌ Errore aggiornaAvatar: $e');
+    return false;
+  }
+}
+
+/// Rimuove l'avatar dell'utente corrente su PocketBase.
+Future<bool> rimuoviAvatar() async {
+  try {
+    if (pb.authStore.isValid && pb.authStore.model != null) {
+      final userId = pb.authStore.model!.id;
+      
+      // Settando il campo avatar a null, PocketBase elimina il file fisico
+      await pb.collection('user').update(userId, body: {'avatar': null});
+      
+      print('🗑️ Avatar rimosso per l\'utente: $userId');
+      return true;
+    }
+    return false;
+  } catch (e) {
+    print('❌ Errore rimuoviAvatar: $e');
+    return false;
+  }
+}
+
+/*
+Future<bool> rimuoviAvatar() async {
+  try {
+    if (pb.authStore.isValid && pb.authStore.model != null) {
+      await pb.collection('user').update(pb.authStore.model!.id, body: {'avatar': null});
+      return true;
+    }
+    return false;
+  } catch (e) {
+    return false;
+  }
+}
+*/

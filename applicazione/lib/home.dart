@@ -5,6 +5,7 @@ import 'geofencing.dart';
 import 'tracking_screen.dart'; // <-- LA TUA NUOVA PAGINA
 import 'dart:async';
 import 'scambio.dart' as scambio;
+import 'settings.dart';
 
 // --- VARIABILE GLOBALE PER IL TASTO ALLARME ---
 final ValueNotifier<bool> isTrackingMode = ValueNotifier(false);
@@ -342,6 +343,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     return Scaffold(
       body: Stack(
         children: [
+          // Sfondo gradiente
           Positioned(
             top: 0,
             right: 0,
@@ -349,13 +351,31 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
               width: MediaQuery.of(context).size.width * 0.5,
               height: screenHeight * 0.18,
               decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                    colors: [Color(0xFF00E2C1), Color(0xFF00C6B8)]),
-                borderRadius:
-                    BorderRadius.only(bottomLeft: Radius.circular(100)),
+                gradient: LinearGradient(colors: [Color(0xFF00E2C1), Color(0xFF00C6B8)]),
+                borderRadius: BorderRadius.only(bottomLeft: Radius.circular(100)),
               ),
             ),
           ),
+          
+          // ⚙️ ICONA INGRANAGGIO (Posizionata sopra il gradiente)
+          Positioned(
+            top: 50 * scale,
+            right: 20 * scale,
+            child: IconButton(
+              icon: const Icon(Icons.settings, color: Colors.white, size: 28),
+              onPressed: () {
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true, // Necessario per l'altezza personalizzata
+                  backgroundColor: Colors.transparent, // Permette di vedere i bordi arrotondati
+                  builder: (context) => SettingsModal(
+                    onProfileUpdated: () => _scaricaDatiIniziali(),
+                  ),
+                );
+              },
+            ),
+          ),
+
           SafeArea(
             child: Padding(
               padding: EdgeInsets.symmetric(

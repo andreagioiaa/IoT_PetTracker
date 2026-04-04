@@ -46,6 +46,7 @@ dependencies:
   flutter_compass: ^0.8.1
   http: ^1.6.0
   latlong2: ^0.9.1
+  image_picker: ^1.2.1
 
 dev_dependencies:
   flutter_test:
