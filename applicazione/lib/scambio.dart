@@ -1,11 +1,56 @@
+import 'dart:convert'; // Necessario per jsonEncode/Decode
+import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
+import 'package:pet_tracker/login.dart';
 import 'package:pocketbase/pocketbase.dart';
 import 'dart:async';
-import 'package:flutter_dotenv/flutter_dotenv.dart'; // <-- NUOVO IMPORT
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
+// --- NUOVA CLASSE PER LA PERSISTENZA SICURA ---
+class SecureAuthStore extends AuthStore {
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  static const String _storageKey = "pb_auth";
+
+  Future<void> load() async {
+    final raw = await _storage.read(key: _storageKey);
+    if (raw != null) {
+      final Map<String, dynamic> decoded = jsonDecode(raw);
+      final String token = decoded["token"] ?? "";
+      final Map<String, dynamic>? modelMap = decoded["model"];
+
+      // 🛠️ FIX: Trasformiamo la mappa nel formato RecordModel richiesto
+      RecordModel? model;
+      if (modelMap != null) {
+        model = RecordModel.fromJson(modelMap);
+      }
+      
+      // Ora super.save riceve (String, RecordModel?) invece di (String, Map)
+      super.save(token, model);
+    }
+  }
+
+  @override
+  void save(String token, dynamic model) {
+    super.save(token, model);
+    // Quando salviamo, PocketBase passa già un RecordModel, 
+    // jsonEncode userà automaticamente il suo metodo .toJson()
+    final encoded = jsonEncode({"token": token, "model": model});
+    _storage.write(key: _storageKey, value: encoded);
+  }
+
+  @override
+  void clear() {
+    super.clear();
+    _storage.delete(key: _storageKey);
+  }
+}
+
+// Inizializziamo lo store prima del client
+final secureStore = SecureAuthStore();
 
 class NgrokClient extends http.BaseClient {
   final http.Client _inner = http.Client();
-
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) {
     request.headers['ngrok-skip-browser-warning'] = 'true';
@@ -13,10 +58,11 @@ class NgrokClient extends http.BaseClient {
   }
 }
 
-// 🔐 URL PRESO DAL FILE .ENV
+// 🔐 URL e STORE SICURO
 final pb = PocketBase(
   dotenv.env['PB_URL'] ?? 'URL_MANCANTE',
   httpClientFactory: () => NgrokClient(),
+  authStore: secureStore, // <-- IMPORTANTE: Colleghiamo lo store qui
 );
 
 bool isReady = false;
@@ -51,22 +97,32 @@ Future<void> avviaAscoltoInTempoReale() async {
 
 Future<bool> autenticazione() async {
   try {
-    print('🔑 Autenticazione Superuser in corso...');
+    // 1. Carichiamo i dati salvati (se esistono)
+    await secureStore.load();
 
-    // 🔐 RECUPERO CREDENZIALI DAL FILE .ENV IN MODO SICURO
-    final email = dotenv.env['PB_USER']!;
-    final password = dotenv.env['PB_PASS']!;
+    // 2. Verifichiamo se abbiamo già una sessione valida
+    if (pb.authStore.isValid) {
+      print('🔐 Sessione recuperata! Verifica validità in corso...');
+      try {
+        // Opzionale: rinfresca il token per essere sicuri che sia ancora valido sul server
+        await pb.collection('user').authRefresh();
+        print('✅ Sessione valida per: ${pb.authStore.model?.id}');
+        isReady = true;
+        await avviaAscoltoInTempoReale();
+        return true;
+      } catch (e) {
+        print('⚠️ Sessione scaduta o revocata, serve nuovo login.');
+        pb.authStore.clear();
+        return true; // Ritorniamo true perché il server è raggiungibile, ma l'app andrà al login
+      }
+    }
 
-    await pb.collection('_superusers').authWithPassword(email, password);
-
-    print('✅ Superuser autenticato: ${pb.authStore.model?.id}');
-    isReady = true;
-
-    await avviaAscoltoInTempoReale();
-
-    return true;
+    // 3. Se non c'è sessione, controlliamo solo se il server risponde (superuser check rimosso per sicurezza utente)
+    // Se vuoi mantenere il login automatico superuser (occhio ai rischi!), lascialo pure qui.
+    print('👤 Nessuna sessione trovata. Reindirizzamento al login.');
+    return true; 
   } catch (e) {
-    print('❌ Errore Auth: $e');
+    print('❌ Errore connessione Server: $e');
     return false;
   }
 }
@@ -256,4 +312,24 @@ Future<bool> registraUtente(String email, String password, String name, String s
     print('❌ Errore Registrazione: $e');
     return false;
   }
+}
+
+
+/// Esegue il logout completo, pulendo memoria e archivio sicuro.
+void eseguiLogout(BuildContext context) {
+  // 1. Pulizia fisica del token e del modello (RAM + SecureStorage)
+  pb.authStore.clear(); 
+  
+  // 2. Reset dello stato di prontezza dell'app
+  isReady = false; 
+  
+  print("✅ Sessione terminata correttamente alle ore ${DateTime.now().hour}:${DateTime.now().minute}");
+
+  // 3. Navigazione: "Svuota" lo stack delle pagine e torna al Login
+  // Questo impedisce all'utente di tornare indietro con il tasto 'back'
+  Navigator.pushAndRemoveUntil(
+    context,
+    MaterialPageRoute(builder: (context) => const AuthScreen()),
+    (route) => false,
+  );
 }

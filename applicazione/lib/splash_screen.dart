@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'login.dart'; // Importa il tuo file login
+import 'home.dart';
+import 'main.dart';
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
+  // Aggiungiamo questa variabile
+  final bool isAlreadyAuthenticated;
+
+  const SplashScreen({super.key, required this.isAlreadyAuthenticated});
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
@@ -18,9 +23,8 @@ class _SplashScreenState extends State<SplashScreen>
   void initState() {
     super.initState();
 
-    // 1. Configura l'animazione
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 1500), // Durata dello zoom
+      duration: const Duration(milliseconds: 1500),
       vsync: this,
     );
 
@@ -29,20 +33,23 @@ class _SplashScreenState extends State<SplashScreen>
       curve: Curves.easeInOut,
     );
 
-    // 2. Avvia l'animazione
     _controller.forward();
 
-    // 3. Timer per passare al Login dopo l'animazione
+    // 🕒 LOGICA DI NAVIGAZIONE INTELLIGENTE
     Timer(const Duration(seconds: 3), () {
       if (mounted) {
+        // Se l'utente è autenticato va alla Home, altrimenti al Login
+        Widget destination = widget.isAlreadyAuthenticated 
+            ? const PetTrackerNavigation() 
+            : const AuthScreen();
+
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const AuthScreen()),
+          MaterialPageRoute(builder: (context) => destination),
         );
       }
     });
   }
-
   @override
   void dispose() {
     _controller.dispose();

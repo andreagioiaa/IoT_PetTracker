@@ -36,13 +36,13 @@ class PetTrackerApp extends StatelessWidget {
       title: 'Pet Tracker',
       theme: ThemeData(
         primarySwatch: Colors.blue,
-        useMaterial3: true, // Ti consiglio di attivarlo per un look moderno
+        useMaterial3: true,
       ),
-      // Se l'autenticazione fallisce (es. ngrok spento), mostriamo un errore invece della Home
+      // Se il server non risponde, mostriamo l'errore. 
+      // Altrimenti carichiamo SEMPRE la SplashScreen.
       home: !isAuthSuccessful
           ? _buildErrorScreen()
-          : (kDebugMode ? const SplashScreen() : const SplashScreen()),
-          // : (kDebugMode ? const PetTrackerNavigation() : const SplashScreen()),
+          : SplashScreen(isAlreadyAuthenticated: scambio.pb.authStore.isValid),
     );
   }
 
