@@ -1,0 +1,66 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart'; // <-- 1. NUOVO IMPORT AGGIUNTO
+import 'splash_screen.dart';
+import 'home.dart';
+import 'scambio.dart' as scambio;
+
+void main() async {
+  // 1. Necessario per eseguire codice asincrono prima di runApp
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // 2. CARICHIAMO IL FILE SEGRETO PRIMA DI FARE QUALSIASI ALTRA COSA
+  print('🔐 Caricamento variabili d\'ambiente dal file .env...');
+  await dotenv.load(fileName: ".env");
+
+  print('🏁 Avvio sistema: inizializzazione PocketBase...');
+
+  // 3. Eseguiamo l'autenticazione PRIMA di caricare l'interfaccia.
+  // Questo garantisce che quando i widget verranno costruiti,
+  // il client PocketBase avrà già il token salvato e le credenziali lette.
+  bool isAuthenticated = await scambio.autenticazione();
+
+  // 4. Lanciamo l'app passando il risultato dell'autenticazione
+  runApp(PetTrackerApp(isAuthSuccessful: isAuthenticated));
+}
+
+class PetTrackerApp extends StatelessWidget {
+  final bool isAuthSuccessful;
+
+  const PetTrackerApp({super.key, required this.isAuthSuccessful});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'Pet Tracker',
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+        useMaterial3: true,
+      ),
+      // Se il server non risponde, mostriamo l'errore. 
+      // Altrimenti carichiamo SEMPRE la SplashScreen.
+      home: !isAuthSuccessful
+          ? _buildErrorScreen()
+          : SplashScreen(isAlreadyAuthenticated: scambio.pb.authStore.isValid),
+    );
+  }
+
+  // Una piccola schermata di emergenza se il server non risponde
+  Widget _buildErrorScreen() {
+    return const Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.cloud_off, size: 60, color: Colors.red),
+            SizedBox(height: 20),
+            Text('Impossibile connettersi al server.',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            Text('Controlla se il tunnel ngrok è attivo o i dati di accesso.'),
+          ],
+        ),
+      ),
+    );
+  }
+}
