@@ -21,6 +21,7 @@ class _SignInScreenState extends State<SignInScreen> {
   final TextEditingController _passwordController = TextEditingController();
 
   // --- LOGICA DI VALIDAZIONE PASSWORD "KING" ---
+  // --- LOGICA DI VALIDAZIONE AGGIORNATA ---
   String? _getValidationError() {
     final name = _nameController.text.trim();
     final surname = _surnameController.text.trim();
@@ -28,28 +29,33 @@ class _SignInScreenState extends State<SignInScreen> {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
+    // 1. Controllo campi vuoti
     if (name.isEmpty || surname.isEmpty || username.isEmpty || email.isEmpty || password.isEmpty) {
       return "Tutti i campi sono obbligatori.";
     }
 
-    // Email Regex (per non essere "mediocri" nella cattura dati)
+    // 2. Controllo lunghezze (Target: 30 per flessibilità)
+    if (name.length > 30) return "Il nome è troppo lungo (max 30 caratteri).";
+    if (surname.length > 30) return "Il cognome è troppo lungo (max 30 caratteri).";
+    
+    // Username tra 6 e 20 come da tua richiesta
+    if (username.length < 6 || username.length > 20) {
+      return "Lo username deve essere tra 6 e 20 caratteri.";
+    }
+
+    // 3. Email Regex
     final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
     if (!emailRegex.hasMatch(email)) {
       return "Inserisci un indirizzo email valido.";
     }
 
-    // Password Validation:
-    // r'^
-    //  (?=.*[A-Z])       // almeno una maiuscola
-    //  (?=.*[a-z])       // almeno una minuscola
-    //  (?=.*\d)          // almeno un numero
-    //  (?=.*[@$!%*?&])   // almeno un carattere speciale
-    //  .{8,}             // almeno 8 caratteri
-    // $'
-    final passwordRegex = RegExp(r'^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$');
+    // 4. Password Validation "Anti-Mediocrità"
+    // Ho espanso il set di caratteri speciali includendo la @ in modo più esplicito
+    // La sequenza [!@#\$%^&*(),.?":{}|<>] copre quasi tutto lo standard
+    final passwordRegex = RegExp(r'^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[!@#\$%^&*(),.?":{}|<>]).{8,}$');
 
     if (!passwordRegex.hasMatch(password)) {
-      return "La password deve avere almeno 8 caratteri, una maiuscola, un numero e un carattere speciale.";
+      return "La password richiede: 8+ caratteri, una maiuscola, un numero e un simbolo (es. @, !, #).";
     }
 
     return null;
@@ -204,7 +210,7 @@ class _SignInScreenState extends State<SignInScreen> {
                   Padding(
                     padding: const EdgeInsets.only(top: 8.0, left: 4.0),
                     child: Text(
-                      "Min. 8 caratteri: A-z, 0-9, !@#\$%",
+                      "Min. 8 caratteri: Maiuscola, Numero e Simbolo (es. @)",
                       style: TextStyle(fontSize: 10 * scale, color: Colors.black38),
                     ),
                   ),
