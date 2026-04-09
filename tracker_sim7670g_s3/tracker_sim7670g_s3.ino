@@ -1,163 +1,108 @@
-/*#include <HardwareSerial.h>
-
-#define MODEM_TX      11 
-#define MODEM_RX      10 
-#define MODEM_PWRKEY  18
-#define MODEM_POWERON  4 
-
-
-HardwareSerial modemSerial(1);
-
-unsigned long gpsStartTime = 0;
-bool fixRicevuto = false;
-
-void setup() {
-  Serial.begin(115200);
-  delay(1000);
-  Serial.println("\n--- GPS ATTIVO: FASE DI AGGANCIO ---");
-
-  pinMode(MODEM_POWERON, OUTPUT);
-  digitalWrite(MODEM_POWERON, HIGH); 
-  pinMode(MODEM_PWRKEY, OUTPUT);
-  
-  modemSerial.begin(115200, SERIAL_8N1, MODEM_RX, MODEM_TX);
-
-  digitalWrite(MODEM_PWRKEY, LOW);
-  delay(100);
-  digitalWrite(MODEM_PWRKEY, HIGH); 
-  delay(1000); 
-  digitalWrite(MODEM_PWRKEY, LOW);
-  delay(5000); 
-
-  sendAT("AT+CFUN=1");
-  sendAT("AT+CGNSSPWR=1");
-  sendAT("AT+CGNSSMODE=15");
-
-  // ATTIVA IL FLUSSO DATI NMEA
-  Serial.println("[!] Attivazione flusso NMEA... Vedrai scorrere i dati grezzi.");
-  modemSerial.println("AT+CGNSTST=1");
-  
-  gpsStartTime = millis(); // Avvia il timer dopo la configurazione
-  Serial.println("\n[!] Modem pronto. Mettiti all'aperto e attendi...");
-  Serial.println("[TIMER] Ricerca satellites avviata.\n");
-}
-
-void loop() {
-  modemSerial.println("AT+CGPSINFO");
-  
-  String resp = "";
-  unsigned long start = millis();
-  while (millis() - start < 1000) {
-    while (modemSerial.available()) {
-      resp += (char)modemSerial.read();
-    }
-  }
-
-  // Calcola tempo trascorso
-  unsigned long elapsed = millis() - gpsStartTime;
-  unsigned long secondi = (elapsed / 1000) % 60;
-  unsigned long minuti  = (elapsed / 60000) % 60;
-  unsigned long ore     = elapsed / 3600000;
-
-  char timerStr[20];
-  sprintf(timerStr, "[%02lu:%02lu:%02lu]", ore, minuti, secondi);
-
-  if (!fixRicevuto) {
-    if (resp.indexOf(",,,,,,,,") != -1) {
-      Serial.print(timerStr);
-      Serial.println(" In ascolto... (Ancora nessun satellite trovato)");
-    } else if (resp.indexOf("+CGPSINFO:") != -1) {
-      fixRicevuto = true;
-
-      Serial.println("\n>>> FIX RICEVUTO! <<<");
-      Serial.print(timerStr);
-      Serial.print(" Tempo per il primo fix: ");
-
-      if (ore > 0) {
-        Serial.print(ore);   Serial.print("h ");
-      }
-      if (minuti > 0) {
-        Serial.print(minuti); Serial.print("m ");
-      }
-      Serial.print(secondi); Serial.println("s");
-      Serial.println(resp);
-    }
-  } else {
-    // Dopo il fix, continua a stampare i dati senza spam del timer
-    if (resp.indexOf("+CGPSINFO:") != -1) {
-      Serial.print(timerStr);
-      Serial.println(" Aggiornamento GPS:");
-      Serial.println(resp);
-    }
-  }
-
-  delay(5000);
-}
-
-void sendAT(String cmd) {
-  modemSerial.println(cmd);
-  delay(500);
-  while(modemSerial.available()) {
-    Serial.write(modemSerial.read());
-  }
-}
-*/
-
 #include <HardwareSerial.h>
 
-#define PIN_PWRKEY  18
-#define PIN_EN      12  // Dalla tua immagine: EN 12
-#define PIN_MODEM_PWR  4 // Dalla tua immagine: ADC/04 (spesso usato come power enable)
-#define MODEM_TX    11
-#define MODEM_RX    10
+// --- PIN CONFIGURATION V1.1 ---
+#define MODEM_TX      11
+#define MODEM_RX      10
+#define MODEM_PWRKEY  18
+#define PIN_EN        12
+#define PIN_ADC_BAT    4
+#define BAT_ADC_EN    14 
 
-HardwareSerial modemSerial(1);
+// --- CONFIGURAZIONE SERVIZI ---
+const char* pb_url = "https://harvey-chairless-shenna.ngrok-free.dev/api/collections/positions/records";
+const char* apn    = "ibox.tim.it";
+
+HardwareSerial modem(1);
+
+String sendAT(const char* cmd, uint32_t waitMs = 1500) {
+  while (modem.available()) modem.read();
+  modem.println(cmd);
+  String resp = "";
+  unsigned long t = millis();
+  while (millis() - t < waitMs) {
+    while (modem.available()) resp += (char)modem.read();
+  }
+  resp.trim();
+  return resp;
+}
+
+float leggiBatteria() {
+  pinMode(BAT_ADC_EN, OUTPUT);
+  digitalWrite(BAT_ADC_EN, LOW); 
+  delay(50);
+  uint16_t raw = analogRead(PIN_ADC_BAT);
+  float voltage = ((float)raw / 4095.0) * 2.0 * 3.3 * 1.1;
+  digitalWrite(BAT_ADC_EN, HIGH); 
+  return (voltage < 2.0) ? 0.0 : voltage;
+}
+
+void inviaDati(float l_lat, float l_lon, float l_volt) {
+  // Nota: PocketBase accetta timestamp ISO8601. 
+  // Se non hai l'ora esatta, usiamo una data fittizia o la data del GPS se disponibile.
+  // Qui usiamo una stringa generica che PocketBase accetterà se il campo è String.
+  
+  String json = "{";
+  json += "\"lat\":" + String(l_lat, 6) + ",";
+  json += "\"lon\":" + String(l_lon, 6) + ",";
+  json += "\"battery\":" + String(l_volt, 2) + ",";
+  json += "\"timestamp\":\"2026-04-09 20:00:00.000Z\","; // Esempio ISO
+  json += "\"geo\":{\"lat\":" + String(l_lat, 6) + ",\"lon\":" + String(l_lon, 6) + "}";
+  json += "}";
+
+  Serial.println("\n[HTTP] Invio Body: " + json);
+  
+  sendAT("AT+HTTPINIT");
+  sendAT((String("AT+HTTPPARA=\"URL\",\"") + pb_url + "\"").c_str());
+  sendAT("AT+HTTPPARA=\"CONTENT\",\"application/json\"");
+  sendAT("AT+HTTPPARA=\"USERDATA\",\"ngrok-skip-browser-warning: 1\"");
+
+  String dataCmd = "AT+HTTPDATA=" + String(json.length()) + ",5000";
+  sendAT(dataCmd.c_str(), 500);
+  modem.print(json); 
+  delay(500);
+
+  String res = sendAT("AT+HTTPACTION=1", 8000);
+  Serial.println("[MODEM] Risposta: " + res);
+  
+  sendAT("AT+HTTPTERM");
+}
 
 void setup() {
   Serial.begin(115200);
-  delay(1000);
-  Serial.println("\n--- CONFIGURAZIONE HARDWARE LILYGO ---");
+  pinMode(PIN_EN, OUTPUT); digitalWrite(PIN_EN, HIGH);
+  pinMode(MODEM_PWRKEY, OUTPUT);
+  
+  // Accensione
+  digitalWrite(MODEM_PWRKEY, LOW);  delay(1000);
+  digitalWrite(MODEM_PWRKEY, HIGH); 
+  modem.begin(115200, SERIAL_8N1, MODEM_RX, MODEM_TX);
+  delay(5000);
 
-  // 1. ATTIVAZIONE ALIMENTAZIONE (Fondamentale per far reggere la batteria)
-  pinMode(PIN_EN, OUTPUT);
-  digitalWrite(PIN_EN, HIGH);    // Attiva il regolatore principale
+  // Rete TIM
+  sendAT((String("AT+CGDCONT=1,\"IP\",\"") + apn + "\"").c_str());
+  sendAT("AT+CNACT=0,1", 5000);
   
-  pinMode(PIN_MODEM_PWR, OUTPUT);
-  digitalWrite(PIN_MODEM_PWR, HIGH); // Alimenta il modulo SIM
-  
-  delay(500); // Lasciamo stabilizzare la corrente
-
-  // 2. ACCENSIONE MODEM (PWRKEY)
-  pinMode(PIN_PWRKEY, OUTPUT);
-  Serial.println("Accensione modem...");
-  digitalWrite(PIN_PWRKEY, LOW);
-  delay(1000); 
-  digitalWrite(PIN_PWRKEY, HIGH);
-  
-  modemSerial.begin(115200, SERIAL_8N1, MODEM_RX, MODEM_TX);
-  
-  Serial.println("Attesa 5 secondi per inizializzazione...");
-  delay(5000); 
-
-  Serial.println("Attivazione LNA (Amplificatore Antenna)...");
-modemSerial.println("AT+CVAUXS=1"); // Forza l'alimentazione all'antenna
-delay(500);
-
-Serial.println("Avvio GNSS...");
-modemSerial.println("AT+CGNSSPWR=1");
-delay(1000);
-  
-  Serial.println("Pronto! Ora scollega l'USB e vedi se resta accesa.");
+  // GPS
+  sendAT("AT+CGDRT=4,1");
+  sendAT("AT+CGSETV=4,1");
+  sendAT("AT+CGNSSPWR=1");
 }
 
 void loop() {
-  if (modemSerial.available()) Serial.write(modemSerial.read());
-  if (Serial.available()) modemSerial.write(Serial.read());
-  
-  // Chiedi info ogni 5 secondi
-  static unsigned long t = 0;
-  if (millis() - t > 5000) {
-    modemSerial.println("AT+CGNSSINFO");
-    t = millis();
+  float vBat = leggiBatteria();
+  String resp = sendAT("AT+CGNSSINFO", 1500);
+
+  if (resp.indexOf("+CGNSSINFO:") != -1 && resp.indexOf(",,,,") == -1) {
+    int pos = resp.indexOf(':');
+    for(int i = 0; i < 5; i++) pos = resp.indexOf(',', pos + 1);
+    int p6 = resp.indexOf(',', pos + 1);
+    int p7 = resp.indexOf(',', p6 + 1);
+    int p8 = resp.indexOf(',', p7 + 1);
+
+    float lat = resp.substring(pos + 1, p6).toFloat();
+    float lon = resp.substring(p7 + 1, p8).toFloat();
+
+    inviaDati(lat, lon, vBat);
   }
+  delay(20000);
 }
