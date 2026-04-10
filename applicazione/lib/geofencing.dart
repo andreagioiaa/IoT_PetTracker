@@ -33,9 +33,18 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
   // Variabile per capire se l'utente ha modificato l'indirizzo trovato dal GPS
   String _indirizzoPrecompilatoGps = "";
 
+  bool _hasLocationPermission = false;
+
+
   @override
   void initState() {
     super.initState();
+    // Ascolta il cambiamento globale dei permessi
+    hasLocationPermission.addListener(_onPermissionChanged);
+    
+    // Esegui un controllo iniziale
+    _checkPermissionAtStartup();
+    
     _caricaZoneDalDatabase();
 
     _streamSubscription = scambio.posizioneStream.listen((nuovoRecord) {
@@ -58,11 +67,31 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     _determinePosition();
   }
 
+  Future<void> _checkInitialPermission() async {
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (mounted) {
+      setState(() {
+        _hasLocationPermission = (permission == LocationPermission.always || 
+                                  permission == LocationPermission.whileInUse);
+      });
+    }
+  }
+
   @override
   void dispose() {
-    _activeCard.dispose();
-    _streamSubscription?.cancel();
+    // Rimuovi sempre il listener quando chiudi la pagina per evitare memory leak
+    hasLocationPermission.removeListener(_onPermissionChanged);
     super.dispose();
+  }
+
+  void _onPermissionChanged() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _checkPermissionAtStartup() async {
+    LocationPermission permission = await Geolocator.checkPermission();
+    hasLocationPermission.value = (permission == LocationPermission.always || 
+                                  permission == LocationPermission.whileInUse);
   }
 
   // ALGORITMO PER RILEVARE IL TOCCO DENTRO UN POLIGONO
@@ -84,6 +113,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     return isInside;
   }
 
+  // In geofencing.dart
   Future<void> _scaricaPosizioneInizialeAnimale() async {
     if (!scambio.isReady) await scambio.autenticazione();
 
@@ -94,17 +124,27 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
             sort: '-timestamp',
           );
 
-      if (result.items.isNotEmpty && mounted && _petLocation == null) {
+      if (result.items.isNotEmpty && mounted) {
         final lat = result.items.first.getDoubleValue('lat');
         final lon = result.items.first.getDoubleValue('lon');
+        final nuovaPosPet = LatLng(lat, lon);
+
         setState(() {
-          _petLocation = LatLng(lat, lon);
+          _petLocation = nuovaPosPet;
         });
+
+        // ✨ NOVITÀ: Se la posizione dell'utente è ancora nulla, 
+        // zoommiamo sull'animale non appena lo troviamo nel database
+        if (_myLocation == null) {
+          _mapController.move(nuovaPosPet, 18.0);
+          _activeCard.value = ActiveCard.pet;
+          _resolveAddress(nuovaPosPet, true);
+        }
       }
     } catch (e) {
       debugPrint("Errore recupero posizione iniziale pet: $e");
     }
-  }
+}
 
   Future<void> _caricaZoneDalDatabase({String? forceSelectId}) async {
     setState(() => isLoading = true);
@@ -294,22 +334,24 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
   bool isSatelliteMap = false;
   LatLng? _myLocation;
 
+  // In geofencing.dart
   Future<void> _determinePosition() async {
     try {
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) throw Exception('Servizi GPS disabilitati');
-
       LocationPermission permission = await Geolocator.checkPermission();
+      
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          throw Exception('Permessi negati');
-        }
-      }
-      if (permission == LocationPermission.deniedForever) {
-        throw Exception('Permessi negati permanentemente');
       }
 
+      if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
+        setState(() => _hasLocationPermission = true);
+      } else {
+        setState(() => _hasLocationPermission = false);
+        // Se l'utente ha negato, non procediamo oltre
+        return; 
+      }
+      
+      // Se arriviamo qui, i permessi ci sono
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.medium,
         timeLimit: const Duration(seconds: 10),
@@ -326,6 +368,13 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
       }
     } catch (e) {
       debugPrint("Errore geolocalizzazione: $e");
+      
+      // ✨ NOVITÀ: Se il GPS utente fallisce, proviamo a centrare sul PET
+      if (_petLocation != null && mounted) {
+        _mapController.move(_petLocation!, 18.0);
+        _activeCard.value = ActiveCard.pet;
+        _resolveAddress(_petLocation!, true);
+      }
     }
   }
 
@@ -904,10 +953,22 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     var currentPlace = hasPlaces ? savedPlaces[selectedPlaceIndex!] : null;
     bool isCurrentPlaceActive = currentPlace?['is_active'] ?? false;
 
+    // Calcolo dinamico del centro iniziale per evitare l'Italia intera
     LatLng initialCenter = const LatLng(41.8719, 12.5674);
-    if (_myLocation != null) {
+    double initialZoom = 6.0;
+
+    // Logica di Focus basata sulle impostazioni
+    if (mapFocusPreference.value == 'Dispositivo' && _myLocation != null) {
       initialCenter = _myLocation!;
-    } else if (hasPlaces) initialCenter = currentPlace!['center'];
+      initialZoom = 18.0;
+    } else if (mapFocusPreference.value == 'Animale' && _petLocation != null) {
+      initialCenter = _petLocation!;
+      initialZoom = 18.0;
+    } else if (_petLocation != null) {
+      // Fallback se il focus dispositivo è scelto ma il GPS non è pronto
+      initialCenter = _petLocation!;
+      initialZoom = 18.0;
+    }
 
     double screenWidth = MediaQuery.of(context).size.width;
     double scale = (screenWidth / 400).clamp(0.75, 1.1);
@@ -919,8 +980,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
             mapController: _mapController,
             options: MapOptions(
               initialCenter: initialCenter,
-              initialZoom:
-                  hasPlaces ? 18.0 : (_myLocation != null ? 16.0 : 6.0),
+              initialZoom: initialZoom,
               onTap: (tapPosition, point) {
                 for (int i = 0; i < savedPlaces.length; i++) {
                   List<LatLng> vertices =
@@ -1195,17 +1255,36 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                         FloatingActionButton.small(
                           heroTag: "locateMe",
                           onPressed: () async {
-                            if (_myLocation == null) await _determinePosition();
-                            if (_myLocation != null) {
-                              setState(() => selectedPlaceIndex = null);
-                              _mapController.move(_myLocation!, 18.0);
-                              _activeCard.value = ActiveCard.user;
-                              _resolveAddress(_myLocation!, false);
+                            if (!_hasLocationPermission) {
+                              // 1. Proviamo a richiederli se non sono stati negati permanentemente
+                              await _determinePosition();
+                              
+                              // 2. Se dopo il tentativo sono ancora negati, mostriamo l'avviso
+                              if (!_hasLocationPermission && mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text("Fornisci l'autorizzazione alla posizione nelle impostazioni per usare questa funzione."),
+                                    backgroundColor: Colors.grey,
+                                  ),
+                                );
+                              }
+                            } else {
+                              // Logica normale se abbiamo i permessi
+                              if (_myLocation == null) await _determinePosition();
+                              if (_myLocation != null) {
+                                setState(() => selectedPlaceIndex = null);
+                                _mapController.move(_myLocation!, 18.0);
+                                _activeCard.value = ActiveCard.user;
+                                _resolveAddress(_myLocation!, false);
+                              }
                             }
                           },
-                          backgroundColor: Colors.white,
-                          child: const Icon(Icons.smartphone,
-                              color: Colors.blueAccent),
+                          // ✨ CAMBIO COLORE DINAMICO
+                          backgroundColor: _hasLocationPermission ? Colors.white : Colors.grey[300],
+                          child: Icon(
+                            Icons.smartphone,
+                            color: _hasLocationPermission ? Colors.blueAccent : Colors.grey[600],
+                          ),
                         ),
                         SizedBox(height: 10 * scale),
                         FloatingActionButton.small(

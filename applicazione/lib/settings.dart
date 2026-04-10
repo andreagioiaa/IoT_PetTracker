@@ -1,7 +1,9 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:geolocator/geolocator.dart';
 import 'scambio.dart' as scambio;
+import 'home.dart'; // Per accedere a mapFocusPreference
 
 class SettingsModal extends StatefulWidget {
   final VoidCallback onProfileUpdated;
@@ -17,7 +19,6 @@ class _SettingsModalState extends State<SettingsModal> {
   final TextEditingController _surnameController = TextEditingController();
   final TextEditingController _usernameController = TextEditingController();
   
-  // Controller sicurezza
   final TextEditingController _currentPassController = TextEditingController();
   final TextEditingController _newPassController = TextEditingController();
   final TextEditingController _confirmPassController = TextEditingController();
@@ -29,6 +30,7 @@ class _SettingsModalState extends State<SettingsModal> {
   bool _isLoading = false;
   bool _isChangingPassword = false;
   bool _photoRemoved = false;
+  bool _hasLocationPermission = false; 
   String? _inlineErrorMessage;
 
   Uint8List? _imageBytes; 
@@ -43,6 +45,7 @@ class _SettingsModalState extends State<SettingsModal> {
     _nameController.text = scambio.pb.authStore.model?.getStringValue('name') ?? '';
     _surnameController.text = scambio.pb.authStore.model?.getStringValue('surname') ?? '';
     _usernameController.text = scambio.pb.authStore.model?.getStringValue('username') ?? '';
+    _checkPermissionStatus();
   }
 
   @override
@@ -56,9 +59,32 @@ class _SettingsModalState extends State<SettingsModal> {
     super.dispose();
   }
 
+  // All'interno di _SettingsModalState in settings.dart
+
+  Future<void> _checkPermissionStatus() async {
+    LocationPermission permission = await Geolocator.checkPermission();
+    // Aggiorniamo il ValueNotifier globale invece di una variabile locale
+    hasLocationPermission.value = (permission == LocationPermission.always || 
+                                  permission == LocationPermission.whileInUse);
+  }
+
+  Future<void> _handlePermissionRequest() async {
+    LocationPermission permission = await Geolocator.checkPermission();
+
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      await Geolocator.openAppSettings();
+    }
+
+    // Dopo la richiesta, aggiorniamo lo stato globale
+    await _checkPermissionStatus();
+  }
+
   bool _validateFields() {
     setState(() => _inlineErrorMessage = null);
-
     if (_isChangingPassword) {
       final attuale = _currentPassController.text.trim();
       final nuova = _newPassController.text.trim();
@@ -86,7 +112,6 @@ class _SettingsModalState extends State<SettingsModal> {
 
   void _salvaModifiche() async {
     if (!_validateFields()) return;
-
     setState(() => _isLoading = true);
     
     bool successAvatar = true;
@@ -103,19 +128,13 @@ class _SettingsModalState extends State<SettingsModal> {
 
     bool successPassword = true;
     if (_isChangingPassword) {
-      // Passiamo sia la vecchia che la nuova password
       successPassword = await scambio.aggiornaPassword(
         _currentPassController.text.trim(),
         _newPassController.text.trim()
       );
-      
-      if (!successPassword) {
-        setState(() => _inlineErrorMessage = "Password attuale errata o errore server.");
-      }
     }
 
     setState(() => _isLoading = false);
-
     if (successAnagrafica && successAvatar && successPassword) {
       widget.onProfileUpdated();
       if (mounted) Navigator.pop(context);
@@ -125,7 +144,7 @@ class _SettingsModalState extends State<SettingsModal> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: MediaQuery.of(context).size.height * 0.85,
+      height: MediaQuery.of(context).size.height * 0.9,
       padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 15),
       decoration: const BoxDecoration(
         color: Color(0xFFF7F8FA),
@@ -162,6 +181,12 @@ class _SettingsModalState extends State<SettingsModal> {
                   _buildTextField(_surnameController, "Cognome", Icons.badge_outlined),
                   
                   const SizedBox(height: 25),
+                  _buildPermissionsSection(),
+
+                  const SizedBox(height: 25),
+                  _buildMapPreferencesSection(), // ✨ NUOVA SEZIONE FOCUS
+
+                  const SizedBox(height: 25),
                   _buildPasswordSection(),
                   
                   const SizedBox(height: 40),
@@ -177,6 +202,90 @@ class _SettingsModalState extends State<SettingsModal> {
     );
   }
 
+  Widget _buildPermissionsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionLabel("PERMESSI APP"),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white, borderRadius: BorderRadius.circular(15),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                _hasLocationPermission ? Icons.location_on : Icons.location_off, 
+                color: _hasLocationPermission ? const Color(0xFF00C6B8) : Colors.redAccent,
+              ),
+              const SizedBox(width: 15),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text("Posizione GPS", style: TextStyle(fontWeight: FontWeight.bold)),
+                    Text(
+                      _hasLocationPermission ? "Autorizzato" : "Non autorizzato",
+                      style: const TextStyle(color: Colors.black38, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+              TextButton(
+                onPressed: _handlePermissionRequest, // <-- Usa il nuovo handler
+                child: const Text("GESTISCI", style: TextStyle(color: Color(0xFF00C6B8), fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMapPreferencesSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionLabel("PREFERENZE MAPPA"),
+        Container(
+          padding: const EdgeInsets.all(5),
+          decoration: BoxDecoration(
+            color: Colors.white, borderRadius: BorderRadius.circular(15),
+          ),
+          child: ValueListenableBuilder<String>(
+            valueListenable: mapFocusPreference,
+            builder: (context, focus, child) {
+              return Column(
+                children: [
+                  RadioListTile<String>(
+                    title: const Text("Focus su Animale", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                    subtitle: const Text("Zoom automatico sulla zampetta all'avvio", style: TextStyle(fontSize: 11)),
+                    value: 'Animale',
+                    groupValue: focus,
+                    activeColor: const Color(0xFF00C6B8),
+                    onChanged: (val) => mapFocusPreference.value = val!,
+                  ),
+                  const Divider(indent: 20, endIndent: 20, height: 1),
+                  RadioListTile<String>(
+                    title: const Text("Focus su Dispositivo", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                    subtitle: const Text("Zoom automatico sulla tua posizione", style: TextStyle(fontSize: 11)),
+                    value: 'Dispositivo',
+                    groupValue: focus,
+                    activeColor: const Color(0xFF00C6B8),
+                    onChanged: _hasLocationPermission 
+                        ? (val) => mapFocusPreference.value = val!
+                        : null, // Disabilitato se non ci sono permessi
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ... restanti widget (_buildAvatarPicker, _buildPasswordSection, ecc. rimangono uguali)
   Widget _buildAvatarPicker() {
     return Center(
       child: Stack(
