@@ -13,6 +13,12 @@ final ValueNotifier<bool> isTrackingMode = ValueNotifier(false);
 // --- VARIABILE GLOBALE PER AGGIORNARE LE ZONE ---
 final ValueNotifier<int> geofenceUpdateSignal = ValueNotifier(0);
 
+// --- VARIABILE GLOBALE PER ZONA DI ZOOM GEOFENCE PREFERITA ---
+final ValueNotifier<String> mapFocusPreference = ValueNotifier('Animale');
+
+// --- VARIABILE GLOBALE PER GESTIONE PERMESSI ---
+final ValueNotifier<bool> hasLocationPermission = ValueNotifier(false);
+
 class PetTrackerApp extends StatelessWidget {
   const PetTrackerApp({super.key});
 
