@@ -113,20 +113,17 @@ void loop() {
 
 
 */ 
-
 #include <HardwareSerial.h>
+#include "soc/usb_serial_jtag_reg.h"
 
 // --- PIN LILYGO T-SIM7670G-S3 ---
 #define MODEM_TX      11
 #define MODEM_RX      10
 #define MODEM_PWRKEY  18
+
 #define PIN_EN        12
 #define PIN_ADC_BAT   4
 #define BAT_ADC_EN    14
-
-#define BATTERY_DIVIDER 2.0f
-#define BATTERY_SAMPLES 10
-#define BAT_MIN_VOLTAGE 2.00f
 
 const char* pb_url = "https://harvey-chairless-shenna.ngrok-free.dev/api/collections/positions/records";
 const char* apn    = "ibox.tim.it";
@@ -139,12 +136,24 @@ struct BatInfo {
   bool  charging;
 };
 
-String sendAT(const char* cmd, uint32_t waitMs = 1500);
-int voltageToPercent(float v);
-BatInfo leggiBatteria();
-String getTimestamp();
-void inviaDati(float l_lat, float l_lon, const BatInfo& bat, const String& timestamp);
+// --- Ultimo stato valido (a batteria) ---
+float lastValidVoltage = 0.0f;
+int   lastValidPercent = -1;
 
+// --- Prototipi ---
+String  sendAT(const char* cmd, uint32_t waitMs = 1500);
+BatInfo leggiBatteria();
+String  getTimestamp();
+void    inviaDati(float l_lat, float l_lon, const BatInfo& bat, const String& timestamp);
+bool    isUsbConnected();
+
+// ─────────────────────────────────────────────
+bool isUsbConnected() {
+  return (READ_PERI_REG(USB_SERIAL_JTAG_EP1_CONF_REG) 
+          & USB_SERIAL_JTAG_SERIAL_IN_EP_DATA_FREE) != 0;
+}
+
+// ─────────────────────────────────────────────
 String sendAT(const char* cmd, uint32_t waitMs) {
   while (modem.available()) modem.read();
   modem.println(cmd);
@@ -157,72 +166,49 @@ String sendAT(const char* cmd, uint32_t waitMs) {
   return resp;
 }
 
-int voltageToPercent(float v) {
-  if (v >= 4.20f) return 100;
-  if (v >= 4.15f) return 97;
-  if (v >= 4.10f) return 92;
-  if (v >= 4.05f) return 87;
-  if (v >= 4.00f) return 80;
-  if (v >= 3.90f) return 70;
-  if (v >= 3.80f) return 60;
-  if (v >= 3.70f) return 50;
-  if (v >= 3.60f) return 35;
-  if (v >= 3.50f) return 18;
-  if (v >= 3.40f) return  8;
-  if (v >= 3.30f) return  3;
-  return 0;
-}
-
+// ─────────────────────────────────────────────
 BatInfo leggiBatteria() {
   BatInfo bat = {0.0f, 0, false};
-  
-  // 1. Attivazione Partitore di Tensione
-  pinMode(BAT_ADC_EN, OUTPUT);
-  digitalWrite(BAT_ADC_EN, HIGH);
-  delay(10); // Piccolo delay per stabilizzare la tensione
 
-  // 2. Lettura Tensione (Media filtrata)
-  uint32_t sum = 0;
-  for(int i=0; i<30; i++) {
-    sum += analogRead(PIN_ADC_BAT);
-    delay(1);
-  }
-  float adcAvg = sum / 30.0f;
-  // Calibrazione: 3.3V / 4095 * Partitore(2) * Fattore Correzione(1.1)
-  float vAdc = (adcAvg * 3.3f / 4095.0f) * 2.0f * 1.05f; 
-  digitalWrite(BAT_ADC_EN, LOW); // Risparmio energetico
+  // Stato USB
+  bat.charging = isUsbConnected();
 
-  // 3. Query al Modem per lo stato di ricarica
-  // AT+CBC restituisce: +CBC: <charging_state>,<capacity>,<voltage_mV>
-  // <charging_state>: 0=non in carica, 1=in carica, 2=carica completa
+  // Leggi AT+CBC — valore già in Volt (es. "+CBC: 3.749V")
   String res = sendAT("AT+CBC", 500);
-  int state = 0;
   float vModem = 0;
-
   int idx = res.indexOf("+CBC:");
   if (idx != -1) {
-    String data = res.substring(idx + 5);
-    int firstComma = data.indexOf(',');
-    int secondComma = data.indexOf(',', firstComma + 1);
-    
-    state = data.substring(0, firstComma).toInt();
-    vModem = data.substring(secondComma + 1).toFloat() / 1000.0f;
+    String val = res.substring(idx + 5);
+    val.trim();
+    val.replace("V", "");
+    val.trim();
+    vModem = val.toFloat();
   }
 
-  // 4. Logica Incrociata
-  // Se il modem dice che è in carica (1 o 2), o se la tensione è sospettosamente alta (>4.25V)
-  bat.charging = (state == 1 || state == 2 || vAdc > 4.30f);
-  
-  // Usiamo la tensione del modem se valida, altrimenti l'ADC dell'ESP32
-  bat.voltage = (vModem > 3.0f) ? vModem : vAdc;
-  bat.percent = voltageToPercent(bat.voltage);
-
-  Serial.printf("[BAT] V:%.2fV | Stato: %s | Perc: %d%%\n", 
-                bat.voltage, bat.charging ? "IN CARICA" : "SCARICA", bat.percent);
+  if (bat.charging) {
+    // USB collegata: AT+CBC non è affidabile (power path)
+    // Usa l'ultimo valore valido letto a batteria
+    bat.voltage = lastValidVoltage;
+    bat.percent = lastValidPercent;
+  } else {
+    // A batteria: lettura affidabile
+    if (vModem > 3.0f) {
+      bat.voltage = vModem;
+      bat.percent = constrain((int)((vModem - 3.4f) / (4.2f - 3.4f) * 100), 0, 100);
+      // Aggiorna l'ultimo valore valido
+      lastValidVoltage = bat.voltage;
+      lastValidPercent = bat.percent;
+    } else {
+      // Lettura non valida, usa ultimo noto
+      bat.voltage = lastValidVoltage;
+      bat.percent = lastValidPercent;
+    }
+  }
 
   return bat;
 }
 
+// ─────────────────────────────────────────────
 String getTimestamp() {
   String r = sendAT("AT+CCLK?", 1500);
   int q1 = r.indexOf('"'), q2 = r.lastIndexOf('"');
@@ -233,32 +219,35 @@ String getTimestamp() {
   if (hh >= 24) hh -= 24;
 
   String iso = "20";
-  iso += raw.substring(0,2); iso += "-";
-  iso += raw.substring(3,5); iso += "-";
-  iso += raw.substring(6,8); iso += "T";
-  iso += (hh<10?"0":""); iso += String(hh); iso += ":";
-  iso += raw.substring(12,14); iso += ":";
-  iso += raw.substring(15,17); iso += ".000Z";
-  
+  iso += raw.substring(0, 2); iso += "-";
+  iso += raw.substring(3, 5); iso += "-";
+  iso += raw.substring(6, 8); iso += "T";
+  iso += (hh < 10 ? "0" : ""); iso += String(hh); iso += ":";
+  iso += raw.substring(12, 14); iso += ":";
+  iso += raw.substring(15, 17); iso += ".000Z";
+
   return iso;
 }
 
+// ─────────────────────────────────────────────
 void inviaDati(float l_lat, float l_lon, const BatInfo& bat, const String& timestamp) {
-  // JSON su MULTIPLE linee (no errori sintassi)
   String json = "{";
-  json += "\"timestamp\":\""; json += timestamp; json += "\",";
-  json += "\"lat\":"; json += String(l_lat, 6); json += ",";
-  json += "\"lon\":"; json += String(l_lon, 6); json += ",";
-  json += "\"geo\":{\"lon\":"; json += String(l_lon, 6); json += ",";
-  json += "\"lat\":"; json += String(l_lat, 6); json += "},";
-  json += "\"battery\":"; json += String(bat.voltage, 2); json += ",";
-  json += "\"battery_percent\":"; json += String(bat.percent); json += ",";
-  json += "\"charging\":"; json += (bat.charging ? "true" : "false");
+  json += "\"timestamp\":\"";   json += timestamp;              json += "\",";
+  json += "\"lat\":";           json += String(l_lat, 6);       json += ",";
+  json += "\"lon\":";           json += String(l_lon, 6);       json += ",";
+  json += "\"geo\":{\"lon\":";  json += String(l_lon, 6);       json += ",";
+  json += "\"lat\":";           json += String(l_lat, 6);       json += "},";
+  json += "\"battery\":";
+  json += (bat.voltage > 0) ? String(bat.voltage, 2) : "null";
+  json += ",";
+  json += "\"battery_percent\":";
+  json += (bat.percent >= 0)  ? String(bat.percent)  : "null";
+  json += ",";
+  json += "\"charging\":";      json += (bat.charging ? "true" : "false");
   json += "}";
 
   Serial.println("[JSON] " + json);
-  
-  // HTTP
+
   sendAT("AT+HTTPINIT");
   sendAT(("AT+HTTPPARA=\"URL\",\"" + String(pb_url) + "\"").c_str());
   sendAT("AT+HTTPPARA=\"CONTENT\",\"application/json\"");
@@ -270,59 +259,64 @@ void inviaDati(float l_lat, float l_lon, const BatInfo& bat, const String& times
   delay(500);
 
   String res = sendAT("AT+HTTPACTION=1", 10000);
-  String body = sendAT("AT+HTTPREAD=0,512", 3000);
-  
+  sendAT("AT+HTTPREAD=0,512", 3000);
+
   Serial.print("[HTTP] "); Serial.println(res);
-  
-  // LINEA SEPARATORE FISSA (NO repeat!)
   Serial.println("----------------------------------------");
-  
+
   sendAT("AT+HTTPTERM");
 }
 
+// ─────────────────────────────────────────────
 void setup() {
   Serial.begin(115200);
   delay(2000);
-  
-  // Pin setup
-  pinMode(PIN_EN, OUTPUT); digitalWrite(PIN_EN, HIGH);
-  pinMode(BAT_ADC_EN, OUTPUT); digitalWrite(BAT_ADC_EN, LOW);
+
+  pinMode(PIN_EN, OUTPUT);
+  digitalWrite(PIN_EN, HIGH);
+
+  pinMode(BAT_ADC_EN, OUTPUT);
+  digitalWrite(BAT_ADC_EN, HIGH);
 
   analogSetAttenuation(ADC_11db);
 
   pinMode(MODEM_PWRKEY, OUTPUT);
-  
-  // Modem power
-  digitalWrite(MODEM_PWRKEY, LOW); delay(1000);
+  digitalWrite(MODEM_PWRKEY, LOW);  delay(1000);
   digitalWrite(MODEM_PWRKEY, HIGH); delay(3000);
-  
+
   modem.begin(115200, SERIAL_8N1, MODEM_RX, MODEM_TX);
   delay(2000);
-  
+
   Serial.println("=== PetTracker T-SIM7670G-S3 START ===");
-  
-  // Network + GPS
+
   sendAT(("AT+CGDCONT=1,\"IP\",\"" + String(apn) + "\"").c_str());
   sendAT("AT+CNACT=0,1", 15000);
   sendAT("AT+CGDRT=4,1");
   sendAT("AT+CGSETV=4,1");
   sendAT("AT+CGNSSPWR=1");
 
-  // BATTERIA
   Serial.println("=== TEST BATTERY MONITORING ===");
-  sendAT("AT+CBC=?");              // Test support
-  sendAT("AT+CVALARM=1,3400,4200"); // Enable alert 3.4-4.2V
-  sendAT("AT+CBATURC=1");           // URC ON
-  sendAT("AT+CBC");                 // Query iniziale
+  sendAT("AT+CVALARM=1,3400,4200");
+  sendAT("AT+CBC");
 }
 
+// ─────────────────────────────────────────────
 void loop() {
+
   BatInfo bat = leggiBatteria();
   
+  if (bat.charging) {
+    Serial.printf("[BAT] In carica | Ultimo noto: %s | %s%%\n",
+      bat.voltage > 0 ? String(bat.voltage, 2).c_str() : "n/d",
+      bat.percent >= 0 ? String(bat.percent).c_str() : "n/d");
+  } else {
+    Serial.printf("[BAT] %.2fV | %d%% | A batteria\n",
+      bat.voltage, bat.percent);
+  }
+
   String gps = sendAT("AT+CGNSSINFO", 1500);
   if (gps.indexOf("+CGNSSINFO:") != -1 && gps.indexOf(",,,,") == -1) {
-    
-    // Parse GPS NMEA
+
     int pos = gps.indexOf(':');
     for (int i = 0; i < 5; i++) pos = gps.indexOf(',', pos + 1);
     int p6 = gps.indexOf(',', pos + 1);
@@ -332,19 +326,19 @@ void loop() {
     float lat = gps.substring(pos + 1, p6).toFloat();
     float lon = gps.substring(p7 + 1, p8).toFloat();
 
-    if(lat != 0 && lon != 0) {
+    if (lat != 0 && lon != 0) {
       String ts = getTimestamp();
-      Serial.print("[GPS] "); 
-      Serial.print(lat,6); 
-      Serial.print(" "); 
-      Serial.println(lon,6);
+      Serial.print("[GPS] ");
+      Serial.print(lat, 6);
+      Serial.print(" ");
+      Serial.println(lon, 6);
       inviaDati(lat, lon, bat, ts);
     }
   } else {
     Serial.println("[GPS] No fix - wait...");
   }
-  
-  delay(20000);
+
+  delay(30000);
 }
 
 /*
@@ -375,7 +369,7 @@ struct GpsInfo {
   float  lat;
   float  lon;
   float  alt;
-  bool   valid;
+  bool   valid; 
   String timestamp;
 };
 
