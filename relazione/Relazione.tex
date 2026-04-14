@@ -2,6 +2,11 @@
 \usepackage[utf8]{inputenc}
 \usepackage{hyperref}
 \usepackage[italian]{babel}
+
+\addto\captionsitalian{%
+  \renewcommand{\abstractname}{Abstract}%
+}
+
 \usepackage{subcaption}
 \usepackage{graphicx}
 \usepackage{fancyhdr}
@@ -78,10 +83,65 @@
     Mattia Nadal,  167372\hfill 167372@spes.uniud.it \\
 	Francesco Sabot, 167339  \hfill 167339@spes.uniud.it
     \end{flushleft}
-    
+
 \end{titlepage}
+
+\begin{abstract}
+    Il progetto Pet-Tracker nasce con l'obiettivo di realizzare un sistema di localizzazione GPS in tempo reale per animali domestici di media taglia, 
+    in grado di trasmettere la posizione, lo stato della batteria ed il numero di passi verso un server remoto accessibile tramite internet, e di 
+    visualizzare tali dati attraverso un'applicazione dedicata.
+\end{abstract}
 
 \tableofcontents
 
+\newpage
+
+\section{Architettura del sistema}
+L'architettura del sistema Pet-Tracker è progettata secondo un modello end-to-end che garantisce la persistenza dei dati e la loro disponibilità in tempo reale. 
+Il sistema si articola su quattro livelli funzionali distinti, interconnessi attraverso protocolli di comunicazione sicuri:
+
+\subsection{Livello di Acquisizione (Hardware)}
+Il cuore tecnologico del dispositivo indossabile è la scheda LiLyGo T-SIM7670G-S3. Questo modulo integra un microcontrollore ad alte prestazioni con connettività LTE e ricevitore GPS. 
+Il firmware a bordo gestisce:
+\begin{itemize}
+    \item Il campionamento delle coordinate geografiche.
+    \item Il monitoraggio dello stato della batteria.
+    \item L'elaborazione dei dati dell'accelerometro per il conteggio dei passi.
+\end{itemize}
+
+\subsection{Livello di Trasporto e Accesso Remoto (Rete)}
+La trasmissione dei dati avviene tramite protocollo HTTPS POST, sfruttando la rete cellulare (APN Very Mobile). 
+Per ovviare alle problematiche di indirizzamento IP pubblico del server locale, il sistema utilizza un tunnel Ngrok. 
+Questo permette di esporre in modo sicuro il backend ospitato su un PC locale verso internet, garantendo che il dispositivo LiLyGo 
+possa raggiungere l'endpoint di ricezione ovunque sia presente copertura di rete.
+
+\subsection{Livello di Persistenza e Servizi (Backend)}
+Il centro nevralgico del backend è basato su PocketBase, una soluzione open-source che combina un database embedded (SQLite) con un'interfaccia API REST pronta all'uso.
+\begin{itemize}
+    \item Gestione Dati: PocketBase riceve le richieste HTTPS dal dispositivo e memorizza le telemetrie.
+    \item Sicurezza e Monitoring: L'integrità del sistema è garantita da un sistema di backup periodico su BlackBase e da un monitoraggio costante tramite UptimeRobot, che segnala eventuali interruzioni del servizio.
+\end{itemize}
+
+\subsection{Livello di Fruizione (Frontend e App)}
+L'utente interagisce con il sistema attraverso un'applicazione mobile dedicata. L'app non comunica direttamente con l'hardware, ma interroga le API di PocketBase per:
+\begin{itemize}
+    \item Visualizzare la posizione attuale del pet su una mappa interattiva.
+    \item Consultare lo storico dei passi e lo stato della batteria.
+    \item Ricevere aggiornamenti tempestivi tramite il disaccoppiamento garantito dall'architettura client-server.
+\end{itemize}
+
+\section{Hardware}
+
+\section{Firmware: Logica di funzionamento}
+
+\section{Connettività e Accesso Remoto}
+
+\section{Back-end e Database}
+
+\section{Front-end e Applicazione Mobile}
+
+\section{Test e Risultati}
+
+\section{Conclusioni}
 
 \end{document}
