@@ -1,55 +1,79 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'scambio.dart' as scambio;
-import 'home.dart'; // Per accedere a mapFocusPreference
+import 'home.dart';
 
-class SettingsModal extends StatefulWidget {
+class SettingsScreen extends StatefulWidget {
   final VoidCallback onProfileUpdated;
 
-  const SettingsModal({super.key, required this.onProfileUpdated});
+  const SettingsScreen({super.key, required this.onProfileUpdated});
 
   @override
-  State<SettingsModal> createState() => _SettingsModalState();
+  State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsModalState extends State<SettingsModal> {
+class _SettingsScreenState extends State<SettingsScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _surnameController = TextEditingController();
   final TextEditingController _usernameController = TextEditingController();
-  
+
   final TextEditingController _currentPassController = TextEditingController();
   final TextEditingController _newPassController = TextEditingController();
   final TextEditingController _confirmPassController = TextEditingController();
-  
+
   bool _obscureCurrent = true;
   bool _obscureNew = true;
   bool _obscureConfirm = true;
 
   bool _isLoading = false;
   bool _isChangingPassword = false;
-  bool _photoRemoved = false;
-  bool _hasLocationPermission = false; 
   String? _inlineErrorMessage;
 
-  Uint8List? _imageBytes; 
-  String? _imageName; 
-  final ImagePicker _picker = ImagePicker();
+  final RegExp _passwordRegex = RegExp(
+      r'^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$');
 
-  final RegExp _passwordRegex = RegExp(r'^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$');
+  // Variabili per tracciare le modifiche (Dirty Check)
+  late String _initialName;
+  late String _initialSurname;
+  late String _initialMapFocus;
+  late String _currentMapFocus;
+  bool _isDirty = false;
 
   @override
   void initState() {
     super.initState();
-    _nameController.text = scambio.pb.authStore.model?.getStringValue('name') ?? '';
-    _surnameController.text = scambio.pb.authStore.model?.getStringValue('surname') ?? '';
-    _usernameController.text = scambio.pb.authStore.model?.getStringValue('username') ?? '';
+
+    // Inizializzazione dati profilo
+    _initialName = scambio.pb.authStore.model?.getStringValue('name') ?? '';
+    _initialSurname =
+        scambio.pb.authStore.model?.getStringValue('surname') ?? '';
+    _nameController.text = _initialName;
+    _surnameController.text = _initialSurname;
+    _usernameController.text =
+        scambio.pb.authStore.model?.getStringValue('username') ?? '';
+
+    // Inizializzazione preferenze mappa (Locali alla pagina)
+    _initialMapFocus = mapFocusPreference.value;
+    _currentMapFocus = _initialMapFocus;
+
+    // Listener per rilevare modifiche in tempo reale
+    _nameController.addListener(_checkChanges);
+    _surnameController.addListener(_checkChanges);
+    _currentPassController.addListener(_checkChanges);
+    _newPassController.addListener(_checkChanges);
+    _confirmPassController.addListener(_checkChanges);
+
     _checkPermissionStatus();
   }
 
   @override
   void dispose() {
+    _nameController.removeListener(_checkChanges);
+    _surnameController.removeListener(_checkChanges);
+    _currentPassController.removeListener(_checkChanges);
+    _newPassController.removeListener(_checkChanges);
+    _confirmPassController.removeListener(_checkChanges);
+
     _nameController.dispose();
     _surnameController.dispose();
     _usernameController.dispose();
@@ -59,30 +83,95 @@ class _SettingsModalState extends State<SettingsModal> {
     super.dispose();
   }
 
-  // All'interno di _SettingsModalState in settings.dart
+  // --- LOGICA DI CONTROLLO MODIFICHE ---
+  void _checkChanges() {
+    final nameChanged = _nameController.text.trim() != _initialName;
+    final surnameChanged = _surnameController.text.trim() != _initialSurname;
+    final passwordEntered = _currentPassController.text.isNotEmpty ||
+        _newPassController.text.isNotEmpty ||
+        _confirmPassController.text.isNotEmpty;
+    final mapFocusChanged = _currentMapFocus != _initialMapFocus;
 
-  Future<void> _checkPermissionStatus() async {
-    LocationPermission permission = await Geolocator.checkPermission();
-    // Aggiorniamo il ValueNotifier globale invece di una variabile locale
-    hasLocationPermission.value = (permission == LocationPermission.always || 
-                                  permission == LocationPermission.whileInUse);
+    final isNowDirty =
+        nameChanged || surnameChanged || passwordEntered || mapFocusChanged;
+
+    if (isNowDirty != _isDirty) {
+      setState(() => _isDirty = isNowDirty);
+    }
   }
 
-  Future<void> _handlePermissionRequest() async {
+  // --- POP-UP DI AVVISO USCITA ---
+  void _handleBackPress() async {
+    if (!_isDirty) {
+      Navigator.pop(context);
+      return;
+    }
+
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Modifiche non salvate"),
+        content: const Text(
+            "Se esci ora, le modifiche apportate andranno perse. Vuoi uscire?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child:
+                const Text("ANNULLA", style: TextStyle(color: Colors.black54)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text("ESCI",
+                style:
+                    TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      setState(() => _isDirty = false);
+      if (mounted) Navigator.pop(context);
+    }
+  }
+
+  // --- GESTIONE PERMESSI GPS ---
+  Future<void> _checkPermissionStatus() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    LocationPermission permission = await Geolocator.checkPermission();
+
+    bool hasGrant = (permission == LocationPermission.always ||
+        permission == LocationPermission.whileInUse);
+    hasLocationPermission.value = serviceEnabled && hasGrant;
+
+    // Se i permessi vengono revocati mentre si è sulla pagina, resetta il focus su Animale
+    if (!hasLocationPermission.value && _currentMapFocus == 'Dispositivo') {
+      setState(() {
+        _currentMapFocus = 'Animale';
+        _checkChanges();
+      });
+    }
+  }
+
+  Future<void> _togglePermission() async {
     LocationPermission permission = await Geolocator.checkPermission();
 
     if (permission == LocationPermission.denied) {
+      // Se negati, li chiediamo
       permission = await Geolocator.requestPermission();
-    }
-
-    if (permission == LocationPermission.deniedForever) {
+    } else if (permission == LocationPermission.deniedForever ||
+        permission == LocationPermission.always ||
+        permission == LocationPermission.whileInUse) {
+      // Se sono già concessi (o negati per sempre), l'unico modo per
+      // "modificarli" davvero è mandare l'utente nelle impostazioni del telefono
       await Geolocator.openAppSettings();
     }
 
-    // Dopo la richiesta, aggiorniamo lo stato globale
+    // Dopo il ritorno dalle impostazioni o dalla scelta, aggiorniamo la lampadina
     await _checkPermissionStatus();
   }
 
+  // --- VALIDAZIONE E SALVATAGGIO ---
   bool _validateFields() {
     setState(() => _inlineErrorMessage = null);
     if (_isChangingPassword) {
@@ -91,19 +180,15 @@ class _SettingsModalState extends State<SettingsModal> {
       final conferma = _confirmPassController.text.trim();
 
       if (attuale.isEmpty || nuova.isEmpty || conferma.isEmpty) {
-        setState(() => _inlineErrorMessage = "Tutti i campi password sono obbligatori.");
-        return false;
-      }
-      if (nuova == attuale) {
-        setState(() => _inlineErrorMessage = "La nuova password deve essere diversa.");
+        setState(() => _inlineErrorMessage = "Campi password obbligatori.");
         return false;
       }
       if (nuova != conferma) {
-        setState(() => _inlineErrorMessage = "Le nuove password non coincidono.");
+        setState(() => _inlineErrorMessage = "Le password non coincidono.");
         return false;
       }
       if (!_passwordRegex.hasMatch(nuova)) {
-        setState(() => _inlineErrorMessage = "8+ car., maiuscola, numero e speciale.");
+        setState(() => _inlineErrorMessage = "Password troppo debole.");
         return false;
       }
     }
@@ -113,13 +198,6 @@ class _SettingsModalState extends State<SettingsModal> {
   void _salvaModifiche() async {
     if (!_validateFields()) return;
     setState(() => _isLoading = true);
-    
-    bool successAvatar = true;
-    if (_photoRemoved) {
-      successAvatar = await scambio.rimuoviAvatar();
-    } else if (_imageBytes != null && _imageName != null) {
-      successAvatar = await scambio.aggiornaAvatar(_imageBytes!, _imageName!);
-    }
 
     bool successAnagrafica = await scambio.aggiornaProfilo(
       _nameController.text.trim(),
@@ -129,199 +207,255 @@ class _SettingsModalState extends State<SettingsModal> {
     bool successPassword = true;
     if (_isChangingPassword) {
       successPassword = await scambio.aggiornaPassword(
-        _currentPassController.text.trim(),
-        _newPassController.text.trim()
-      );
+          _currentPassController.text.trim(), _newPassController.text.trim());
     }
 
     setState(() => _isLoading = false);
-    if (successAnagrafica && successAvatar && successPassword) {
+    if (successAnagrafica && successPassword) {
+      // Applica la scelta mappa alla variabile globale solo ora
+      mapFocusPreference.value = _currentMapFocus;
+
       widget.onProfileUpdated();
+      setState(() => _isDirty = false);
       if (mounted) Navigator.pop(context);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.9,
-      padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 15),
-      decoration: const BoxDecoration(
-        color: Color(0xFFF7F8FA),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-      ),
-      child: Column(
-        children: [
-          Container(width: 40, height: 5, decoration: BoxDecoration(color: Colors.black12, borderRadius: BorderRadius.circular(10))),
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text("Impostazioni", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-              IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close_rounded)),
-            ],
+    double screenHeight = MediaQuery.of(context).size.height;
+    double scale = (screenHeight / 800).clamp(0.7, 1.2);
+
+    return PopScope(
+      canPop: !_isDirty,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        _handleBackPress();
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF7F8FA),
+        appBar: AppBar(
+          backgroundColor: const Color(0xFFF7F8FA),
+          elevation: 0,
+          centerTitle: true,
+          title: Text("Impostazioni",
+              style:
+                  TextStyle(fontWeight: FontWeight.bold, fontSize: 22 * scale)),
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back_ios_new_rounded, size: 24 * scale),
+            onPressed: _handleBackPress,
           ),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom + 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 15),
-                  _buildAvatarPicker(),
-                  const SizedBox(height: 35),
-                  
-                  _buildSectionLabel("ACCOUNT"),
-                  _buildTextField(_usernameController, "Username", Icons.alternate_email, enabled: false),
-                  
-                  const SizedBox(height: 25),
-                  _buildSectionLabel("DATI PERSONALI"),
-                  _buildTextField(_nameController, "Nome", Icons.person_outline),
-                  const SizedBox(height: 15),
-                  _buildTextField(_surnameController, "Cognome", Icons.badge_outlined),
-                  
-                  const SizedBox(height: 25),
-                  _buildPermissionsSection(),
-
-                  const SizedBox(height: 25),
-                  _buildMapPreferencesSection(), // ✨ NUOVA SEZIONE FOCUS
-
-                  const SizedBox(height: 25),
-                  _buildPasswordSection(),
-                  
-                  const SizedBox(height: 40),
-                  _buildSaveButton(),
-                  const SizedBox(height: 20),
-                  _buildLogoutButton(),
-                ],
-              ),
+        ),
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.symmetric(
+                horizontal: 25 * scale, vertical: 10 * scale),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(height: 20 * scale),
+                _buildSectionLabel("ACCOUNT", scale),
+                _buildTextField(_usernameController, "Username",
+                    Icons.alternate_email, scale,
+                    enabled: false),
+                SizedBox(height: 25 * scale),
+                _buildSectionLabel("DATI PERSONALI", scale),
+                _buildTextField(
+                    _nameController, "Nome", Icons.person_outline, scale),
+                SizedBox(height: 15 * scale),
+                _buildTextField(
+                    _surnameController, "Cognome", Icons.badge_outlined, scale),
+                SizedBox(height: 25 * scale),
+                _buildPermissionsSection(scale),
+                SizedBox(height: 25 * scale),
+                _buildMapPreferencesSection(scale),
+                SizedBox(height: 25 * scale),
+                _buildPasswordSection(scale),
+                SizedBox(height: 40 * scale),
+                _buildSaveButton(scale),
+                SizedBox(height: 20 * scale),
+                _buildLogoutButton(scale),
+                SizedBox(height: 40 * scale),
+              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildPermissionsSection() {
+  Widget _buildPermissionsSection(double scale) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionLabel("PERMESSI APP"),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white, borderRadius: BorderRadius.circular(15),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                _hasLocationPermission ? Icons.location_on : Icons.location_off, 
-                color: _hasLocationPermission ? const Color(0xFF00C6B8) : Colors.redAccent,
-              ),
-              const SizedBox(width: 15),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+        _buildSectionLabel("PERMESSI APP", scale),
+        // InkWell rende l'intera riga cliccabile e scalabile
+        InkWell(
+          onTap: _togglePermission,
+          borderRadius: BorderRadius.circular(15 * scale),
+          child: Container(
+            padding: EdgeInsets.all(16 * scale), // Padding scalato
+            decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(15 * scale),
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.black.withOpacity(0.02),
+                      blurRadius: 8 * scale)
+                ]),
+            child: ValueListenableBuilder<bool>(
+              valueListenable: hasLocationPermission,
+              builder: (context, hasPermission, child) {
+                return Row(
                   children: [
-                    const Text("Posizione GPS", style: TextStyle(fontWeight: FontWeight.bold)),
-                    Text(
-                      _hasLocationPermission ? "Autorizzato" : "Non autorizzato",
-                      style: const TextStyle(color: Colors.black38, fontSize: 12),
+                    Icon(
+                      hasPermission ? Icons.location_on : Icons.location_off,
+                      color: hasPermission
+                          ? const Color(0xFF00C6B8)
+                          : Colors.redAccent,
+                      size: 28 * scale, // Icona scalata
+                    ),
+                    SizedBox(width: 15 * scale),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Posizione GPS",
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16 * scale), // Testo scalato
+                          ),
+                          Text(
+                            hasPermission
+                                ? "Autorizzato"
+                                : "Non autorizzato (Clicca per gestire)",
+                            style: TextStyle(
+                                color: Colors.black38,
+                                fontSize: 13 * scale), // Sottotitolo scalato
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.arrow_forward_ios,
+                      color: Colors.black12,
+                      size: 16 * scale, // Freccetta scalata
                     ),
                   ],
-                ),
-              ),
-              TextButton(
-                onPressed: _handlePermissionRequest, // <-- Usa il nuovo handler
-                child: const Text("GESTISCI", style: TextStyle(color: Color(0xFF00C6B8), fontWeight: FontWeight.bold)),
-              ),
-            ],
+                );
+              },
+            ),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildMapPreferencesSection() {
+  Widget _buildMapPreferencesSection(double scale) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionLabel("PREFERENZE MAPPA"),
+        _buildSectionLabel("PREFERENZE MAPPA ALL'AVVIO", scale),
         Container(
-          padding: const EdgeInsets.all(5),
+          padding: EdgeInsets.all(5 * scale),
           decoration: BoxDecoration(
-            color: Colors.white, borderRadius: BorderRadius.circular(15),
-          ),
-          child: ValueListenableBuilder<String>(
-            valueListenable: mapFocusPreference,
-            builder: (context, focus, child) {
-              return Column(
-                children: [
-                  RadioListTile<String>(
-                    title: const Text("Focus su Animale", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                    subtitle: const Text("Zoom automatico sulla zampetta all'avvio", style: TextStyle(fontSize: 11)),
-                    value: 'Animale',
-                    groupValue: focus,
-                    activeColor: const Color(0xFF00C6B8),
-                    onChanged: (val) => mapFocusPreference.value = val!,
-                  ),
-                  const Divider(indent: 20, endIndent: 20, height: 1),
-                  RadioListTile<String>(
-                    title: const Text("Focus su Dispositivo", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                    subtitle: const Text("Zoom automatico sulla tua posizione", style: TextStyle(fontSize: 11)),
-                    value: 'Dispositivo',
-                    groupValue: focus,
-                    activeColor: const Color(0xFF00C6B8),
-                    onChanged: _hasLocationPermission 
-                        ? (val) => mapFocusPreference.value = val!
-                        : null, // Disabilitato se non ci sono permessi
-                  ),
-                ],
-              );
-            },
-          ),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(15 * scale),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8)
+              ]),
+          child: ValueListenableBuilder<bool>(
+              valueListenable: hasLocationPermission,
+              builder: (context, hasPermission, _) {
+                return Column(
+                  children: [
+                    RadioListTile<String>(
+                      title: Text("Focus Animale",
+                          style: TextStyle(
+                              fontSize: 14 * scale,
+                              fontWeight: FontWeight.w600)),
+                      subtitle: Text("Zoom sulla posizione dell'animale",
+                          style: TextStyle(fontSize: 11 * scale)),
+                      value: 'Animale',
+                      groupValue: _currentMapFocus,
+                      activeColor: const Color(0xFF00C6B8),
+                      onChanged: (val) {
+                        setState(() {
+                          _currentMapFocus = val!;
+                          _checkChanges();
+                        });
+                      },
+                    ),
+                    const Divider(indent: 20, endIndent: 20, height: 1),
+                    RadioListTile<String>(
+                      title: Text("Focus Dispositivo",
+                          style: TextStyle(
+                              fontSize: 14 * scale,
+                              fontWeight: FontWeight.w600,
+                              color: hasPermission
+                                  ? Colors.black87
+                                  : Colors.black38)),
+                      subtitle: Text("Zoom sulla tua posizione",
+                          style: TextStyle(
+                              fontSize: 11 * scale,
+                              color: hasPermission
+                                  ? Colors.black54
+                                  : Colors.black26)),
+                      value: 'Dispositivo',
+                      groupValue: _currentMapFocus,
+                      activeColor: const Color(0xFF00C6B8),
+                      onChanged: hasPermission
+                          ? (val) {
+                              setState(() {
+                                _currentMapFocus = val!;
+                                _checkChanges();
+                              });
+                            }
+                          : null,
+                    ),
+                  ],
+                );
+              }),
         ),
       ],
     );
   }
 
-  // ... restanti widget (_buildAvatarPicker, _buildPasswordSection, ecc. rimangono uguali)
-  Widget _buildAvatarPicker() {
-    return Center(
-      child: Stack(
-        children: [
-          CircleAvatar(
-            radius: 55,
-            backgroundColor: Colors.white,
-            backgroundImage: _photoRemoved ? null : (_imageBytes != null ? MemoryImage(_imageBytes!) : (scambio.getAvatarUrl().isNotEmpty ? NetworkImage(scambio.getAvatarUrl(), headers: const {'ngrok-skip-browser-warning': 'true'}) : null) as ImageProvider?),
-            child: (_photoRemoved || (scambio.getAvatarUrl().isEmpty && _imageBytes == null)) ? const Icon(Icons.person, size: 50, color: Colors.grey) : null,
-          ),
-          Positioned(bottom: 0, right: 0, child: _smallCircleButton(Icons.camera_alt_rounded, const Color(0xFF00C6B8), _pickImage)),
-          if (!_photoRemoved && (_imageBytes != null || scambio.getAvatarUrl().isNotEmpty))
-            Positioned(bottom: 0, left: 0, child: _smallCircleButton(Icons.delete_forever_rounded, Colors.redAccent, _confirmPhotoDeletion)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPasswordSection() {
+  Widget _buildPasswordSection(double scale) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionLabel("SICUREZZA"),
+        _buildSectionLabel("SICUREZZA", scale),
         InkWell(
-          onTap: () => setState(() => _isChangingPassword = !_isChangingPassword),
-          borderRadius: BorderRadius.circular(15),
+          onTap: () =>
+              setState(() => _isChangingPassword = !_isChangingPassword),
+          borderRadius: BorderRadius.circular(15 * scale),
           child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15)),
+            padding: EdgeInsets.all(16 * scale),
+            decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(15 * scale),
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.black.withOpacity(0.02), blurRadius: 8)
+                ]),
             child: Row(
               children: [
-                Icon(Icons.lock_reset_rounded, color: _isChangingPassword ? const Color(0xFF00C6B8) : Colors.black45),
-                const SizedBox(width: 15),
-                const Text("Cambia Password", style: TextStyle(fontWeight: FontWeight.w600)),
+                Icon(Icons.lock_reset_rounded,
+                    size: 24 * scale,
+                    color: _isChangingPassword
+                        ? const Color(0xFF00C6B8)
+                        : Colors.black45),
+                SizedBox(width: 15 * scale),
+                Text("Cambia Password",
+                    style: TextStyle(
+                        fontWeight: FontWeight.w600, fontSize: 14 * scale)),
                 const Spacer(),
-                Icon(_isChangingPassword ? Icons.expand_less : Icons.expand_more, color: Colors.black26),
+                Icon(
+                    _isChangingPassword ? Icons.expand_less : Icons.expand_more,
+                    size: 24 * scale,
+                    color: Colors.black26),
               ],
             ),
           ),
@@ -329,105 +463,169 @@ class _SettingsModalState extends State<SettingsModal> {
         if (_isChangingPassword) ...[
           if (_inlineErrorMessage != null)
             Padding(
-              padding: const EdgeInsets.only(top: 15, left: 5),
-              child: Text(_inlineErrorMessage!, style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 13)),
+              padding: EdgeInsets.only(top: 15 * scale, left: 5 * scale),
+              child: Text(_inlineErrorMessage!,
+                  style: TextStyle(
+                      color: Colors.redAccent,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13 * scale)),
             ),
-          const SizedBox(height: 12),
-          _buildPasswordField(_currentPassController, "Password Attuale", _obscureCurrent, () => setState(() => _obscureCurrent = !_obscureCurrent)),
-          const SizedBox(height: 10),
-          _buildPasswordField(_newPassController, "Nuova Password", _obscureNew, () => setState(() => _obscureNew = !_obscureNew)),
-          const SizedBox(height: 10),
-          _buildPasswordField(_confirmPassController, "Conferma Nuova Password", _obscureConfirm, () => setState(() => _obscureConfirm = !_obscureConfirm)),
+          SizedBox(height: 12 * scale),
+          _buildPasswordField(
+              _currentPassController,
+              "Password Attuale",
+              _obscureCurrent,
+              () => setState(() => _obscureCurrent = !_obscureCurrent),
+              scale),
+          SizedBox(height: 10 * scale),
+          _buildPasswordField(_newPassController, "Nuova Password", _obscureNew,
+              () => setState(() => _obscureNew = !_obscureNew), scale),
+          SizedBox(height: 10 * scale),
+          _buildPasswordField(
+              _confirmPassController,
+              "Conferma Nuova Password",
+              _obscureConfirm,
+              () => setState(() => _obscureConfirm = !_obscureConfirm),
+              scale),
         ],
       ],
     );
   }
 
-  Widget _buildPasswordField(TextEditingController ctrl, String label, bool obscure, VoidCallback toggle) {
+  Widget _buildPasswordField(TextEditingController ctrl, String label,
+      bool obscure, VoidCallback toggle, double scale) {
     return Container(
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8)]),
+      margin: EdgeInsets.only(top: 10 * scale),
+      decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(15 * scale),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8)
+          ]),
       child: TextField(
         controller: ctrl,
         obscureText: obscure,
+        style: TextStyle(fontSize: 14 * scale),
         decoration: InputDecoration(
           labelText: label,
-          prefixIcon: const Icon(Icons.vpn_key_outlined, color: Color(0xFF00C6B8)),
-          suffixIcon: IconButton(icon: Icon(obscure ? Icons.visibility_off_rounded : Icons.visibility_rounded, color: Colors.black26), onPressed: toggle),
+          labelStyle: TextStyle(fontSize: 14 * scale),
+          prefixIcon: Icon(Icons.vpn_key_outlined,
+              color: const Color(0xFF00C6B8), size: 22 * scale),
+          suffixIcon: IconButton(
+              icon: Icon(
+                  obscure
+                      ? Icons.visibility_off_rounded
+                      : Icons.visibility_rounded,
+                  color: Colors.black26,
+                  size: 22 * scale),
+              onPressed: toggle),
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+          contentPadding: EdgeInsets.symmetric(
+              horizontal: 20 * scale, vertical: 15 * scale),
         ),
       ),
     );
   }
 
-  Widget _buildTextField(TextEditingController ctrl, String label, IconData icon, {bool enabled = true}) {
+  Widget _buildTextField(
+      TextEditingController ctrl, String label, IconData icon, double scale,
+      {bool enabled = true}) {
     return Container(
-      decoration: BoxDecoration(color: enabled ? Colors.white : Colors.grey.shade100, borderRadius: BorderRadius.circular(15)),
+      decoration: BoxDecoration(
+          color: enabled ? Colors.white : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(15 * scale),
+          boxShadow: enabled
+              ? [
+                  BoxShadow(
+                      color: Colors.black.withOpacity(0.02), blurRadius: 8)
+                ]
+              : []),
       child: TextField(
         controller: ctrl,
         enabled: enabled,
-        decoration: InputDecoration(labelText: label, prefixIcon: Icon(icon, color: enabled ? const Color(0xFF00C6B8) : Colors.black26), border: InputBorder.none, contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15)),
+        style: TextStyle(fontSize: 14 * scale),
+        decoration: InputDecoration(
+            labelText: label,
+            labelStyle: TextStyle(fontSize: 14 * scale),
+            prefixIcon: Icon(icon,
+                color: enabled ? const Color(0xFF00C6B8) : Colors.black26,
+                size: 22 * scale),
+            border: InputBorder.none,
+            contentPadding: EdgeInsets.symmetric(
+                horizontal: 20 * scale, vertical: 15 * scale)),
       ),
     );
   }
 
-  Widget _buildSectionLabel(String label) {
+  Widget _buildSectionLabel(String label, double scale) {
     return Padding(
-      padding: const EdgeInsets.only(left: 5, bottom: 8),
-      child: Text(label, style: const TextStyle(color: Colors.black38, fontWeight: FontWeight.bold, fontSize: 11, letterSpacing: 1.1)),
+      padding: EdgeInsets.only(left: 5 * scale, bottom: 8 * scale),
+      child: Text(label,
+          style: TextStyle(
+              color: Colors.black38,
+              fontWeight: FontWeight.bold,
+              fontSize: 11 * scale,
+              letterSpacing: 1.1)),
     );
   }
 
-  Widget _buildSaveButton() {
+  Widget _buildSaveButton(double scale) {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
         onPressed: _isLoading ? null : _salvaModifiche,
-        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00C6B8), foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 18), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
-        child: _isLoading ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text("SALVA MODIFICHE", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF00C6B8),
+            foregroundColor: Colors.white,
+            padding: EdgeInsets.symmetric(vertical: 18 * scale),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(15 * scale))),
+        child: _isLoading
+            ? SizedBox(
+                height: 20 * scale,
+                width: 20 * scale,
+                child: const CircularProgressIndicator(
+                    color: Colors.white, strokeWidth: 2))
+            : Text("SALVA MODIFICHE",
+                style: TextStyle(
+                    fontWeight: FontWeight.bold, fontSize: 16 * scale)),
       ),
     );
   }
 
-  Widget _buildLogoutButton() {
+  Widget _buildLogoutButton(double scale) {
     return Center(
       child: TextButton.icon(
         onPressed: _confirmLogout,
-        icon: const Icon(Icons.logout_rounded, color: Colors.redAccent),
-        label: const Text("ESCI DALL'ACCOUNT", style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+        icon: Icon(Icons.logout_rounded,
+            color: Colors.redAccent, size: 20 * scale),
+        label: Text("ESCI DALL'ACCOUNT",
+            style: TextStyle(
+                color: Colors.redAccent,
+                fontWeight: FontWeight.bold,
+                fontSize: 14 * scale)),
       ),
     );
   }
 
   void _confirmLogout() {
-    showDialog(context: context, builder: (context) => AlertDialog(
-      title: const Text("Logout"), content: const Text("Sei sicuro?"),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text("ANNULLA")),
-        TextButton(onPressed: () { Navigator.pop(context); scambio.eseguiLogout(context); }, child: const Text("ESCI", style: TextStyle(color: Colors.red))),
-      ],
-    ));
-  }
-
-  void _confirmPhotoDeletion() {
-    showDialog(context: context, builder: (context) => AlertDialog(
-      title: const Text("Rimuovere foto?"), content: const Text("L'azione sarà definitiva al salvataggio."),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text("ANNULLA")),
-        TextButton(onPressed: () { setState(() { _photoRemoved = true; _imageBytes = null; }); Navigator.pop(context); }, child: const Text("RIMUOVI", style: TextStyle(color: Colors.red))),
-      ],
-    ));
-  }
-
-  Future<void> _pickImage() async {
-    final XFile? pickedFile = await _picker.pickImage(source: ImageSource.gallery, maxWidth: 512, maxHeight: 512, imageQuality: 85);
-    if (pickedFile != null) {
-      final bytes = await pickedFile.readAsBytes();
-      setState(() { _imageBytes = bytes; _imageName = pickedFile.name; _photoRemoved = false; });
-    }
-  }
-
-  Widget _smallCircleButton(IconData icon, Color color, VoidCallback onTap) {
-    return GestureDetector(onTap: onTap, child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: color, shape: BoxShape.circle), child: Icon(icon, color: Colors.white, size: 18)));
+    showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+              title: const Text("Logout"),
+              content: const Text("Sei sicuro di voler uscire?"),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text("ANNULLA")),
+                TextButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      scambio.eseguiLogout(context);
+                    },
+                    child: const Text("ESCI",
+                        style: TextStyle(color: Colors.red))),
+              ],
+            ));
   }
 }
