@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.4.14)  15 APR 2026 11:10
+This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.4.14)  15 APR 2026 11:23
 entering extended mode
  restricted \write18 enabled.
  file:line:error style messages enabled.
@@ -721,7 +721,7 @@ Package hyperref Info: Link coloring ON on input line 62.
 \@outlinefile=\write4
 \openout4 = `Relazione.out'.
 
-<immagini/Logo.pdf, id=70, 225.84375pt x 225.84375pt>
+<immagini/Logo.pdf, id=78, 225.84375pt x 225.84375pt>
 File: immagini/Logo.pdf Graphic file (type pdf)
 <use immagini/Logo.pdf>
 Package pdftex.def Info: immagini/Logo.pdf  used on input line 74.
@@ -769,39 +769,39 @@ Overfull \hbox (6.50035pt too wide) in paragraph at lines 156--158
 \OT1/lmr/m/n/12 I da-ti ri-ce-vu-ti ven-go-no nor-ma-liz-za-ti e me-mo-riz-za-ti in una col-le-zio-ne de-no-mi-na-ta \OT1/lmtt/m/n/12 positions\OT1/lmr/m/n/12 .
  []
 
-[4]
-Overfull \hbox (14.20894pt too wide) in paragraph at lines 177--177
+[4] [5]
+Overfull \hbox (14.20894pt too wide) in paragraph at lines 189--189
 \OT1/lmtt/m/n/12 LilyGo -[] Modem -[] Series / blob / main / datasheet / LTE % 20Antenna % 20Specifications .
  []
 
 
-Overfull \hbox (14.20894pt too wide) in paragraph at lines 177--177
+Overfull \hbox (14.20894pt too wide) in paragraph at lines 189--189
 \OT1/lmtt/m/n/12 LilyGo -[] Modem -[] Series / blob / main / datasheet / GPS % 20Antenna % 20Specifications .
  []
 
-[5] (Relazione.aux)
+[6] (Relazione.aux)
  ***********
 LaTeX2e <2025-11-01>
 L3 programming layer <2025-12-24>
  ***********
 Package rerunfilecheck Info: File `Relazione.out' has not changed.
-(rerunfilecheck)             Checksum: 169CB319ABF72792B921B89B39302FD8;2992.
+(rerunfilecheck)             Checksum: C0D731102CC62F8E00CAA629A4BD9829;3379.
 Package logreq Info: Writing requests to 'Relazione.run.xml'.
 \openout1 = `Relazione.run.xml'.
 
  ) 
 Here is how much of TeX's memory you used:
- 22081 strings out of 467871
- 386337 string characters out of 5428443
+ 22083 strings out of 467871
+ 386323 string characters out of 5428443
  1244397 words of memory out of 5000000
- 50676 multiletter control sequences out of 15000+600000
+ 50675 multiletter control sequences out of 15000+600000
  680001 words of font info for 66 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  69i,5n,79p,1302b,1821s stack positions out of 10000i,1000n,20000p,200000b,200000s
 <C:/Program Files/MiKTeX/fonts/type1/public/lm/lmbx10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmbx12.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmbxi10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmcsc10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmr10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmr12.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmri12.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmtt12.pfb>
-Output written on Relazione.pdf (6 pages, 263859 bytes).
+Output written on Relazione.pdf (7 pages, 268491 bytes).
 PDF statistics:
- 216 PDF objects out of 1000 (max. 8388607)
- 36 named destinations out of 1000 (max. 500000)
- 142 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 236 PDF objects out of 1000 (max. 8388607)
+ 39 named destinations out of 1000 (max. 500000)
+ 158 words of extra memory for PDF output out of 10000 (max. 10000000)
 

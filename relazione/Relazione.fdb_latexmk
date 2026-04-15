@@ -1,12 +1,12 @@
 # Fdb version 4
-["biber Relazione"] 1776244241.17809 "Relazione.bcf" "Relazione.bbl" "Relazione" 1776244253.30871 0
-  "Relazione.bcf" 1776244252 108437 4329c9f5d61000c8a2113419c2136912 "pdflatex"
-  "riferimenti.bib" 1776243926 1664 b944b6046d84cc3991ef021520373afd ""
+["biber Relazione"] 1776244632.92642 "Relazione.bcf" "Relazione.bbl" "Relazione" 1776244982.5499 0
+  "Relazione.bcf" 1776244982 108437 4329c9f5d61000c8a2113419c2136912 "pdflatex"
+  "riferimenti.bib" 1776244631 1614 60db88323bd09a1fd036164ee069164a ""
   (generated)
   "Relazione.bbl"
   "Relazione.blg"
   (rewritten before read)
-["pdflatex"] 1776244250.63583 "c:/Users/matti/OneDrive/Desktop/UniUd/CORSI/3°Anno-GO/GO-Internet of Things/IoT_PetTracker/relazione/Relazione.tex" "Relazione.pdf" "Relazione" 1776244253.31014 0
+["pdflatex"] 1776244979.88296 "c:/Users/matti/OneDrive/Desktop/UniUd/CORSI/3°Anno-GO/GO-Internet of Things/IoT_PetTracker/relazione/Relazione.tex" "Relazione.pdf" "Relazione" 1776244982.55135 0
   "C:/Program Files/MiKTeX/fonts/enc/dvips/lm/lm-rm.enc" 1256929440 2327 9d6df24f9c4f7368395224341a95523a ""
   "C:/Program Files/MiKTeX/fonts/enc/dvips/lm/lm-rmsc.enc" 1256929440 2355 3e74b90173fc699673a5163cee277702 ""
   "C:/Program Files/MiKTeX/fonts/enc/dvips/lm/lm-rmtt.enc" 1256929440 2359 de53213020575850c8f8debc35095765 ""
@@ -130,13 +130,13 @@
   "C:/Program Files/MiKTeX/tex/latex/xcolor/xcolor.sty" 1729265222 55384 b454dec21c2d9f45ec0b793f0995b992 ""
   "C:/Users/matti/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map" 1776168329 82507 a9eef8696c92627b87e9975edea03b2a ""
   "C:/Users/matti/AppData/Local/MiKTeX/miktex/data/le/pdftex/pdflatex.fmt" 1776170564 13323420 f6865c3de552414db9ba250c2838d4e8 ""
-  "Relazione.aux" 1776244252 3979 45954e1be4925e35dea187632a5b00a8 "pdflatex"
-  "Relazione.bbl" 1776244244 6418 5df7435641aec70a5ac03e6e6a794cee "biber Relazione"
-  "Relazione.out" 1776244252 2992 169cb319abf72792b921b89b39302fd8 "pdflatex"
-  "Relazione.run.xml" 1776244252 2341 a3aeab3158afcf997ac94a94f45afe90 "pdflatex"
-  "Relazione.tex" 1776244237 9928 e82698d40d5dbd50a222efff05971628 ""
-  "Relazione.toc" 1776244252 1489 bd77655dce3e42ff02948f63710bc82c "pdflatex"
-  "c:/Users/matti/OneDrive/Desktop/UniUd/CORSI/3°Anno-GO/GO-Internet of Things/IoT_PetTracker/relazione/Relazione.tex" 1776244237 9928 e82698d40d5dbd50a222efff05971628 ""
+  "Relazione.aux" 1776244982 4251 270e4ec9fc866427500524ee2c1c6225 "pdflatex"
+  "Relazione.bbl" 1776244636 5592 81bc30d52d6f71f8b189f90a507451f8 "biber Relazione"
+  "Relazione.out" 1776244982 3379 c0d731102cc62f8e00caa629a4bd9829 "pdflatex"
+  "Relazione.run.xml" 1776244982 2341 a3aeab3158afcf997ac94a94f45afe90 "pdflatex"
+  "Relazione.tex" 1776244978 11592 ea37f451c1a717dfecc5417c5164015c ""
+  "Relazione.toc" 1776244982 1679 a0b3b9a9fe2e26251df74c6b16492d12 "pdflatex"
+  "c:/Users/matti/OneDrive/Desktop/UniUd/CORSI/3°Anno-GO/GO-Internet of Things/IoT_PetTracker/relazione/Relazione.tex" 1776244978 11592 ea37f451c1a717dfecc5417c5164015c ""
   "immagini/Logo.pdf" 1773926633 15330 5bc3b136079bbc27fcb2f8cb8b225995 ""
   (generated)
   "Relazione.aux"

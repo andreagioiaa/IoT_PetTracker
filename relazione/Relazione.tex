@@ -163,9 +163,21 @@ I dati ricevuti vengono normalizzati e memorizzati in una collezione denominata 
     \item \texttt{feet}: conteggio dei passi rilevato dall'accelerometro BMA400;
 \end{itemize}
 
-\section{Front-end e Applicazione Mobile}
-L'applicazione mobile, sviluppata in Flutter \cite{flutter}, è progettata per interagire con le API di PocketBase, offre:
+\subsection{Interfaccia API e API Rules}
+L'accesso ai dati memorizzati nel backend avviene esclusivamente tramite un'interfaccia \textbf{RESTful API} fornita nativamente da PocketBase. Questo approccio permette di separare nettamente il livello di persistenza (Database) dal livello di fruizione (Applicazione Mobile), in linea con il Livello 5 (Data Abstraction) del modello IoTWF.
+\subsubsection{API Rules e Sicurezza}
+Per garantire l'integrità e la riservatezza dei dati, sono state configurate specifiche \textbf{API Rules}. A differenza di un database tradizionale, PocketBase utilizza un sistema di regole basato su espressioni booleane per filtrare le operazioni di:
+\begin{itemize}
+    \item \textbf{List/View:} Definisce chi può leggere i record. Nel nostro caso, è stata impostata una regola che permette la visualizzazione solo agli utenti autenticati.
+    \item \textbf{Create:} Permette l'inserimento di nuovi dati. Questa operazione è abilitata per il dispositivo LilyGo tramite un token di autenticazione o restrizioni sull'origine delle richieste.
+    \item \textbf{Update/Delete:} Queste operazioni sono state disabilitate o ristrette ai soli amministratori del sistema per evitare la manomissione accidentale dello storico delle posizioni.
+\end{itemize}
 
+L'utilizzo delle API Rules sostituisce la necessità di scrivere codice di back-end personalizzato per la validazione, permettendo di gestire in modo granulare i permessi direttamente dal pannello di controllo del server.
+
+
+\section{Front-end e Applicazione Mobile}
+L'applicazione mobile, sviluppata in Flutter \cite{flutter}, è progettata per interagire con i dati tramite il PocketBase SDK, che semplifica l'interazione con l'endpoint HTTPS e la gestione dei token di autenticazione, garantendo una comunicazione asincrona e performante.
 
 \section{Test e Risultati}
 

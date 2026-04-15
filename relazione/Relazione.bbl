@@ -68,24 +68,8 @@
       \endverb
     \endentry
     \entry{sim7670_at}{online}{}{}
-      \name{author}{1}{}{%
-        {{hash=5bcaa401174fd62a56f8184308beaa79}{%
-           family={SolutionsLimited},
-           familyi={S\bibinitperiod},
-           given={SIMCom\bibnamedelima Wireless},
-           giveni={S\bibinitperiod\bibinitdelim W\bibinitperiod}}}%
-      }
-      \strng{namehash}{5bcaa401174fd62a56f8184308beaa79}
-      \strng{fullhash}{5bcaa401174fd62a56f8184308beaa79}
-      \strng{fullhashraw}{5bcaa401174fd62a56f8184308beaa79}
-      \strng{bibnamehash}{5bcaa401174fd62a56f8184308beaa79}
-      \strng{authorbibnamehash}{5bcaa401174fd62a56f8184308beaa79}
-      \strng{authornamehash}{5bcaa401174fd62a56f8184308beaa79}
-      \strng{authorfullhash}{5bcaa401174fd62a56f8184308beaa79}
-      \strng{authorfullhashraw}{5bcaa401174fd62a56f8184308beaa79}
       \field{sortinit}{5}
       \field{sortinithash}{20e9b4b0b173788c5dace24730f47d8c}
-      \field{labelnamesource}{author}
       \field{labeltitlesource}{title}
       \field{title}{SIM7670 Series AT Command Manual}
       \verb{urlraw}

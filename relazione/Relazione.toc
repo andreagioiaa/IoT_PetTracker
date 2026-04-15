@@ -13,7 +13,9 @@
 \contentsline {subsection}{\numberline {4.2}Sistema di Backup e Data Retention}{3}{subsection.4.2}%
 \contentsline {subsection}{\numberline {4.3}Monitoraggio e Business Continuity}{4}{subsection.4.3}%
 \contentsline {subsection}{\numberline {4.4}Struttura dei dati}{4}{subsection.4.4}%
-\contentsline {section}{\numberline {5}Front-end e Applicazione Mobile}{4}{section.5}%
-\contentsline {section}{\numberline {6}Test e Risultati}{4}{section.6}%
-\contentsline {section}{\numberline {7}Conclusioni}{4}{section.7}%
-\contentsline {section}{Riferimenti bibliografici}{5}{section.7}%
+\contentsline {subsection}{\numberline {4.5}Interfaccia API e API Rules}{4}{subsection.4.5}%
+\contentsline {subsubsection}{\numberline {4.5.1}API Rules e Sicurezza}{4}{subsubsection.4.5.1}%
+\contentsline {section}{\numberline {5}Front-end e Applicazione Mobile}{5}{section.5}%
+\contentsline {section}{\numberline {6}Test e Risultati}{5}{section.6}%
+\contentsline {section}{\numberline {7}Conclusioni}{5}{section.7}%
+\contentsline {section}{Riferimenti bibliografici}{6}{section.7}%
