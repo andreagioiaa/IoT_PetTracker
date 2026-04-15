@@ -45,6 +45,7 @@ String formattaUltimoAggiornamento(DateTime? ultimoInvio) {
   final oraAttuale = DateTime.now();
   final differenza = oraAttuale.difference(ultimoInvio);
 
+  // se avviene in futuro cosa non possibile
   if (differenza.isNegative) {
     return "In tempo reale (${differenza.inSeconds}s)";
   }
@@ -198,8 +199,6 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     });
   }
 
-  
-
   @override
   void dispose() {
     _streamSubscription?.cancel();
@@ -207,18 +206,19 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     super.dispose();
   }
 
-  String _nomeCompleto = "Caricamento..."; // Sostituisce il placeholder
+  String _displayUsername = "Caricamento..."; // Sostituisce il placeholder
 
   Future<void> _scaricaDatiIniziali() async {
-    // 1. Recuperiamo nome e cognome
-    final nomeIniziale = await scambio.getNomeCompleto();
-    
+    // 1. Recuperiamo l'username
+    final usernameScaricato =
+        scambio.pb.authStore.model?.getStringValue('username') ?? 'Utente';
+
     // 2. Recuperiamo lo stato dell'allarme dal database
     final statoAllarme = await scambio.getAllarme();
 
     if (mounted) {
       setState(() {
-        _nomeCompleto = nomeIniziale;
+        _displayUsername = usernameScaricato;
         // Sincronizziamo il ValueNotifier globale con il database
         if (statoAllarme != null) {
           isTrackingMode.value = statoAllarme;
@@ -349,7 +349,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     return Scaffold(
       body: Stack(
         children: [
-          // Sfondo gradiente
+          // 1. Sfondo gradiente (SOTTO A TUTTO)
           Positioned(
             top: 0,
             right: 0,
@@ -357,31 +357,15 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
               width: MediaQuery.of(context).size.width * 0.5,
               height: screenHeight * 0.18,
               decoration: const BoxDecoration(
-                gradient: LinearGradient(colors: [Color(0xFF00E2C1), Color(0xFF00C6B8)]),
-                borderRadius: BorderRadius.only(bottomLeft: Radius.circular(100)),
+                gradient: LinearGradient(
+                    colors: [Color(0xFF00E2C1), Color(0xFF00C6B8)]),
+                borderRadius:
+                    BorderRadius.only(bottomLeft: Radius.circular(100)),
               ),
             ),
           ),
-          
-          // ⚙️ ICONA INGRANAGGIO (Posizionata sopra il gradiente)
-          Positioned(
-            top: 50 * scale,
-            right: 20 * scale,
-            child: IconButton(
-              icon: const Icon(Icons.settings, color: Colors.white, size: 28),
-              onPressed: () {
-                showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true, // Necessario per l'altezza personalizzata
-                  backgroundColor: Colors.transparent, // Permette di vedere i bordi arrotondati
-                  builder: (context) => SettingsModal(
-                    onProfileUpdated: () => _scaricaDatiIniziali(),
-                  ),
-                );
-              },
-            ),
-          ),
 
+          // 2. IL CORPO DELLA DASHBOARD (IN MEZZO)
           SafeArea(
             child: Padding(
               padding: EdgeInsets.symmetric(
@@ -390,15 +374,13 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Spacer(flex: 1),
-
                   Text('Bentornato,',
-                      style: TextStyle(fontSize: 16 * scale, color: Colors.black54)),
-                  Text(_nomeCompleto, // <-- VARIABILE DINAMICA
-                      style: TextStyle(fontSize: 30 * scale, fontWeight: FontWeight.bold)),
-
+                      style: TextStyle(
+                          fontSize: 16 * scale, color: Colors.black54)),
+                  Text('$_displayUsername',
+                      style: TextStyle(
+                          fontSize: 25 * scale, fontWeight: FontWeight.bold)),
                   const Spacer(flex: 2),
-
-                  // Qui usiamo il ValueListenableBuilder per ascoltare l'interruttore
                   ValueListenableBuilder<bool>(
                     valueListenable: isTrackingMode,
                     builder: (context, isTracking, child) {
@@ -406,7 +388,6 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
                       Color zoneColor = Colors.black;
                       IconData locationIcon = Icons.location_on;
 
-                      // --- LA TUA LOGICA CUSTOM SULLA POSIZIONE ---
                       if (_nomeZona == "Fuori zona sicura") {
                         if (isTracking) {
                           displayZone = "ALLARME: È USCITO!";
@@ -414,12 +395,10 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
                           locationIcon = Icons.warning_rounded;
                         } else {
                           displayZone = "In passeggiata";
-                          zoneColor =
-                              const Color(0xFF00C6B8); // O verde se preferisci
+                          zoneColor = const Color(0xFF00C6B8);
                           locationIcon = Icons.directions_walk;
                         }
                       } else {
-                        // Se è dentro casa, colore normale
                         zoneColor = Colors.black;
                       }
 
@@ -433,18 +412,32 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
                       );
                     },
                   ),
-
                   const Spacer(flex: 2),
-
                   _buildUnifiedActivityCard(scale),
-
                   const Spacer(flex: 2),
-
                   _buildLoraInfoPanel(_ultimoAggiornamento, scale),
-
                   const Spacer(flex: 1),
                 ],
               ),
+            ),
+          ),
+
+          // 3. ⚙️ ICONA INGRANAGGIO (ALLA FINE = SOPRA A TUTTO! ORA È CLICCABILE)
+          Positioned(
+            top: 50 * scale,
+            right: 20 * scale,
+            child: IconButton(
+              icon: const Icon(Icons.settings, color: Colors.white, size: 28),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => SettingsScreen(
+                      onProfileUpdated: () => _scaricaDatiIniziali(),
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         ],
@@ -553,17 +546,16 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
             onChanged: (val) async {
               // 1. Aggiorniamo prima la UI locale per fluidità
               isTrackingMode.value = val;
-              
+
               // 2. Inviato il comando a PocketBase
               bool successo = await scambio.setAllarme(val);
-              
+
               if (!successo) {
                 // Se il server fallisce, torniamo indietro e avvisiamo
                 isTrackingMode.value = !val;
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Errore sincronizzazione allarme"))
-                  );
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text("Errore sincronizzazione allarme")));
                 }
               }
             },

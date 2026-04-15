@@ -1,6 +1,5 @@
-// SIGN_IN.dart
 import 'package:flutter/material.dart';
-import 'login.dart'; 
+import 'login.dart';
 import 'home.dart';
 import 'scambio.dart' as scambio;
 
@@ -16,7 +15,7 @@ class _SignInScreenState extends State<SignInScreen> {
 
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _surnameController = TextEditingController();
-  final TextEditingController _usernameController = TextEditingController(); 
+  final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
@@ -30,17 +29,22 @@ class _SignInScreenState extends State<SignInScreen> {
     final password = _passwordController.text.trim();
 
     // 1. Controllo campi vuoti
-    if (name.isEmpty || surname.isEmpty || username.isEmpty || email.isEmpty || password.isEmpty) {
+    if (name.isEmpty ||
+        surname.isEmpty ||
+        username.isEmpty ||
+        email.isEmpty ||
+        password.isEmpty) {
       return "Tutti i campi sono obbligatori.";
     }
 
     // 2. Controllo lunghezze (Target: 30 per flessibilità)
     if (name.length > 30) return "Il nome è troppo lungo (max 30 caratteri).";
-    if (surname.length > 30) return "Il cognome è troppo lungo (max 30 caratteri).";
-    
-    // Username tra 6 e 20 come da tua richiesta
-    if (username.length < 6 || username.length > 20) {
-      return "Lo username deve essere tra 6 e 20 caratteri.";
+    if (surname.length > 30)
+      return "Il cognome è troppo lungo (max 30 caratteri).";
+
+    // Username tra 6 e 15
+    if (username.length < 6 || username.length > 15) {
+      return "Lo username deve essere tra 6 e 15 caratteri.";
     }
 
     // 3. Email Regex
@@ -52,7 +56,8 @@ class _SignInScreenState extends State<SignInScreen> {
     // 4. Password Validation "Anti-Mediocrità"
     // Ho espanso il set di caratteri speciali includendo la @ in modo più esplicito
     // La sequenza [!@#\$%^&*(),.?":{}|<>] copre quasi tutto lo standard
-    final passwordRegex = RegExp(r'^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[!@#\$%^&*(),.?":{}|<>]).{8,}$');
+    final passwordRegex = RegExp(
+        r'^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[!@#\$%^&*(),.?":{}|<>]).{8,}$');
 
     if (!passwordRegex.hasMatch(password)) {
       return "La password richiede: 8+ caratteri, una maiuscola, un numero e un simbolo (es. @, !, #).";
@@ -79,11 +84,11 @@ class _SignInScreenState extends State<SignInScreen> {
 
       // Registrazione su PocketBase
       bool success = await scambio.registraUtente(
-        email, 
-        password, 
-        name, 
+        email,
+        password,
+        name,
         surname,
-        username, 
+        username,
       );
 
       if (success) {
@@ -93,13 +98,14 @@ class _SignInScreenState extends State<SignInScreen> {
         if (loggedIn) {
           if (!mounted) return;
           _showSnackBar('Account creato! Benvenuto.', const Color(0xFF00C6B8));
-          
+
           // Pulizia controller per sicurezza prima della navigazione
           _clearControllers();
 
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (context) => const PetTrackerNavigation()),
+            MaterialPageRoute(
+                builder: (context) => const PetTrackerNavigation()),
           );
         } else {
           if (!mounted) return;
@@ -109,7 +115,8 @@ class _SignInScreenState extends State<SignInScreen> {
           );
         }
       } else {
-        _showSnackBar('Errore: Email o Username potrebbero essere già in uso.', Colors.red);
+        _showSnackBar('Errore: Email o Username potrebbero essere già in uso.',
+            Colors.red);
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -126,7 +133,10 @@ class _SignInScreenState extends State<SignInScreen> {
 
   void _showSnackBar(String message, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: color, behavior: SnackBarBehavior.floating),
+      SnackBar(
+          content: Text(message),
+          backgroundColor: color,
+          behavior: SnackBarBehavior.floating),
     );
   }
 
@@ -157,12 +167,13 @@ class _SignInScreenState extends State<SignInScreen> {
               width: MediaQuery.of(context).size.width * 0.45,
               height: screenHeight * 0.15,
               decoration: const BoxDecoration(
-                gradient: LinearGradient(colors: [Color(0xFF00E2C1), Color(0xFF00C6B8)]),
-                borderRadius: BorderRadius.only(bottomLeft: Radius.circular(80)),
+                gradient: LinearGradient(
+                    colors: [Color(0xFF00E2C1), Color(0xFF00C6B8)]),
+                borderRadius:
+                    BorderRadius.only(bottomLeft: Radius.circular(80)),
               ),
             ),
           ),
-          
           SafeArea(
             child: SingleChildScrollView(
               padding: EdgeInsets.symmetric(horizontal: 30.0 * scale),
@@ -173,45 +184,51 @@ class _SignInScreenState extends State<SignInScreen> {
                   // Logo
                   Row(
                     children: [
-                      const Icon(Icons.pets, size: 36, color: Color(0xFF00C6B8)),
+                      const Icon(Icons.pets,
+                          size: 36, color: Color(0xFF00C6B8)),
                       const SizedBox(width: 10),
-                      Text('PET TRACKER', 
-                        style: TextStyle(
-                          fontSize: 14 * scale, 
-                          fontWeight: FontWeight.bold, 
-                          color: const Color(0xFF00C6B8),
-                          letterSpacing: 1.5
-                        )),
+                      Text('PET TRACKER',
+                          style: TextStyle(
+                              fontSize: 14 * scale,
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFF00C6B8),
+                              letterSpacing: 1.5)),
                     ],
                   ),
                   SizedBox(height: 40 * scale),
-                  
+
                   Text('Crea Account',
                       style: TextStyle(
-                        fontSize: 34 * scale, 
-                        fontWeight: FontWeight.bold, 
-                        color: const Color(0xFF2D3142),
-                        letterSpacing: -0.5
-                      )),
-                  
+                          fontSize: 34 * scale,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF2D3142),
+                          letterSpacing: -0.5)),
+
                   SizedBox(height: 30 * scale),
 
-                  _buildTextField(_nameController, 'Nome', Icons.badge_outlined, scale),
+                  _buildTextField(
+                      _nameController, 'Nome', Icons.badge_outlined, scale),
                   SizedBox(height: 12 * scale),
-                  _buildTextField(_surnameController, 'Cognome', Icons.badge_outlined, scale),
+                  _buildTextField(_surnameController, 'Cognome',
+                      Icons.badge_outlined, scale),
                   SizedBox(height: 12 * scale),
-                  _buildTextField(_usernameController, 'Username', Icons.alternate_email, scale),
+                  _buildTextField(_usernameController, 'Username',
+                      Icons.alternate_email, scale),
                   SizedBox(height: 12 * scale),
-                  _buildTextField(_emailController, 'Email', Icons.email_outlined, scale),
+                  _buildTextField(
+                      _emailController, 'Email', Icons.email_outlined, scale),
                   SizedBox(height: 12 * scale),
-                  _buildTextField(_passwordController, 'Password', Icons.lock_outline, scale, obscure: true),
-                  
+                  _buildTextField(_passwordController, 'Password',
+                      Icons.lock_outline, scale,
+                      obscure: true),
+
                   // Suggerimento visivo per l'utente (Opzionale ma utile)
                   Padding(
                     padding: const EdgeInsets.only(top: 8.0, left: 4.0),
                     child: Text(
                       "Min. 8 caratteri: Maiuscola, Numero e Simbolo (es. @)",
-                      style: TextStyle(fontSize: 10 * scale, color: Colors.black38),
+                      style: TextStyle(
+                          fontSize: 10 * scale, color: Colors.black38),
                     ),
                   ),
 
@@ -225,24 +242,32 @@ class _SignInScreenState extends State<SignInScreen> {
                         backgroundColor: const Color(0xFF00C6B8),
                         foregroundColor: Colors.white,
                         padding: EdgeInsets.symmetric(vertical: 18 * scale),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(15)),
                         elevation: 4,
                         shadowColor: const Color(0xFF00C6B8).withOpacity(0.3),
                       ),
-                      child: _isLoading 
-                        ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : const Text('REGISTRATI', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      child: _isLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                  color: Colors.white, strokeWidth: 2))
+                          : const Text('REGISTRATI',
+                              style: TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.bold)),
                     ),
                   ),
 
                   SizedBox(height: 20 * scale),
-                  
+
                   Center(
                     child: TextButton(
                       onPressed: () {
                         Navigator.pushReplacement(
                           context,
-                          MaterialPageRoute(builder: (context) => const AuthScreen()),
+                          MaterialPageRoute(
+                              builder: (context) => const AuthScreen()),
                         );
                       },
                       child: RichText(
@@ -252,7 +277,9 @@ class _SignInScreenState extends State<SignInScreen> {
                             TextSpan(text: "Hai già un account? "),
                             TextSpan(
                               text: "Accedi",
-                              style: TextStyle(color: Color(0xFF00C6B8), fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                  color: Color(0xFF00C6B8),
+                                  fontWeight: FontWeight.bold),
                             ),
                           ],
                         ),
@@ -268,12 +295,19 @@ class _SignInScreenState extends State<SignInScreen> {
     );
   }
 
-  Widget _buildTextField(TextEditingController controller, String label, IconData icon, double scale, {bool obscure = false}) {
+  Widget _buildTextField(TextEditingController controller, String label,
+      IconData icon, double scale,
+      {bool obscure = false}) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 4))
+        ],
       ),
       child: TextField(
         controller: controller,
@@ -281,9 +315,11 @@ class _SignInScreenState extends State<SignInScreen> {
         decoration: InputDecoration(
           labelText: label,
           labelStyle: const TextStyle(color: Colors.black38, fontSize: 14),
-          prefixIcon: Icon(icon, color: const Color(0xFF00C6B8), size: 22 * scale),
+          prefixIcon:
+              Icon(icon, color: const Color(0xFF00C6B8), size: 22 * scale),
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
+          contentPadding:
+              const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
         ),
       ),
     );

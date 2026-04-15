@@ -35,16 +35,15 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
 
   bool _hasLocationPermission = false;
 
-
   @override
   void initState() {
     super.initState();
     // Ascolta il cambiamento globale dei permessi
     hasLocationPermission.addListener(_onPermissionChanged);
-    
+
     // Esegui un controllo iniziale
     _checkPermissionAtStartup();
-    
+
     _caricaZoneDalDatabase();
 
     _streamSubscription = scambio.posizioneStream.listen((nuovoRecord) {
@@ -71,8 +70,8 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     LocationPermission permission = await Geolocator.checkPermission();
     if (mounted) {
       setState(() {
-        _hasLocationPermission = (permission == LocationPermission.always || 
-                                  permission == LocationPermission.whileInUse);
+        _hasLocationPermission = (permission == LocationPermission.always ||
+            permission == LocationPermission.whileInUse);
       });
     }
   }
@@ -90,8 +89,8 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
 
   Future<void> _checkPermissionAtStartup() async {
     LocationPermission permission = await Geolocator.checkPermission();
-    hasLocationPermission.value = (permission == LocationPermission.always || 
-                                  permission == LocationPermission.whileInUse);
+    hasLocationPermission.value = (permission == LocationPermission.always ||
+        permission == LocationPermission.whileInUse);
   }
 
   // ALGORITMO PER RILEVARE IL TOCCO DENTRO UN POLIGONO
@@ -133,7 +132,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
           _petLocation = nuovaPosPet;
         });
 
-        // ✨ NOVITÀ: Se la posizione dell'utente è ancora nulla, 
+        // ✨ NOVITÀ: Se la posizione dell'utente è ancora nulla,
         // zoommiamo sull'animale non appena lo troviamo nel database
         if (_myLocation == null) {
           _mapController.move(nuovaPosPet, 18.0);
@@ -144,7 +143,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     } catch (e) {
       debugPrint("Errore recupero posizione iniziale pet: $e");
     }
-}
+  }
 
   Future<void> _caricaZoneDalDatabase({String? forceSelectId}) async {
     setState(() => isLoading = true);
@@ -338,19 +337,20 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
   Future<void> _determinePosition() async {
     try {
       LocationPermission permission = await Geolocator.checkPermission();
-      
+
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
       }
 
-      if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
+      if (permission == LocationPermission.always ||
+          permission == LocationPermission.whileInUse) {
         setState(() => _hasLocationPermission = true);
       } else {
         setState(() => _hasLocationPermission = false);
         // Se l'utente ha negato, non procediamo oltre
-        return; 
+        return;
       }
-      
+
       // Se arriviamo qui, i permessi ci sono
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.medium,
@@ -368,7 +368,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
       }
     } catch (e) {
       debugPrint("Errore geolocalizzazione: $e");
-      
+
       // ✨ NOVITÀ: Se il GPS utente fallisce, proviamo a centrare sul PET
       if (_petLocation != null && mounted) {
         _mapController.move(_petLocation!, 18.0);
@@ -1258,19 +1258,21 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                             if (!_hasLocationPermission) {
                               // 1. Proviamo a richiederli se non sono stati negati permanentemente
                               await _determinePosition();
-                              
+
                               // 2. Se dopo il tentativo sono ancora negati, mostriamo l'avviso
                               if (!_hasLocationPermission && mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                    content: Text("Fornisci l'autorizzazione alla posizione nelle impostazioni per usare questa funzione."),
+                                    content: Text(
+                                        "Fornisci l'autorizzazione alla posizione nelle impostazioni per usare questa funzione."),
                                     backgroundColor: Colors.grey,
                                   ),
                                 );
                               }
                             } else {
                               // Logica normale se abbiamo i permessi
-                              if (_myLocation == null) await _determinePosition();
+                              if (_myLocation == null)
+                                await _determinePosition();
                               if (_myLocation != null) {
                                 setState(() => selectedPlaceIndex = null);
                                 _mapController.move(_myLocation!, 18.0);
@@ -1280,10 +1282,14 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                             }
                           },
                           // ✨ CAMBIO COLORE DINAMICO
-                          backgroundColor: _hasLocationPermission ? Colors.white : Colors.grey[300],
+                          backgroundColor: _hasLocationPermission
+                              ? Colors.white
+                              : Colors.grey[300],
                           child: Icon(
                             Icons.smartphone,
-                            color: _hasLocationPermission ? Colors.blueAccent : Colors.grey[600],
+                            color: _hasLocationPermission
+                                ? Colors.blueAccent
+                                : Colors.grey[600],
                           ),
                         ),
                         SizedBox(height: 10 * scale),
