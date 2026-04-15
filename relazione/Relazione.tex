@@ -124,7 +124,7 @@ L'accelerometro usato è un \textbf{BMA400} \cite{bma400} integrato nella breadb
 \section{Firmware: Logica di funzionamento}
 Il firmware, sviluppato in ambiente Arduino, implementa una macchina a stati per l'acquisizione e l'invio:
 \begin{enumerate}
-    \item \textbf{Inizializzazione:} Configurazione dei pin, avvio della seriale hardware per il modem e attivazione del motore GNSS tramite comandi AT (\texttt{AT+CGNSSPWR=1}).
+    \item \textbf{Inizializzazione:} Configurazione dei pin, avvio della seriale hardware per il modem e attivazione del motore GNSS tramite comandi AT \cite{sim7670_at} (\texttt{AT+CGNSSPWR=1}).
     \item \textbf{Loop Principale:} 
         \begin{itemize}
             \item Lettura dei dati GNSS tramite il comando \texttt{AT+CGNSSINFO}.
@@ -135,19 +135,39 @@ Il firmware, sviluppato in ambiente Arduino, implementa una macchina a stati per
 \end{enumerate}
 
 \section{Back-end e Database}
-Il backend utilizza \textbf{PocketBase} \cite{pocketbase} come piattaforma "Backend-as-a-Service". I dati sono memorizzati in una tabella \texttt{positions} composta dai campi: \texttt{lat}, \texttt{lon}, \texttt{steps}, \texttt{battery\_level}. L'uso di SQLite garantisce leggerezza e velocità di interrogazione.
+Il centro nevralgico della gestione dati è basato su \textbf{PocketBase}  \cite{pocketbase} , una soluzione open-source che integra un database embedded SQLite con un'interfaccia API REST. 
+
+\subsection{Architettura di Hosting e Network Exposure}
+L'istanza di PocketBase è stata ospitata su una workstation locale e data la natura del sistema IoT, che richiede la raggiungibilità del backend da parte del dispositivo (tramite rete LTE) e dell'applicazione mobile (tramite rete dati/Wi-Fi), si è reso necessario esporre il servizio locale su rete pubblica.
+Il problema del \textit{NAT Traversal} e dell'assenza di un indirizzo IP pubblico statico sulla rete locale è stato risolto mediante l'impiego di \textbf{ngrok}. Questa tecnologia di \textit{tunneling} crea un tunnel sicuro (HTTPS) tra l'endpoint pubblico di ngrok e la porta locale su cui è in esecuzione il server. 
+Tale URL funge da \textit{Reverse Proxy}, reindirizzando il traffico HTTPS in ingresso verso l'istanza locale di PocketBase, garantendo così la persistenza dei dati e l'accessibilità dei servizi in tempo reale ovunque sia presente una connessione internet.
+
+\subsection{Sistema di Backup e Data Retention}
+Per garantire la resilienza dei dati e prevenire perdite accidentali dovute a guasti del server locale, è stato implementato un sistema di backup automatizzato. 
+Il processo utilizza l'utility \textbf{rclone}, uno strumento a riga di comando per la gestione del cloud storage, configurato per eseguire la sincronizzazione della directory dei dati di PocketBase (inclusi il database SQLite e gli eventuali asset) verso un bucket remoto su \textbf{Backblaze B2}. 
+L'automazione è gestita tramite un \textit{cron job} (o un'operazione pianificata) che esegue il backup in modo incrementale ogni primo giorno del mese. Questa strategia assicura che, nonostante l'hosting sia inizialmente locale, il sistema rispetti i criteri di persistenza a lungo termine.
+
+\subsection{Struttura dei dati}
+I dati ricevuti vengono normalizzati e memorizzati in una collezione denominata \texttt{positions}. La struttura del record prevede i seguenti campi:
+\begin{itemize}
+    \item \texttt{timestamp}: riferimento temporale dell'acquisizione.
+    \item \texttt{lat} / \texttt{lon}: coordinate geografiche acquisite dal modulo GNSS;
+    \item \texttt{battery}: stato di carica della batteria (espresso in voltaggio);
+    \item \texttt{battery\_percent}: stato di carica della batteria (espresso in percentuale);
+    \item \texttt{charging}: booleano che indica se la batteria è in corso di ricarica;
+    \item \texttt{feet}: conteggio dei passi rilevato dall'accelerometro BMA400;
+\end{itemize}
 
 \section{Front-end e Applicazione Mobile}
-L'applicazione mobile, sviluppata per interagire con le API di PocketBase, offre:
+L'applicazione mobile, sviluppata in Flutter \cite{flutter}, è progettata per interagire con le API di PocketBase, offre:
 
 
 \section{Test e Risultati}
-I test hanno dimostrato un'accuratezza del GPS entro i 5 metri in spazi aperti. La latenza media di aggiornamento della posizione tramite rete LTE è risultata inferiore ai 3 secondi, soddisfacendo i requisiti di "tempo reale" del progetto.
 
 \section{Conclusioni}
-Il prototipo Pet-Tracker dimostra l'efficacia dell'integrazione di tecnologie Edge (ESP32) e Cloud (PocketBase). Sviluppi futuri potrebbero prevedere l'uso del protocollo MQTT per ridurre ulteriormente l'overhead energetico della comunicazione cellulare.
 
 \newpage
+
 \addcontentsline{toc}{section}{Riferimenti bibliografici}
 \printbibliography[title={Riferimenti bibliografici}]
 

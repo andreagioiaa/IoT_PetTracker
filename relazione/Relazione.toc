@@ -9,7 +9,10 @@
 \contentsline {subsection}{\numberline {2.4}BMA400 CJMCU-400}{3}{subsection.2.4}%
 \contentsline {section}{\numberline {3}Firmware: Logica di funzionamento}{3}{section.3}%
 \contentsline {section}{\numberline {4}Back-end e Database}{3}{section.4}%
-\contentsline {section}{\numberline {5}Front-end e Applicazione Mobile}{3}{section.5}%
-\contentsline {section}{\numberline {6}Test e Risultati}{3}{section.6}%
-\contentsline {section}{\numberline {7}Conclusioni}{3}{section.7}%
-\contentsline {section}{Riferimenti bibliografici}{4}{section.7}%
+\contentsline {subsection}{\numberline {4.1}Architettura di Hosting e Network Exposure}{3}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Sistema di Backup e Data Retention}{3}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}Struttura dei dati}{4}{subsection.4.3}%
+\contentsline {section}{\numberline {5}Front-end e Applicazione Mobile}{4}{section.5}%
+\contentsline {section}{\numberline {6}Test e Risultati}{4}{section.6}%
+\contentsline {section}{\numberline {7}Conclusioni}{4}{section.7}%
+\contentsline {section}{Riferimenti bibliografici}{5}{section.7}%
