@@ -107,7 +107,6 @@ void loop()
         do {
             accelerometer.getInterruptStatus(&status);
             delay(50);
-        } while(digitalRead(WAKEUP_PIN) == HIGH);
 
         Serial.println("Buonanotte! Zzz...");
         delay(100);
@@ -123,4 +122,136 @@ void loop()
     }
 
     delay(150); // Piccolo ritardo per stabilità del ciclo
+}
+
+////
+
+
+
+#include <Wire.h>
+#include "SparkFun_BMA400_Arduino_Library.h"
+
+// --- CONFIGURAZIONE HARDWARE (LilyGO T-SIM7670G S3) ---
+BMA400 accelerometer;
+const uint8_t I2C_ADDRESS = BMA400_I2C_ADDRESS_DEFAULT; // 0x14
+const int I2C_SDA = 41;
+const int I2C_SCL = 42;
+const gpio_num_t WAKEUP_PIN = GPIO_NUM_5;
+
+// --- PARAMETRI DI MONITORAGGIO ---
+const unsigned long SLEEP_TIMEOUT = 12000;
+uint32_t stepCountAtWakeup = 0;
+unsigned long lastActivityTime = 0;
+
+RTC_DATA_ATTR int bootCount = 0;
+
+// ─────────────────────────────────────────────
+struct StepData {
+  uint32_t total;
+  uint32_t session;
+  uint8_t  activityType;
+  bool     hasNewSteps;
+};
+
+// ─────────────────────────────────────────────
+bool initAccelerometer() {
+  Wire.begin(I2C_SDA, I2C_SCL);
+  if (accelerometer.beginI2C(I2C_ADDRESS) != BMA400_OK) {
+    Serial.println("ERRORE: BMA400 non trovato. Controlla i cavi I2C!");
+    return false;
+  }
+
+  bma400_step_int_conf stepConfig = {
+    .int_chan = BMA400_INT_CHANNEL_1
+  };
+  accelerometer.setStepCounterInterrupt(&stepConfig);
+  accelerometer.enableInterrupt(BMA400_STEP_COUNTER_INT_EN, true);
+  accelerometer.enableInterrupt(BMA400_GEN1_INT_EN, false);
+  accelerometer.setInterruptPinMode(BMA400_INT_CHANNEL_1, BMA400_INT_PUSH_PULL_ACTIVE_1);
+
+  uint8_t dummyActivity;
+  accelerometer.getStepCount(&stepCountAtWakeup, &dummyActivity);
+
+  uint16_t dummyStatus = 0;
+  accelerometer.getInterruptStatus(&dummyStatus);
+
+  return true;
+}
+
+// ─────────────────────────────────────────────
+StepData readStepData(uint32_t lastSessionSteps) {
+  StepData data = {0, 0, 0, false};
+
+  accelerometer.getStepCount(&data.total, &data.activityType);
+  data.session     = data.total - stepCountAtWakeup;
+  data.hasNewSteps = (data.session > lastSessionSteps);
+
+  return data;
+}
+
+// ─────────────────────────────────────────────
+String activityLabel(uint8_t activityType) {
+  switch (activityType) {
+    case BMA400_RUN_ACT:   return "Corsa";
+    case BMA400_WALK_ACT:  return "Camminata";
+    case BMA400_STILL_ACT: return "Fermo";
+    default:               return "Sconosciuta";
+  }
+}
+
+// ─────────────────────────────────────────────
+void enterDeepSleep() {
+  Serial.println("\nAnimale fermo. Entro in modalità risparmio energetico (Deep Sleep)...");
+
+  uint16_t status;
+  do {
+    accelerometer.getInterruptStatus(&status);
+    delay(50);
+  } while (digitalRead(WAKEUP_PIN) == HIGH);
+
+  Serial.println("Buonanotte! Zzz...");
+  delay(100);
+
+  pinMode(WAKEUP_PIN, INPUT_PULLDOWN);
+  esp_sleep_enable_ext0_wakeup(WAKEUP_PIN, 1);
+  esp_deep_sleep_start();
+}
+
+// ─────────────────────────────────────────────
+void setup() {
+  Serial.begin(115200);
+  delay(3000);
+
+  bootCount++;
+  Serial.printf("\n=== Avvio ESP32-S3 | Risveglio n. %d ===\n", bootCount);
+
+  if (!initAccelerometer()) {
+    while (1); // Blocca se il sensore non risponde
+  }
+
+  Serial.println("Sensore pronto: Mi sveglierò SOLO sui passi effettivi.");
+  lastActivityTime = millis();
+}
+
+// ─────────────────────────────────────────────
+void loop() {
+  static uint32_t lastSessionSteps = 0;
+
+  StepData step = readStepData(lastSessionSteps);
+
+  if (step.hasNewSteps) {
+    lastActivityTime   = millis();
+    lastSessionSteps   = step.session;
+
+    Serial.print("➤ Passi sessione: ");
+    Serial.print(step.session);
+    Serial.print("\t| Andatura: ");
+    Serial.println(activityLabel(step.activityType));
+  }
+
+  if (millis() - lastActivityTime > SLEEP_TIMEOUT) {
+    enterDeepSleep();
+  }
+
+  delay(150);
 }
