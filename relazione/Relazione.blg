@@ -1,15 +1,15 @@
 [0] Config.pm:328> INFO - This is Biber 2.21
 [0] Config.pm:331> INFO - Logfile is 'Relazione.blg'
-[187] biber-MSWIN64:342> INFO - === 
-[249] Biber.pm:421> INFO - Reading 'Relazione.bcf'
-[430] Biber.pm:1002> INFO - Found 7 citekeys in bib section 0
-[454] Biber.pm:4487> INFO - Processing section 0
-[473] Biber.pm:4678> INFO - Looking for bibtex file 'riferimenti.bib' for section 0
-[559] bibtex.pm:1713> INFO - LaTeX decoding ...
-[590] bibtex.pm:1519> INFO - Found BibTeX data source 'riferimenti.bib'
-[625] UCollate.pm:68> INFO - Overriding locale 'it-IT' defaults 'variable = shifted' with 'variable = non-ignorable'
-[625] UCollate.pm:68> INFO - Overriding locale 'it-IT' defaults 'normalization = NFD' with 'normalization = prenormalized'
-[625] Biber.pm:4307> INFO - Sorting list 'none/global//global/global/global' of type 'entry' with template 'none' and locale 'it-IT'
-[625] Biber.pm:4313> INFO - No sort tailoring available for locale 'it-IT'
-[638] bbl.pm:676> INFO - Writing 'Relazione.bbl' with encoding 'UTF-8'
-[641] bbl.pm:779> INFO - Output to Relazione.bbl
+[186] biber-MSWIN64:342> INFO - === 
+[250] Biber.pm:421> INFO - Reading 'Relazione.bcf'
+[439] Biber.pm:1002> INFO - Found 11 citekeys in bib section 0
+[464] Biber.pm:4487> INFO - Processing section 0
+[483] Biber.pm:4678> INFO - Looking for bibtex file 'riferimenti.bib' for section 0
+[555] bibtex.pm:1713> INFO - LaTeX decoding ...
+[566] bibtex.pm:1519> INFO - Found BibTeX data source 'riferimenti.bib'
+[610] UCollate.pm:68> INFO - Overriding locale 'it-IT' defaults 'normalization = NFD' with 'normalization = prenormalized'
+[610] UCollate.pm:68> INFO - Overriding locale 'it-IT' defaults 'variable = shifted' with 'variable = non-ignorable'
+[610] Biber.pm:4307> INFO - Sorting list 'none/global//global/global/global' of type 'entry' with template 'none' and locale 'it-IT'
+[611] Biber.pm:4313> INFO - No sort tailoring available for locale 'it-IT'
+[629] bbl.pm:676> INFO - Writing 'Relazione.bbl' with encoding 'UTF-8'
+[634] bbl.pm:779> INFO - Output to Relazione.bbl

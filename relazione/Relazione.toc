@@ -11,7 +11,8 @@
 \contentsline {section}{\numberline {4}Back-end e Database}{3}{section.4}%
 \contentsline {subsection}{\numberline {4.1}Architettura di Hosting e Network Exposure}{3}{subsection.4.1}%
 \contentsline {subsection}{\numberline {4.2}Sistema di Backup e Data Retention}{3}{subsection.4.2}%
-\contentsline {subsection}{\numberline {4.3}Struttura dei dati}{4}{subsection.4.3}%
+\contentsline {subsection}{\numberline {4.3}Monitoraggio e Business Continuity}{4}{subsection.4.3}%
+\contentsline {subsection}{\numberline {4.4}Struttura dei dati}{4}{subsection.4.4}%
 \contentsline {section}{\numberline {5}Front-end e Applicazione Mobile}{4}{section.5}%
 \contentsline {section}{\numberline {6}Test e Risultati}{4}{section.6}%
 \contentsline {section}{\numberline {7}Conclusioni}{4}{section.7}%

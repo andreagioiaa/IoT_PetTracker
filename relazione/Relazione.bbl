@@ -107,9 +107,57 @@
       \verb https://pocketbase.io/docs/
       \endverb
     \endentry
-    \entry{flutter}{online}{}{}
+    \entry{ngrok}{online}{}{}
       \field{sortinit}{7}
       \field{sortinithash}{108d0be1b1bee9773a1173443802c0a3}
+      \field{labeltitlesource}{title}
+      \field{title}{ngrok Documentation - HTTP Tunnels}
+      \verb{urlraw}
+      \verb https://ngrok.com/docs/secure-tunnels/
+      \endverb
+      \verb{url}
+      \verb https://ngrok.com/docs/secure-tunnels/
+      \endverb
+    \endentry
+    \entry{rclone}{online}{}{}
+      \field{sortinit}{8}
+      \field{sortinithash}{a231b008ebf0ecbe0b4d96dcc159445f}
+      \field{labeltitlesource}{title}
+      \field{title}{rclone - rsync for cloud storage}
+      \verb{urlraw}
+      \verb https://rclone.org/
+      \endverb
+      \verb{url}
+      \verb https://rclone.org/
+      \endverb
+    \endentry
+    \entry{backblaze}{online}{}{}
+      \field{sortinit}{9}
+      \field{sortinithash}{0a5ebc79d83c96b6579069544c73c7d4}
+      \field{labeltitlesource}{title}
+      \field{title}{Backblaze B2 Cloud Storage}
+      \verb{urlraw}
+      \verb https://www.backblaze.com/b2/cloud-storage.html
+      \endverb
+      \verb{url}
+      \verb https://www.backblaze.com/b2/cloud-storage.html
+      \endverb
+    \endentry
+    \entry{uptimerobot}{online}{}{}
+      \field{sortinit}{1}
+      \field{sortinithash}{4f6aaa89bab872aa0999fec09ff8e98a}
+      \field{labeltitlesource}{title}
+      \field{title}{UptimeRobot - Free Website Monitoring Service}
+      \verb{urlraw}
+      \verb https://uptimerobot.com/
+      \endverb
+      \verb{url}
+      \verb https://uptimerobot.com/
+      \endverb
+    \endentry
+    \entry{flutter}{online}{}{}
+      \field{sortinit}{1}
+      \field{sortinithash}{4f6aaa89bab872aa0999fec09ff8e98a}
       \field{labeltitlesource}{title}
       \field{title}{Flutter Documentation}
       \verb{urlraw}
