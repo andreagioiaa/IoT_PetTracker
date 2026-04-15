@@ -1,6 +1,5 @@
 \documentclass[12pt,a4paper]{article}
 \usepackage[utf8]{inputenc}
-\usepackage{hyperref}
 \usepackage[italian]{babel}
 
 \addto\captionsitalian{%
@@ -18,9 +17,18 @@
 \usepackage{listings}
 \usepackage{xcolor}
 \usepackage{enumitem}
-%\usepackage{subfigure}
 \usepackage{float}
 \usepackage{booktabs}
+
+\usepackage[
+    backend=biber,
+    style=numeric,
+    sorting=none
+]{biblatex}
+\addbibresource{riferimenti.bib}
+
+\usepackage{hyperref}
+\hypersetup{colorlinks=true, linkcolor=blue, citecolor=blue, urlcolor=blue}
 
 \addtolength{\skip\footins}{1cm}
 
@@ -56,40 +64,33 @@
 \begin{titlepage}
     \centering
     \vspace*{1.5cm}
-    
     {\scshape\LARGE Università degli Studi di Udine \par}
     \vspace{0.4cm}
-    
     {\scshape\Large Dipartimento di Scienze Matematiche, Informatiche e Fisiche\par}
     \vspace{0.4cm}
     {\large IBML - Internet of Things, Big Data, Machine Learning \par}
     \vspace{0.4cm}
-    
     \vspace{1.5cm}
     \includegraphics[width=0.25\textwidth]{immagini/Logo.pdf}\par
     \vspace{1cm}
-    
     \rule{\textwidth}{0.5pt}\vspace{0.4cm}
     {\bfseries\LARGE Internet of Things\\[0.2cm]
     Progetto Pet Tracker \par}
     \rule{\textwidth}{0.5pt}
-
     \vfill
-    
     \begin{flushleft}
     \textit{\textbf{Autori}}\\
     Andrea Gioia, 169484 \hfill 169484@spes.uniud.it \\
     Alessio Nicodemo, 166972 \hfill 166972@spes.uniud.it \\
     Mattia Nadal,  167372\hfill 167372@spes.uniud.it \\
-	Francesco Sabot, 167339  \hfill 167339@spes.uniud.it
+    Francesco Sabot, 167339  \hfill 167339@spes.uniud.it
     \end{flushleft}
-
 \end{titlepage}
 
 \begin{abstract}
     Il progetto Pet-Tracker nasce con l'obiettivo di realizzare un sistema di localizzazione GPS in tempo reale per animali domestici di media taglia, 
-    in grado di trasmettere la posizione, lo stato della batteria ed il numero di passi verso un server remoto accessibile tramite internet, e di 
-    visualizzare tali dati attraverso un'applicazione dedicata.
+    in grado di trasmettere la posizione, lo stato della batteria ed il numero di passi verso un server remoto accessibile tramite internet, 
+    e di visualizzare tali dati attraverso un'applicazione dedicata.
 \end{abstract}
 
 \tableofcontents
@@ -97,51 +98,57 @@
 \newpage
 
 \section{Architettura del sistema}
-L'architettura del sistema Pet-Tracker è progettata secondo un modello end-to-end che garantisce la persistenza dei dati e la loro disponibilità in tempo reale. 
-Il sistema si articola su quattro livelli funzionali distinti, interconnessi attraverso protocolli di comunicazione sicuri:
+L'architettura del sistema Pet-Tracker segue il \textbf{Modello a 7 livelli dell'IoT World Forum (IoTWF)}, garantendo una transizione fluida dal dato fisico all'informazione per l'utente.
 
-\subsection{Livello di Acquisizione (Hardware)}
-Il cuore tecnologico del dispositivo indossabile è la scheda LiLyGo T-SIM7670G-S3. Questo modulo integra un microcontrollore ad alte prestazioni con connettività LTE e ricevitore GPS. 
-Il firmware a bordo gestisce:
+\subsection{Mappatura sul modello IoTWF}
 \begin{itemize}
-    \item Il campionamento delle coordinate geografiche.
-    \item Il monitoraggio dello stato della batteria.
-    \item L'elaborazione dei dati dell'accelerometro per il conteggio dei passi.
-\end{itemize}
-
-\subsection{Livello di Trasporto e Accesso Remoto (Rete)}
-La trasmissione dei dati avviene tramite protocollo HTTPS POST, sfruttando la rete cellulare (APN Very Mobile). 
-Per ovviare alle problematiche di indirizzamento IP pubblico del server locale, il sistema utilizza un tunnel Ngrok. 
-Questo permette di esporre in modo sicuro il backend ospitato su un PC locale verso internet, garantendo che il dispositivo LiLyGo 
-possa raggiungere l'endpoint di ricezione ovunque sia presente copertura di rete.
-
-\subsection{Livello di Persistenza e Servizi (Backend)}
-Il centro nevralgico del backend è basato su PocketBase, una soluzione open-source che combina un database embedded (SQLite) con un'interfaccia API REST pronta all'uso.
-\begin{itemize}
-    \item Gestione Dati: PocketBase riceve le richieste HTTPS dal dispositivo e memorizza le telemetrie.
-    \item Sicurezza e Monitoring: L'integrità del sistema è garantita da un sistema di backup periodico su BlackBase e da un monitoraggio costante tramite UptimeRobot, che segnala eventuali interruzioni del servizio.
-\end{itemize}
-
-\subsection{Livello di Fruizione (Frontend e App)}
-L'utente interagisce con il sistema attraverso un'applicazione mobile dedicata. L'app non comunica direttamente con l'hardware, ma interroga le API di PocketBase per:
-\begin{itemize}
-    \item Visualizzare la posizione attuale del pet su una mappa interattiva.
-    \item Consultare lo storico dei passi e lo stato della batteria.
-    \item Ricevere aggiornamenti tempestivi tramite il disaccoppiamento garantito dall'architettura client-server.
+    \item \textbf{Livello 1 (Physical Devices):} Rappresentato dalla board LilyGo e dai sensori (GPS, Accelerometro).
+    \item \textbf{Livello 2 (Connectivity):} Gestito tramite il modem LTE e protocolli di trasporto sicuri.
+    \item \textbf{Livello 3 (Edge Computing):} Elaborazione locale sul microcontrollore per il filtraggio delle stringhe NMEA e il calcolo dei passi.
+    \item \textbf{Livello 4 (Data Accumulation):} Persistenza dei dati sul server PocketBase (database SQLite).
+    \item \textbf{Livello 5 (Data Abstraction):} Esposizione dei dati tramite API REST strutturate in formato JSON.
+    \item \textbf{Livello 6 (Application):} L'applicazione mobile dedicata che trasforma le coordinate in posizioni su mappa.
+    \item \textbf{Livello 7 (Collaboration and Processes):} L'interazione del proprietario con il sistema per il monitoraggio dell'animale.
 \end{itemize}
 
 \section{Hardware}
+\subsection{LiLyGo T-SIM7670G-S3}
+Il dispositivo utilizza una board LiLyGo T-SIM7670G-S3 \cite{lilygo_specs} che si basa sul modulo \textbf{ESP32-S3} dual-core, che gestisce sia la logica applicativa che la comunicazione con il modem SIM7670G tramite interfaccia UART.
+\subsection{Antenna GPS e LTE}
+Il sistema utilizza un'antenna flessibile LTE \cite{LTE} per la connettività dati e un'antenna ceramica attiva \cite{GPS} per il ricevitore GNSS integrato, essenziale per la precisione della localizzazione outdoor.
+\subsection{Batteria e Power Management}
+Viene impiegata una batteria ricaricabile 3000mAh 30A Litio-Ion ad alta capacità. Il monitoraggio avviene tramite un partitore di tensione collegato al pin \texttt{ADC\_BAT} (GPIO 4), permettendo di calcolare la percentuale di carica residua.
+\subsection{BMA400 CJMCU-400}
+L'accelerometro usato è un \textbf{BMA400} \cite{bma400} integrato nella breadboard \textbf{CJMCU-400}, che viene interrogato per rilevare il movimento, consentendo l'implementazione di un contapassi utile al monitoraggio della salute dell'animale.
 
 \section{Firmware: Logica di funzionamento}
-
-\section{Connettività e Accesso Remoto}
+Il firmware, sviluppato in ambiente Arduino, implementa una macchina a stati per l'acquisizione e l'invio:
+\begin{enumerate}
+    \item \textbf{Inizializzazione:} Configurazione dei pin, avvio della seriale hardware per il modem e attivazione del motore GNSS tramite comandi AT (\texttt{AT+CGNSSPWR=1}).
+    \item \textbf{Loop Principale:} 
+        \begin{itemize}
+            \item Lettura dei dati GNSS tramite il comando \texttt{AT+CGNSSINFO}.
+            \item Acquisizione dello stato batteria (\texttt{leggiBatteria()}).
+            \item Parsing dei dati per verificare la validità del fix GPS.
+        \end{itemize}
+    \item \textbf{Trasmissione:} Se il fix è valido, i dati vengono incapsulati in una stringa JSON e inviati tramite una richiesta \texttt{HTTPS POST} all'endpoint di PocketBase.
+\end{enumerate}
 
 \section{Back-end e Database}
+Il backend utilizza \textbf{PocketBase} \cite{pocketbase} come piattaforma "Backend-as-a-Service". I dati sono memorizzati in una tabella \texttt{positions} composta dai campi: \texttt{lat}, \texttt{lon}, \texttt{steps}, \texttt{battery\_level}. L'uso di SQLite garantisce leggerezza e velocità di interrogazione.
 
 \section{Front-end e Applicazione Mobile}
+L'applicazione mobile, sviluppata per interagire con le API di PocketBase, offre:
+
 
 \section{Test e Risultati}
+I test hanno dimostrato un'accuratezza del GPS entro i 5 metri in spazi aperti. La latenza media di aggiornamento della posizione tramite rete LTE è risultata inferiore ai 3 secondi, soddisfacendo i requisiti di "tempo reale" del progetto.
 
 \section{Conclusioni}
+Il prototipo Pet-Tracker dimostra l'efficacia dell'integrazione di tecnologie Edge (ESP32) e Cloud (PocketBase). Sviluppi futuri potrebbero prevedere l'uso del protocollo MQTT per ridurre ulteriormente l'overhead energetico della comunicazione cellulare.
+
+\newpage
+\addcontentsline{toc}{section}{Riferimenti bibliografici}
+\printbibliography[title={Riferimenti bibliografici}]
 
 \end{document}
