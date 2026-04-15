@@ -362,7 +362,6 @@ if (millis() - lastActivityTime > SLEEP_TIMEOUT) {
 }
 
 */
-
 #include <HardwareSerial.h>
 #include "soc/usb_serial_jtag_reg.h"
 #include <Wire.h>
@@ -430,7 +429,7 @@ struct BatInfo {
 struct GpsData {
   float lat;
   float lon;
-  bool  valid;
+  bool  valid = false;
 };
 
 struct StepData {
@@ -744,31 +743,24 @@ void setup() {
 //  LOOP
 // ═══════════════════════════════════════════════
 void loop() {
+  // Passi
+  static uint32_t lastSessionSteps = 0;
+  StepData step = readStepData(lastSessionSteps);
+
   // Batteria
   BatInfo bat = leggiBatteria();
   Serial.println(bat.charging ? "[BAT] IN CARICA (USB)" : "[BAT] A BATTERIA");
 
-  // Passi
-  static uint32_t lastSessionSteps = 0;
-  StepData step = readStepData(lastSessionSteps);
+  // GPS
+  GpsData gps;
+  while(!gps.valid){
+    gps = getGpsData();
+  };
+
   if (step.hasNewSteps) {
     lastActivityTime  = millis();
     lastSessionSteps  = step.session;
     Serial.printf("[ACC] Passi sessione: %u | Andatura: %s\n", step.session, activityLabel(step.activityType).c_str());
-  }else{
-    Serial.println("[SYSTEM] Timeout inattività raggiunto. Invio dati finali...");
-  
-    String ts = getTimestamp();
-    GpsData emptyGps = {0, 0, false};
-    inviaDati(emptyGps.lat, emptyGps.lon, bat, ts, step);
-    
-    delay(1000);
-    enterDeepSleep();
-  }
-
-  // GPS + invio dati
-  GpsData gps = getGpsData();
-  if (gps.valid) {
     String ts = getTimestamp();
     
     // Aggiorna persistenza GPS
@@ -788,6 +780,15 @@ void loop() {
 
     StepData emptyStep = {0, 0, 0, false};
     inviaDati(gps.lat, gps.lon, bat, ts, emptyStep);
+  } else if (millis() - lastActivityTime > SLEEP_TIMEOUT){
+    Serial.println("[SYSTEM] Timeout inattività raggiunto. Invio dati finali...");
+  
+    String ts = getTimestamp();
+    GpsData emptyGps = {0, 0, false};
+    inviaDati(emptyGps.lat, emptyGps.lon, bat, ts, step);
+    
+    delay(1000);
+    enterDeepSleep();
   }
 
   delay(20000);
