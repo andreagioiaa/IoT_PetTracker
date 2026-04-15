@@ -40,8 +40,18 @@ HardwareSerial modem(1);
 // ═══════════════════════════════════════════════
 //  BATTERIA
 // ═══════════════════════════════════════════════
-float lastValidVoltage = 0.0f;
-int   lastValidPercent = 0;
+RTC_DATA_ATTR float lastValidVoltage = 0.0f;
+RTC_DATA_ATTR int   lastValidPercent = 0;
+
+// ═══════════════════════════════════════════════
+//  PERSISTENZA GPS (HOT START)
+// ═══════════════════════════════════════════════
+RTC_DATA_ATTR float lastLat = 0.0f;
+RTC_DATA_ATTR float lastLon = 0.0f;
+RTC_DATA_ATTR char  lastGpsDate[7] = ""; // ddmmyy
+RTC_DATA_ATTR char  lastGpsTime[7] = ""; // hhmmss
+RTC_DATA_ATTR bool  hasGpsFix = false;
+RTC_DATA_ATTR bool  initialized = false;
 
 // ═══════════════════════════════════════════════
 //  STRUCT
@@ -73,11 +83,44 @@ String  sendAT(const char* cmd, uint32_t waitMs = 1500);
 BatInfo leggiBatteria();
 GpsData getGpsData();
 String  getTimestamp();
-void    inviaDati(float l_lat, float l_lon, const BatInfo& bat, const String& timestamp);
+void    inviaDati(float l_lat, float l_lon, const BatInfo& bat, const String& timestamp, const StepData& step);
 bool    initAccelerometer();
 StepData readStepData(uint32_t lastSessionSteps);
 String  activityLabel(uint8_t activityType);
 void    enterDeepSleep();
+void    iniettaGps();
+String  formatCoordinate(float val, bool isLat);
+
+// ─────────────────────────────────────────────
+void iniettaGps() {
+  if (!hasGpsFix) return;
+
+  Serial.println("[GPS] Iniettando dati persistenti per Hot Start...");
+
+  // Iniezione Posizione: AT+CGNSSPOS=<lat>,<lat_dir>,<lon>,<lon_dir>,<alt>,<uncertainty>
+  String latDir = (lastLat >= 0) ? "N" : "S";
+  String lonDir = (lastLon >= 0) ? "E" : "W";
+  String cmdPos = "AT+CGNSSPOS=" + formatCoordinate(lastLat, true) + "," + latDir + "," + 
+                  formatCoordinate(lastLon, false) + "," + lonDir + ",0,100";
+  sendAT(cmdPos.c_str());
+
+  // Iniezione Tempo: AT+CGNSSTIME=<date>,<time>,<uncertainty>
+  if (lastGpsDate[0] != '\0') {
+    String cmdTime = "AT+CGNSSTIME=" + String(lastGpsDate) + "," + String(lastGpsTime) + ",1000";
+    sendAT(cmdTime.c_str());
+  }
+}
+
+// Converte gradi decimali in formato ddmm.mmmmmm (NMEA-style) richiesto per iniezione
+String formatCoordinate(float val, bool isLat) {
+  val = abs(val);
+  int deg = (int)val;
+  double min = (val - deg) * 60.0;
+  char buf[32];
+  if (isLat) sprintf(buf, "%02d%09.6f", deg, min);
+  else       sprintf(buf, "%03d%09.6f", deg, min);
+  return String(buf);
+}
 
 // ─────────────────────────────────────────────
 bool isUsbConnected() {
@@ -290,6 +333,11 @@ void setup() {
   Serial.begin(115200);
   delay(3000);
 
+  esp_sleep_wakeup_cause_t wakeup_reason = esp_sleep_get_wakeup_cause();
+  if (wakeup_reason == ESP_SLEEP_WAKEUP_UNDEFINED) {
+    initialized = false;
+  }
+
   bootCount++;
   Serial.printf("\n=== PetTracker T-SIM7670G-S3 | Avvio n. %d ===\n", bootCount);
 
@@ -306,11 +354,17 @@ void setup() {
   modem.begin(115200, SERIAL_8N1, MODEM_RX, MODEM_TX);
   delay(2000);
 
-  sendAT(("AT+CGDCONT=1,\"IP\",\"" + String(apn) + "\"").c_str());
-  sendAT("AT+CNACT=0,1", 15000);
-  sendAT("AT+CGDRT=4,1");
-  sendAT("AT+CGSETV=4,1");
-  sendAT("AT+CGNSSPWR=1");
+  if (!initialized) {
+    sendAT(("AT+CGDCONT=1,\"IP\",\"" + String(apn) + "\"").c_str());
+    sendAT("AT+CNACT=0,1", 15000);
+    sendAT("AT+CGDRT=4,1");
+    sendAT("AT+CGSETV=4,1");
+    sendAT("AT+CGNSSPWR=1");
+    initialized = true;
+  } else {
+    sendAT("AT+CGNSSPWR=1");
+    iniettaGps();
+  }
   Serial.println("[MODEM] Pronto");
 
   // Accelerometro
@@ -342,6 +396,22 @@ void loop() {
   GpsData gps = getGpsData();
   if (gps.valid) {
     String ts = getTimestamp();
+    
+    // Aggiorna persistenza GPS
+    lastLat = gps.lat;
+    lastLon = gps.lon;
+    hasGpsFix = true;
+    
+    // Estrae data/ora per iniezione futura
+    String r = sendAT("AT+CCLK?", 500);
+    int q1 = r.indexOf('"');
+    if (q1 != -1) {
+      String rawDate = r.substring(q1 + 7, q1 + 9) + r.substring(q1 + 4, q1 + 6) + r.substring(q1 + 1, q1 + 3);
+      String rawTime = r.substring(q1 + 10, q1 + 12) + r.substring(q1 + 13, q1 + 15) + r.substring(q1 + 16, q1 + 18);
+      strncpy(lastGpsDate, rawDate.c_str(), 6); lastGpsDate[6] = '\0';
+      strncpy(lastGpsTime, rawTime.c_str(), 6); lastGpsTime[6] = '\0';
+    }
+
     StepData emptyStep = {0, 0, 0, false};
     inviaDati(gps.lat, gps.lon, bat, ts, emptyStep);
   }

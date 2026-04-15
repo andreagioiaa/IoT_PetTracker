@@ -1,76 +1,83 @@
 #include <HardwareSerial.h>
 #include "soc/usb_serial_jtag_reg.h"
+#include <Wire.h>
+#include "SparkFun_BMA400_Arduino_Library.h"
 
-// --- PIN LILYGO T-SIM7660G-S3 ---
+// ═══════════════════════════════════════════════
+//  PIN LILYGO T-SIM7670G-S3
+// ═══════════════════════════════════════════════
+
 #define MODEM_TX      11
 #define MODEM_RX      10
 #define MODEM_PWRKEY  18
-
 #define PIN_EN        12
 #define PIN_ADC_BAT   4
 #define BAT_ADC_EN    14
 
+// ═══════════════════════════════════════════════
+//  ACCELEROMETRO
+// ═══════════════════════════════════════════════
+BMA400 accelerometer;
+const uint8_t    I2C_ADDRESS  = BMA400_I2C_ADDRESS_DEFAULT;
+const int        I2C_SDA      = 41;
+const int        I2C_SCL      = 42;
+const gpio_num_t WAKEUP_PIN   = GPIO_NUM_5;
+
+const unsigned long SLEEP_TIMEOUT = 30000;
+uint32_t            stepCountAtWakeup = 0;
+unsigned long       lastActivityTime  = 0;
+
+RTC_DATA_ATTR int bootCount = 0;
+
+// ═══════════════════════════════════════════════
+//  MODEM / RETE
+// ═══════════════════════════════════════════════
 const char* pb_url = "https://harvey-chairless-shenna.ngrok-free.dev/api/collections/positions/records";
 const char* apn    = "ibox.tim.it";
 
 HardwareSerial modem(1);
 
+// ═══════════════════════════════════════════════
+//  BATTERIA
+// ═══════════════════════════════════════════════
+float lastValidVoltage = 0.0f;
+int   lastValidPercent = 0;
+
+// ═══════════════════════════════════════════════
+//  STRUCT
+// ═══════════════════════════════════════════════
 struct BatInfo {
   float voltage;
   int   percent;
   bool  charging;
 };
 
-// Memoria persistente al Deep Sleep
-RTC_DATA_ATTR bool  initialized = false;
-RTC_DATA_ATTR float lastValidVoltage = 0.0f;
-RTC_DATA_ATTR int   lastValidPercent = 0;
+struct GpsData {
+  float lat;
+  float lon;
+  bool  valid;
+};
 
-// Persistenza GPS per Hot Start
-RTC_DATA_ATTR float lastLat = 0.0f;
-RTC_DATA_ATTR float lastLon = 0.0f;
-RTC_DATA_ATTR char  lastGpsDate[7] = ""; // ddmmyy
-RTC_DATA_ATTR char  lastGpsTime[7] = ""; // hhmmss
-RTC_DATA_ATTR bool  hasGpsFix = false;
+struct StepData {
+  uint32_t total;
+  uint32_t session;
+  uint8_t  activityType;
+  bool     hasNewSteps;
+};
 
+// ═══════════════════════════════════════════════
+//  PROTOTIPI
+// ═══════════════════════════════════════════════
+bool    isUsbConnected();
 String  sendAT(const char* cmd, uint32_t waitMs = 1500);
 BatInfo leggiBatteria();
+GpsData getGpsData();
 String  getTimestamp();
 void    inviaDati(float l_lat, float l_lon, const BatInfo& bat, const String& timestamp);
-bool    isUsbConnected();
-void    iniettaGps();
-String  formatCoordinate(float val, bool isLat);
-
-// ─────────────────────────────────────────────
-void iniettaGps() {
-  if (!hasGpsFix) return;
-
-  Serial.println("[GPS] Iniettando dati persistenti per Hot Start...");
-
-  // Iniezione Posizione: AT+CGNSSPOS=<lat>,<lat_dir>,<lon>,<lon_dir>,<alt>,<uncertainty>
-  String latDir = (lastLat >= 0) ? "N" : "S";
-  String lonDir = (lastLon >= 0) ? "E" : "W";
-  String cmdPos = "AT+CGNSSPOS=" + formatCoordinate(lastLat, true) + "," + latDir + "," + 
-                  formatCoordinate(lastLon, false) + "," + lonDir + ",0,100";
-  sendAT(cmdPos.c_str());
-
-  // Iniezione Tempo: AT+CGNSSTIME=<date>,<time>,<uncertainty>
-  if (lastGpsDate[0] != '\0') {
-    String cmdTime = "AT+CGNSSTIME=" + String(lastGpsDate) + "," + String(lastGpsTime) + ",1000";
-    sendAT(cmdTime.c_str());
-  }
-}
-
-// Converte gradi decimali in formato ddmm.mmmmmm (NMEA-style) richiesto per iniezione
-String formatCoordinate(float val, bool isLat) {
-  val = abs(val);
-  int deg = (int)val;
-  double min = (val - deg) * 60.0;
-  char buf[32];
-  if (isLat) sprintf(buf, "%02d%09.6f", deg, min);
-  else       sprintf(buf, "%03d%09.6f", deg, min);
-  return String(buf);
-}
+bool    initAccelerometer();
+StepData readStepData(uint32_t lastSessionSteps);
+String  activityLabel(uint8_t activityType);
+void    enterDeepSleep();
 
 // ─────────────────────────────────────────────
 bool isUsbConnected() {
@@ -106,29 +113,58 @@ BatInfo leggiBatteria() {
   mv /= 10;
 
   float vFisico = (mv * 2.0f) / 1000.0f;
-
   bat.charging = isUsbConnected();
 
   if (!bat.charging && vFisico > 3.0f) {
-    // Solo a batteria: voltaggio e percentuale sono affidabili
-    bat.voltage = vFisico;
-    bat.percent = constrain((int)((vFisico - 3.4f) / (4.2f - 3.4f) * 100), 0, 100);
+    bat.voltage      = vFisico;
+    bat.percent      = constrain((int)((vFisico - 3.4f) / (4.2f - 3.4f) * 100), 0, 100);
     lastValidVoltage = vFisico;
     lastValidPercent = bat.percent;
   } else if (!bat.charging) {
-    // A batteria ma lettura anomala: usa ultimi valori validi
     bat.voltage = lastValidVoltage;
     bat.percent = lastValidPercent;
   }
-  // Se in carica: bat.voltage e bat.percent restano 0 (verranno inviati come null)
 
   return bat;
 }
 
 // ─────────────────────────────────────────────
+GpsData getGpsData() {
+  GpsData gps = {0.0f, 0.0f, false};
+
+  String raw = sendAT("AT+CGNSSINFO", 1500);
+
+  if (raw.indexOf("+CGNSSINFO:") == -1 || raw.indexOf(",,,,") != -1) {
+    Serial.println("[GPS] No fix - wait...");
+    return gps;
+  }
+
+  int pos = raw.indexOf(':');
+  for (int i = 0; i < 5; i++) pos = raw.indexOf(',', pos + 1);
+  int p6 = raw.indexOf(',', pos + 1);
+  int p7 = raw.indexOf(',', p6 + 1);
+  int p8 = raw.indexOf(',', p7 + 1);
+
+  float lat = raw.substring(pos + 1, p6).toFloat();
+  float lon = raw.substring(p7 + 1, p8).toFloat();
+
+  if (lat == 0 || lon == 0) {
+    Serial.println("[GPS] Fix invalido (0,0)");
+    return gps;
+  }
+
+  gps.lat   = lat;
+  gps.lon   = lon;
+  gps.valid = true;
+
+  Serial.printf("[GPS] Fix OK: %.6f, %.6f\n", lat, lon);
+  return gps;
+}
+
+// ─────────────────────────────────────────────
 String getTimestamp() {
-  String r = sendAT("AT+CCLK?", 1500);
-  int q1 = r.indexOf('"'), q2 = r.lastIndexOf('"');
+  String r  = sendAT("AT+CCLK?", 1500);
+  int    q1 = r.indexOf('"'), q2 = r.lastIndexOf('"');
   if (q1 == -1 || q2 == -1 || q2 <= q1) return "1970-01-01T00:00:00.000Z";
 
   String raw = r.substring(q1 + 1, q2);
@@ -147,23 +183,24 @@ String getTimestamp() {
 }
 
 // ─────────────────────────────────────────────
-void inviaDati(float l_lat, float l_lon, const BatInfo& bat, const String& timestamp) {
+void inviaDati(float l_lat, float l_lon, const BatInfo& bat, const String& timestamp, const StepData& step) {
   String json = "{";
-  json += "\"timestamp\":\"";   json += timestamp;        json += "\",";
-  json += "\"lat\":";           json += String(l_lat, 6); json += ",";
-  json += "\"lon\":";           json += String(l_lon, 6); json += ",";
-  json += "\"geo\":{\"lon\":";  json += String(l_lon, 6); json += ",";
-  json += "\"lat\":";           json += String(l_lat, 6); json += "},";
-
-  // Durante la carica USB: battery e battery_percent → null
+  json += "\"timestamp\":\"";  json += timestamp;        json += "\",";
+  json += "\"lat\":";          json += String(l_lat, 6); json += ",";
+  json += "\"lon\":";          json += String(l_lon, 6); json += ",";
+  json += "\"geo\":{\"lon\":"; json += String(l_lon, 6); json += ",";
+  json += "\"lat\":";          json += String(l_lat, 6); json += "},";
+  // batteria
   json += "\"battery\":";
   json += (!bat.charging && bat.voltage > 0.1f) ? String(bat.voltage, 2) : "null";
   json += ",";
   json += "\"battery_percent\":";
   json += (!bat.charging && bat.voltage > 0.1f) ? String(bat.percent) : "null";
   json += ",";
-  json += "\"charging\":"; json += (bat.charging ? "true" : "false"); json += ",";
-  json += "\"feet\":0";
+  json += "\"charging\":"; json += (bat.charging ? "true" : "false");
+  json += ",";
+  // feet
+  json += "\"feet\":"; json += step.session ;
   json += "}";
 
   Serial.println("[JSON] " + json);
@@ -188,99 +225,138 @@ void inviaDati(float l_lat, float l_lon, const BatInfo& bat, const String& times
 }
 
 // ─────────────────────────────────────────────
-void setup() {
-  Serial.begin(115200);
-
-  esp_sleep_wakeup_cause_t wakeup_reason = esp_sleep_get_wakeup_cause();
-
-  // Se reset manuale o alimentazione, resetta inizializzazione
-  if (wakeup_reason == ESP_SLEEP_WAKEUP_UNDEFINED) {
-    delay(3000);
-    initialized = false;
+bool initAccelerometer() {
+  Wire.begin(I2C_SDA, I2C_SCL);
+  if (accelerometer.beginI2C(I2C_ADDRESS) != BMA400_OK) {
+    Serial.println("ERRORE: BMA400 non trovato. Controlla i cavi I2C!");
+    return false;
   }
 
-  pinMode(PIN_EN, OUTPUT);
-  digitalWrite(PIN_EN, HIGH);
+  bma400_step_int_conf stepConfig = { .int_chan = BMA400_INT_CHANNEL_1 };
+  accelerometer.setStepCounterInterrupt(&stepConfig);
+  accelerometer.enableInterrupt(BMA400_STEP_COUNTER_INT_EN, true);
+  accelerometer.enableInterrupt(BMA400_GEN1_INT_EN, false);
+  accelerometer.setInterruptPinMode(BMA400_INT_CHANNEL_1, BMA400_INT_PUSH_PULL_ACTIVE_1);
 
-  pinMode(BAT_ADC_EN, OUTPUT);
-  digitalWrite(BAT_ADC_EN, HIGH);
+  uint8_t  dummyActivity = 0;
+  uint16_t dummyStatus   = 0;
+  accelerometer.getStepCount(&stepCountAtWakeup, &dummyActivity);
+  accelerometer.getInterruptStatus(&dummyStatus);
 
-  analogReadResolution(12);
-  analogSetAttenuation(ADC_11db);
-
-  modem.begin(115200, SERIAL_8N1, MODEM_RX, MODEM_TX);
-
-  if (!initialized) {
-    pinMode(MODEM_PWRKEY, OUTPUT);
-    digitalWrite(MODEM_PWRKEY, LOW);  delay(1000);
-    digitalWrite(MODEM_PWRKEY, HIGH); delay(3000);
-    delay(2000);
-
-    Serial.println("\n=== PetTracker T-SIM7660G-S3 START (FIRST BOOT) ===");
-
-    leggiBatteria();
-
-    sendAT(("AT+CGDCONT=1,\"IP\",\"" + String(apn) + "\"").c_str());
-    sendAT("AT+CNACT=0,1", 15000);
-    sendAT("AT+CGDRT=4,1");
-    sendAT("AT+CGSETV=4,1");
-    sendAT("AT+CGNSSPWR=1");
-
-    initialized = true;
-  } else {
-    Serial.println("\n=== PetTracker T-SIM7660G-S3 START (WAKEUP) ===");
-    sendAT("AT+CGNSSPWR=1"); // Assicura che sia acceso
-    iniettaGps();            // Inietta ultimi dati noti
-  }
-
-  Serial.println("=== SISTEMA PRONTO ===");
+  return true;
 }
 
 // ─────────────────────────────────────────────
+StepData readStepData(uint32_t lastSessionSteps) {
+  StepData data = {0, 0, 0, false};
+  accelerometer.getStepCount(&data.total, &data.activityType);
+  data.session     = data.total - stepCountAtWakeup;
+  data.hasNewSteps = (data.session > lastSessionSteps);
+  return data;
+}
+
+// ─────────────────────────────────────────────
+String activityLabel(uint8_t activityType) {
+  switch (activityType) {
+    case BMA400_RUN_ACT:   return "Corsa";
+    case BMA400_WALK_ACT:  return "Camminata";
+    case BMA400_STILL_ACT: return "Fermo";
+    default:               return "Sconosciuta";
+  }
+}
+
+// ─────────────────────────────────────────────
+void enterDeepSleep() {
+  Serial.println("\nAnimale fermo. Entro in modalità risparmio energetico...");
+
+  uint16_t status;
+  do {
+    accelerometer.getInterruptStatus(&status);
+    delay(50);
+  } while (digitalRead(WAKEUP_PIN) == HIGH);
+
+  Serial.println("Buonanotte! Zzz...");
+  delay(100);
+
+  pinMode(WAKEUP_PIN, INPUT_PULLDOWN);
+  esp_sleep_enable_ext0_wakeup(WAKEUP_PIN, 1);
+  esp_deep_sleep_start();
+}
+
+// ═══════════════════════════════════════════════
+//  SETUP
+// ═══════════════════════════════════════════════
+void setup() {
+  Serial.begin(115200);
+  delay(3000);
+
+  bootCount++;
+  Serial.printf("\n=== PetTracker T-SIM7670G-S3 | Avvio n. %d ===\n", bootCount);
+
+  // Alimentazione
+  pinMode(PIN_EN, OUTPUT);    digitalWrite(PIN_EN, HIGH);
+  pinMode(BAT_ADC_EN, OUTPUT); digitalWrite(BAT_ADC_EN, HIGH);
+  analogReadResolution(12);
+  analogSetAttenuation(ADC_11db);
+
+  // Modem
+  pinMode(MODEM_PWRKEY, OUTPUT);
+  digitalWrite(MODEM_PWRKEY, LOW);  delay(1000);
+  digitalWrite(MODEM_PWRKEY, HIGH); delay(3000);
+  modem.begin(115200, SERIAL_8N1, MODEM_RX, MODEM_TX);
+  delay(2000);
+
+  sendAT(("AT+CGDCONT=1,\"IP\",\"" + String(apn) + "\"").c_str());
+  sendAT("AT+CNACT=0,1", 15000);
+  sendAT("AT+CGDRT=4,1");
+  sendAT("AT+CGSETV=4,1");
+  sendAT("AT+CGNSSPWR=1");
+  Serial.println("[MODEM] Pronto");
+
+  // Accelerometro
+  if (!initAccelerometer()) while (1);
+  Serial.println("[ACC] Pronto - risveglio solo su passi effettivi");
+
+  lastActivityTime = millis();
+  Serial.println("=== SISTEMA PRONTO ===");
+}
+
+// ═══════════════════════════════════════════════
+//  LOOP
+// ═══════════════════════════════════════════════
 void loop() {
+  // Batteria
   BatInfo bat = leggiBatteria();
+  Serial.println(bat.charging ? "[BAT] IN CARICA (USB)" : "[BAT] A BATTERIA");
 
-  Serial.printf(bat.charging ? "IN CARICA (USB)" : "A BATTERIA", bat.voltage, bat.percent);
-
-  String gps = sendAT("AT+CGNSSINFO", 1500);
-  if (gps.indexOf("+CGNSSINFO:") != -1 && gps.indexOf(",,,,") == -1) {
-
-    int pos = gps.indexOf(':');
-    for (int i = 0; i < 5; i++) pos = gps.indexOf(',', pos + 1);
-    int p6 = gps.indexOf(',', pos + 1);
-    int p7 = gps.indexOf(',', p6 + 1);
-    int p8 = gps.indexOf(',', p7 + 1);
-
-    float lat = gps.substring(pos + 1, p6).toFloat();
-    float lon = gps.substring(p7 + 1, p8).toFloat();
-
-    if (lat != 0 && lon != 0) {
-      String ts = getTimestamp();
-      Serial.printf("[GPS] Fix OK: %.6f, %.6f\n", lat, lon);
-      
-      // Salva dati in RTC per prossimo wakeup
-      lastLat = lat;
-      lastLon = lon;
-      hasGpsFix = true;
-      
-      // Estrae data/ora da AT+CCLK? via getTimestamp() logic or similar
-      String r = sendAT("AT+CCLK?", 500);
-      int q1 = r.indexOf('"');
-      if (q1 != -1) {
-        // Formato: "yy/mm/dd,hh:mm:ss+tz" -> ddmmyy, hhmmss
-        String rawDate = r.substring(q1 + 7, q1 + 9) + r.substring(q1 + 4, q1 + 6) + r.substring(q1 + 1, q1 + 3);
-        String rawTime = r.substring(q1 + 10, q1 + 12) + r.substring(q1 + 13, q1 + 15) + r.substring(q1 + 16, q1 + 18);
-        strncpy(lastGpsDate, rawDate.c_str(), 6); lastGpsDate[6] = '\0';
-        strncpy(lastGpsTime, rawTime.c_str(), 6); lastGpsTime[6] = '\0';
-      }
-
-      inviaDati(lat, lon, bat, ts);
-    }
-  } else {
-    Serial.println("[GPS] No fix - wait...");
+  // Passi
+  static uint32_t lastSessionSteps = 0;
+  StepData step = readStepData(lastSessionSteps);
+  if (step.hasNewSteps) {
+    lastActivityTime  = millis();
+    lastSessionSteps  = step.session;
+    Serial.printf("[ACC] Passi sessione: %u | Andatura: %s\n", step.session, activityLabel(step.activityType).c_str());
   }
 
-  Serial.println("Entro in Deep Sleep per 30 secondi...");
-  esp_sleep_enable_timer_wakeup(30ULL * 1000000ULL);
-  esp_deep_sleep_start();
+  // GPS + invio dati
+  GpsData gps = getGpsData();
+  if (gps.valid) {
+    String ts = getTimestamp();
+    StepData emptyStep = {0, 0, 0, false};
+    inviaDati(gps.lat, gps.lon, bat, ts, emptyStep);
+  }
+  
+  // Deep sleep se inattivo
+if (millis() - lastActivityTime > SLEEP_TIMEOUT) {
+    Serial.println("[SYSTEM] Timeout inattività raggiunto. Invio dati finali...");
+  
+    String ts = getTimestamp();
+    GpsData emptyGps = {0, 0, false};
+    inviaDati(emptyGps.lat, emptyGps.lon, bat, ts, step);
+    
+    delay(1000);
+    enterDeepSleep();
+  }
+
+  delay(30000);
 }
