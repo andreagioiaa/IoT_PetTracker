@@ -45,9 +45,9 @@ String formattaUltimoAggiornamento(DateTime? ultimoInvio) {
   final oraAttuale = DateTime.now();
   final differenza = oraAttuale.difference(ultimoInvio);
 
-  // se avviene in futuro cosa non possibile
+  // Se avviene in futuro cosa non possibile
   if (differenza.isNegative) {
-    return "In tempo reale (${differenza.inSeconds}s)";
+    return "FUTURO (${differenza.inSeconds})";
   }
 
   if (differenza.inSeconds < 60) {
@@ -85,13 +85,12 @@ class _PetTrackerNavigationState extends State<PetTrackerNavigation> {
   @override
   void initState() {
     super.initState();
-    // Ascolta l'interruttore: se cambia, ricostruisce il menu in basso!
+    // Ascolta l'interruttore: se cambia, ricostruisce il menu in basso
     isTrackingMode.addListener(() {
       if (mounted) setState(() {});
     });
   }
 
-  // Questa lista ora è "dinamica": cambia la pagina centrale in base al bottone!
   List<Widget> get _currentScreens => [
         const PetTrackerDashboard(),
         isTrackingMode.value
