@@ -71,7 +71,7 @@ struct GpsData {
 struct StepData {
   uint32_t total;
   uint32_t session;
-  unit32_t lastSession = 0;
+  uint32_t lastSession = 0;
   uint8_t  activityType;
   bool     hasNewSteps;
 };
