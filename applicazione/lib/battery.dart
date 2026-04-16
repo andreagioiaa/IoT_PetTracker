@@ -149,7 +149,7 @@ class _BatteryScreenState extends State<BatteryScreen> {
                       Text(
                         statusText,
                         style: TextStyle(
-                            fontSize: 16 * scale,
+                            fontSize: 12 * scale,
                             color:
                                 batteryInt <= 20 ? mainColor : Colors.black38,
                             fontWeight: batteryInt <= 20

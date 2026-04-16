@@ -79,14 +79,14 @@ Stream<RecordModel> get posizioneStream => _streamController.stream;
 
 Future<void> avviaAscoltoInTempoReale() async {
   try {
-    pb.collection('positions_test').subscribe('*', (e) {
+    pb.collection('positions').subscribe('*', (e) {
       print('📡 [STREAM] È arrivato un nuovo pacchetto! Azione: ${e.action}');
 
       if (e.record != null) {
         _streamController.add(e.record!);
       }
     });
-    print('✅ In ascolto continuo su positions_test...');
+    print('✅ In ascolto continuo su positions...');
   } catch (e) {
     print('❌ Errore durante l\'avvio dello stream: $e');
   }
@@ -106,7 +106,7 @@ Future<bool> autenticazione() async {
       print('🔐 Sessione recuperata! Verifica validità in corso...');
       try {
         // Opzionale: rinfresca il token per essere sicuri che sia ancora valido sul server
-        await pb.collection('user').authRefresh();
+        await pb.collection('users').authRefresh();
         print('✅ Sessione valida per: ${pb.authStore.model?.id}');
         isReady = true;
         await avviaAscoltoInTempoReale();
@@ -140,7 +140,7 @@ Future<int?> getUltimoLivelloBatteria() async {
   }
 
   try {
-    final result = await pb.collection('positions_test').getList(
+    final result = await pb.collection('positions').getList(
           page: 1,
           perPage: 1,
           sort: '-timestamp',
@@ -157,7 +157,7 @@ Future<int?> getUltimoLivelloBatteria() async {
 
 Future<DateTime?> getUltimoTimestamp() async {
   try {
-    final result = await pb.collection('positions_test').getList(
+    final result = await pb.collection('positions').getList(
           page: 1,
           perPage: 1,
           sort: '-timestamp',
@@ -179,7 +179,7 @@ Future<DateTime?> getUltimoTimestamp() async {
 Future<bool> loginUtente(String identity, String password) async {
   try {
     // PocketBase gestisce automaticamente sia email che username nel primo parametro
-    final authData = await pb.collection('user').authWithPassword(
+    final authData = await pb.collection('users').authWithPassword(
           identity.trim(),
           password.trim(),
         );
@@ -221,8 +221,8 @@ Future<bool> setAllarme(bool nuovoStato) async {
     if (pb.authStore.isValid && pb.authStore.model != null) {
       final userId = pb.authStore.model!.id;
 
-      // Aggiorniamo il record nella collezione 'user'
-      await pb.collection('user').update(userId, body: {
+      // Aggiorniamo il record nella collezione 'users'
+      await pb.collection('users').update(userId, body: {
         'alarm': nuovoStato,
       });
 
@@ -249,7 +249,7 @@ Future<bool?> getAllarme() async {
 
       // Verifichiamo se il campo esiste effettivamente nel modello caricato
       if (!record.data.containsKey('alarm')) {
-        print('⚠️ Campo "alarm" non trovato nella collezione user');
+        print('⚠️ Campo "alarm" non trovato nella collezione users');
         return null;
       }
 
@@ -278,7 +278,7 @@ Future<bool> registraUtente(String email, String password, String name,
       'alarm': false,
     };
 
-    await pb.collection('user').create(body: body);
+    await pb.collection('users').create(body: body);
     print('✅ Utente registrato: $email');
     return true;
   } catch (e) {
@@ -314,7 +314,7 @@ Future<bool> aggiornaProfilo(String nuovoNome, String nuovoCognome) async {
   try {
     if (pb.authStore.isValid && pb.authStore.model != null) {
       final userId = pb.authStore.model!.id;
-      await pb.collection('user').update(userId, body: {
+      await pb.collection('users').update(userId, body: {
         'name': nuovoNome,
         'surname': nuovoCognome,
       });
@@ -346,7 +346,7 @@ Future<bool> aggiornaPassword(
       }
 
       // 1. Aggiorniamo la password sul database (Questo fa "esplodere" il vecchio token)
-      await pb.collection('user').update(userId, body: {
+      await pb.collection('users').update(userId, body: {
         'oldPassword': vecchiaPassword,
         'password': nuovaPassword,
         'passwordConfirm': nuovaPassword,
@@ -355,7 +355,7 @@ Future<bool> aggiornaPassword(
 
       // 2. RE-LOGIN SILENZIOSO: Riprendiamo subito un token nuovo di zecca!
       await pb
-          .collection('user')
+          .collection('users')
           .authWithPassword(identificatore, nuovaPassword);
       print(
           '🔄 Re-login silenzioso effettuato. Sessione ripristinata in automatico!');

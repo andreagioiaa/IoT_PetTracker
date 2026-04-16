@@ -122,8 +122,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
 
   Future<void> _inizializzaDati() async {
     try {
-      final geoResult =
-          await scambio.pb.collection('geofences_test').getFullList();
+      final geoResult = await scambio.pb.collection('geofences').getFullList();
       List<Map<String, dynamic>> activeZones = [];
       for (var record in geoResult) {
         if (record.getBoolValue('is_active') == true) {
@@ -145,7 +144,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
 
     try {
       final posResult = await scambio.pb
-          .collection('positions_test')
+          .collection('positions')
           .getList(page: 1, perPage: 1, sort: '-timestamp');
       if (posResult.items.isNotEmpty) {
         final lat = posResult.items.first.getDoubleValue('lat');

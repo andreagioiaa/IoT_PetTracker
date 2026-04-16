@@ -18,8 +18,8 @@ class _SignInScreenState extends State<SignInScreen> {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _confirmPassController = TextEditingController();
 
-  // --- LOGICA DI VALIDAZIONE PASSWORD "KING" ---
   // --- LOGICA DI VALIDAZIONE AGGIORNATA ---
   String? _getValidationError() {
     final name = _nameController.text.trim();
@@ -27,47 +27,66 @@ class _SignInScreenState extends State<SignInScreen> {
     final username = _usernameController.text.trim();
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
+    final confirmPass = _confirmPassController.text.trim(); // <-- Aggiunto
 
     // 1. Controllo campi vuoti
     if (name.isEmpty ||
         surname.isEmpty ||
         username.isEmpty ||
         email.isEmpty ||
-        password.isEmpty) {
+        password.isEmpty ||
+        confirmPass.isEmpty) {
       return "Tutti i campi sono obbligatori.";
     }
 
-    // 2. Controllo lunghezze (Target: 30 per flessibilità)
-    if (name.length > 30) return "Il nome è troppo lungo (max 30 caratteri).";
-    if (surname.length > 30)
-      return "Il cognome è troppo lungo (max 30 caratteri).";
+    // 2. Controllo Nome e Cognome (Limiti minimi, massimi e caratteri)
+    if (name.length < 2 || name.length > 50) {
+      return "Il nome deve essere compreso tra 2 e 50 caratteri.";
+    }
+    if (surname.length < 2 || surname.length > 50) {
+      return "Il cognome deve essere compreso tra 2 e 50 caratteri.";
+    }
 
-    // Username tra 6 e 15
+    // Solo lettere, spazi, apostrofi e lettere accentate italiane
+    final nameRegex = RegExp(r"^[a-zA-Zàèéìíòóùú\s\']+$");
+    if (!nameRegex.hasMatch(name) || !nameRegex.hasMatch(surname)) {
+      return "Nome e cognome possono contenere solo lettere.";
+    }
+
+    // 3. Controllo Username (PocketBase Safe)
     if (username.length < 6 || username.length > 15) {
       return "Lo username deve essere tra 6 e 15 caratteri.";
     }
+    // Solo lettere (minuscole/maiuscole), numeri e underscore. Niente spazi!
+    final usernameRegex = RegExp(r'^[a-zA-Z0-9_]+$');
+    if (!usernameRegex.hasMatch(username)) {
+      return "Lo username può contenere solo lettere, numeri e underscore (_). Nessuno spazio.";
+    }
 
-    // 3. Email Regex
+    // 4. Email Regex
     final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
     if (!emailRegex.hasMatch(email)) {
       return "Inserisci un indirizzo email valido.";
     }
 
-    // 4. Password Validation "Anti-Mediocrità"
-    // Ho espanso il set di caratteri speciali includendo la @ in modo più esplicito
-    // La sequenza [!@#\$%^&*(),.?":{}|<>] copre quasi tutto lo standard
+    // 5. Password Validation "Anti-Mediocrità"
     final passwordRegex = RegExp(
         r'^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[!@#\$%^&*(),.?":{}|<>]).{8,}$');
 
     if (!passwordRegex.hasMatch(password)) {
-      return "La password richiede: 8+ caratteri, una maiuscola, un numero e un simbolo (es. @, !, #).";
+      return "La password richiede: 8+ caratteri, una maiuscola, un numero e un simbolo speciale.";
+    }
+
+    // 6. Controllo Conferma Password
+    if (password != confirmPass) {
+      return "Le password non coincidono.";
     }
 
     return null;
   }
 
   void _submitSignInForm() async {
-    final error = _getValidationError(); //
+    final error = _getValidationError();
     if (error != null) {
       _showSnackBar(error, Colors.orange.shade800);
       return;
@@ -129,6 +148,7 @@ class _SignInScreenState extends State<SignInScreen> {
     _usernameController.clear();
     _emailController.clear();
     _passwordController.clear();
+    _confirmPassController.clear(); // <-- Aggiunto
   }
 
   void _showSnackBar(String message, Color color) {
@@ -148,6 +168,7 @@ class _SignInScreenState extends State<SignInScreen> {
     _usernameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _confirmPassController.dispose(); // <-- Aggiunto
     super.dispose();
   }
 
@@ -222,7 +243,12 @@ class _SignInScreenState extends State<SignInScreen> {
                       Icons.lock_outline, scale,
                       obscure: true),
 
-                  // Suggerimento visivo per l'utente (Opzionale ma utile)
+                  SizedBox(height: 12 * scale),
+
+                  _buildTextField(_confirmPassController, 'Conferma Password',
+                      Icons.lock_reset_outlined, scale,
+                      obscure: true),
+
                   Padding(
                     padding: const EdgeInsets.only(top: 8.0, left: 4.0),
                     child: Text(
@@ -286,6 +312,7 @@ class _SignInScreenState extends State<SignInScreen> {
                       ),
                     ),
                   ),
+                  SizedBox(height: 30 * scale),
                 ],
               ),
             ),

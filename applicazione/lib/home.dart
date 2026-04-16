@@ -245,7 +245,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     if (!scambio.isReady) await scambio.autenticazione();
     try {
       final posResult = await scambio.pb
-          .collection('positions_test')
+          .collection('positions')
           .getList(page: 1, perPage: 1, sort: '-timestamp');
       if (posResult.items.isEmpty) return "Posizione sconosciuta";
 
@@ -259,8 +259,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
 
   Future<String> _calcolaZonaDalPunto(LatLng petPos) async {
     try {
-      final geoResult =
-          await scambio.pb.collection('geofences_test').getFullList();
+      final geoResult = await scambio.pb.collection('geofences').getFullList();
 
       for (var record in geoResult) {
         if (record.getBoolValue('is_active') == true) {

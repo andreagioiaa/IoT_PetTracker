@@ -117,7 +117,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     if (!scambio.isReady) await scambio.autenticazione();
 
     try {
-      final result = await scambio.pb.collection('positions_test').getList(
+      final result = await scambio.pb.collection('positions').getList(
             page: 1,
             perPage: 1,
             sort: '-timestamp',
@@ -159,7 +159,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
 
     try {
       final records = await scambio.pb
-          .collection('geofences_test')
+          .collection('geofences')
           .getFullList(sort: '-created');
 
       final List<Map<String, dynamic>> nuoveZone = records.map((res) {
@@ -301,7 +301,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
   Future<void> _toggleZoneActiveStatus(String id, bool currentStatus) async {
     try {
       final newStatus = !currentStatus;
-      await scambio.pb.collection('geofences_test').update(id, body: {
+      await scambio.pb.collection('geofences').update(id, body: {
         "is_active": newStatus,
       });
 
@@ -559,7 +559,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
             if (isUpdating && updateIndex != null) {
               final id = savedPlaces[updateIndex]['id'];
               final rec = await scambio.pb
-                  .collection('geofences_test')
+                  .collection('geofences')
                   .update(id, body: body);
               await _caricaZoneDalDatabase(forceSelectId: rec.id);
               _activeCard.value = ActiveCard.zone;
@@ -929,7 +929,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
 
                 try {
                   await scambio.pb
-                      .collection('geofences_test')
+                      .collection('geofences')
                       .delete(idDaEliminare);
                   await _caricaZoneDalDatabase();
 

@@ -16,6 +16,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _surnameController = TextEditingController();
   final TextEditingController _usernameController = TextEditingController();
+  final TextEditingController _emailController =
+      TextEditingController(); // <-- Aggiunto
 
   final TextEditingController _currentPassController = TextEditingController();
   final TextEditingController _newPassController = TextEditingController();
@@ -30,7 +32,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String? _inlineErrorMessage;
 
   final RegExp _passwordRegex = RegExp(
-      r'^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$');
+      r'^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[!@#\$%^&*(),.?":{}|<>]).{8,}$'); // <-- Regex aggiornata
 
   // Variabili per tracciare le modifiche (Dirty Check)
   late String _initialName;
@@ -47,10 +49,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _initialName = scambio.pb.authStore.model?.getStringValue('name') ?? '';
     _initialSurname =
         scambio.pb.authStore.model?.getStringValue('surname') ?? '';
+
     _nameController.text = _initialName;
     _surnameController.text = _initialSurname;
+
     _usernameController.text =
         scambio.pb.authStore.model?.getStringValue('username') ?? '';
+    // Estrazione email da PocketBase
+    _emailController.text =
+        scambio.pb.authStore.model?.getStringValue('email') ?? '';
 
     // Inizializzazione preferenze mappa (Locali alla pagina)
     _initialMapFocus = mapFocusPreference.value;
@@ -77,6 +84,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _nameController.dispose();
     _surnameController.dispose();
     _usernameController.dispose();
+    _emailController.dispose();
     _currentPassController.dispose();
     _newPassController.dispose();
     _confirmPassController.dispose();
@@ -171,9 +179,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await _checkPermissionStatus();
   }
 
-  // --- VALIDAZIONE E SALVATAGGIO ---
+  // --- VALIDAZIONE E SALVATAGGIO AGGIORNATA ---
   bool _validateFields() {
     setState(() => _inlineErrorMessage = null);
+
+    final name = _nameController.text.trim();
+    final surname = _surnameController.text.trim();
+
+    // 1. Controllo campi anagrafici vuoti
+    if (name.isEmpty || surname.isEmpty) {
+      setState(() => _inlineErrorMessage = "Nome e Cognome sono obbligatori.");
+      return false;
+    }
+
+    // 2. Controllo lunghezze (2 - 50 caratteri)
+    if (name.length < 2 || name.length > 50) {
+      setState(() => _inlineErrorMessage =
+          "Il nome deve essere compreso tra 2 e 50 caratteri.");
+      return false;
+    }
+    if (surname.length < 2 || surname.length > 50) {
+      setState(() => _inlineErrorMessage =
+          "Il cognome deve essere compreso tra 2 e 50 caratteri.");
+      return false;
+    }
+
+    // 3. Controllo caratteri validi (solo lettere)
+    final nameRegex = RegExp(r"^[a-zA-Zàèéìíòóùú\s\']+$");
+    if (!nameRegex.hasMatch(name) || !nameRegex.hasMatch(surname)) {
+      setState(() => _inlineErrorMessage =
+          "Nome e cognome possono contenere solo lettere.");
+      return false;
+    }
+
+    // 4. Controlli Password (se sta cambiando)
     if (_isChangingPassword) {
       final attuale = _currentPassController.text.trim();
       final nuova = _newPassController.text.trim();
@@ -188,7 +227,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return false;
       }
       if (!_passwordRegex.hasMatch(nuova)) {
-        setState(() => _inlineErrorMessage = "Password troppo debole.");
+        setState(() => _inlineErrorMessage =
+            "La password richiede: 8+ caratteri, una maiuscola, un numero e un simbolo speciale.");
         return false;
       }
     }
@@ -199,6 +239,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!_validateFields()) return;
     setState(() => _isLoading = true);
 
+    // Salviamo SEMPRE il profilo anagrafico (se c'è una modifica o se ha passato i controlli)
     bool successAnagrafica = await scambio.aggiornaProfilo(
       _nameController.text.trim(),
       _surnameController.text.trim(),
@@ -211,14 +252,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
 
     setState(() => _isLoading = false);
-    if (successAnagrafica && successPassword) {
-      // Applica la scelta mappa alla variabile globale solo ora
-      mapFocusPreference.value = _currentMapFocus;
 
-      widget.onProfileUpdated();
-      setState(() => _isDirty = false);
-      if (mounted) Navigator.pop(context);
+    // Se ha fallito qualcosa, mostriamo l'errore senza chiudere la pagina
+    if (!successAnagrafica || !successPassword) {
+      setState(() => _inlineErrorMessage =
+          "Errore di connessione o password attuale errata.");
+      return;
     }
+
+    // Se tutto va bene, salviamo le preferenze locali e usciamo
+    mapFocusPreference.value = _currentMapFocus;
+    widget.onProfileUpdated();
+    setState(() => _isDirty = false);
+    if (mounted) Navigator.pop(context);
   }
 
   @override
@@ -258,6 +304,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _buildTextField(_usernameController, "Username",
                     Icons.alternate_email, scale,
                     enabled: false),
+                SizedBox(height: 15 * scale),
+                // Nuova email bloccata (enabled: false)
+                _buildTextField(
+                    _emailController, "Email", Icons.email_outlined, scale,
+                    enabled: false),
                 SizedBox(height: 25 * scale),
                 _buildSectionLabel("DATI PERSONALI", scale),
                 _buildTextField(
@@ -271,7 +322,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _buildMapPreferencesSection(scale),
                 SizedBox(height: 25 * scale),
                 _buildPasswordSection(scale),
-                SizedBox(height: 40 * scale),
+                SizedBox(height: 30 * scale),
+
+                // Messaggio d'errore globale (mostra l'errore per Nome/Cognome e per Password)
+                if (_inlineErrorMessage != null)
+                  Padding(
+                    padding: EdgeInsets.only(bottom: 15 * scale),
+                    child: Center(
+                      child: Text(_inlineErrorMessage!,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                              color: Colors.redAccent,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13 * scale)),
+                    ),
+                  ),
+
                 _buildSaveButton(scale),
                 SizedBox(height: 20 * scale),
                 _buildLogoutButton(scale),
@@ -461,15 +527,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
         if (_isChangingPassword) ...[
-          if (_inlineErrorMessage != null)
-            Padding(
-              padding: EdgeInsets.only(top: 15 * scale, left: 5 * scale),
-              child: Text(_inlineErrorMessage!,
-                  style: TextStyle(
-                      color: Colors.redAccent,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13 * scale)),
-            ),
           SizedBox(height: 12 * scale),
           _buildPasswordField(
               _currentPassController,

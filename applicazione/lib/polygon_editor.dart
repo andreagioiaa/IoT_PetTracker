@@ -150,8 +150,7 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
       // ---------------------------------------------------------
       // 2. CONTROLLO DI SOVRAPPOSIZIONE (Anti-Conflitto tra Aree)
       // ---------------------------------------------------------
-      final records =
-          await scambio.pb.collection('geofences_test').getFullList();
+      final records = await scambio.pb.collection('geofences').getFullList();
       List<Map<String, dynamic>> existingZones = [];
 
       for (var res in records) {
@@ -225,7 +224,7 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
       if (widget.placeId != null) {
         // MODIFICA ZONA ESISTENTE
         final rec = await scambio.pb
-            .collection('geofences_test')
+            .collection('geofences')
             .update(widget.placeId!, body: {
           "vertices": jsonVertices,
         });
@@ -234,9 +233,8 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
         // CREAZIONE NUOVA ZONA
         final bodyToSave = Map<String, dynamic>.from(widget.newZoneData!);
         bodyToSave["vertices"] = jsonVertices;
-        final rec = await scambio.pb
-            .collection('geofences_test')
-            .create(body: bodyToSave);
+        final rec =
+            await scambio.pb.collection('geofences').create(body: bodyToSave);
         savedZoneId = rec.id;
       }
 
