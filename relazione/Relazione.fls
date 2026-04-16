@@ -184,9 +184,6 @@ INPUT C:\Program Files\MiKTeX\tex\latex\lm\ot1lmr.fd
 INPUT C:\Program Files\MiKTeX\tex\latex\lm\ot1lmr.fd
 INPUT C:\Program Files\MiKTeX\tex\latex\lm\ot1lmr.fd
 INPUT C:\Program Files\MiKTeX\fonts\tfm\public\lm\rm-lmr12.tfm
-INPUT .\Relazione.aux
-INPUT .\Relazione.aux
-INPUT Relazione.aux
 OUTPUT Relazione.aux
 INPUT C:\Program Files\MiKTeX\tex\context\base\mkii\supp-pdf.mkii
 INPUT C:\Program Files\MiKTeX\tex\context\base\mkii\supp-pdf.mkii
@@ -206,14 +203,8 @@ INPUT .\Relazione.bbl
 INPUT .\Relazione.bbl
 INPUT Relazione.bbl
 INPUT C:\Program Files\MiKTeX\tex\latex\graphics\color.sty
-INPUT .\Relazione.out
-INPUT .\Relazione.out
-INPUT Relazione.out
-INPUT Relazione.out
-OUTPUT Relazione.pdf
-INPUT .\Relazione.out
-INPUT .\Relazione.out
 OUTPUT Relazione.out
+OUTPUT Relazione.pdf
 INPUT C:\Program Files\MiKTeX\fonts\tfm\public\lm\rm-lmcsc10.tfm
 INPUT C:\Program Files\MiKTeX\fonts\tfm\public\lm\rm-lmcsc10.tfm
 INPUT C:\Program Files\MiKTeX\fonts\tfm\public\lm\rm-lmcsc10.tfm
@@ -235,9 +226,18 @@ INPUT C:\Program Files\MiKTeX\fonts\tfm\public\lm\rm-lmr10.tfm
 INPUT C:\Program Files\MiKTeX\fonts\tfm\public\lm\rm-lmbx10.tfm
 INPUT C:\Program Files\MiKTeX\fonts\tfm\public\lm\rm-lmr17.tfm
 INPUT C:\Program Files\MiKTeX\fonts\tfm\public\lm\rm-lmbx12.tfm
-INPUT .\Relazione.toc
-INPUT .\Relazione.toc
-INPUT Relazione.toc
+OUTPUT Relazione.toc
+INPUT C:\Program Files\MiKTeX\fonts\tfm\public\lm\rm-lmbx12.tfm
+INPUT C:\Program Files\MiKTeX\tex\latex\lm\ts1lmr.fd
+INPUT C:\Program Files\MiKTeX\tex\latex\lm\ts1lmr.fd
+INPUT C:\Program Files\MiKTeX\tex\latex\lm\ts1lmr.fd
+INPUT C:\Program Files\MiKTeX\fonts\tfm\public\lm\ts1-lmr12.tfm
+INPUT C:\Program Files\MiKTeX\tex\latex\lm\ot1lmtt.fd
+INPUT C:\Program Files\MiKTeX\tex\latex\lm\ot1lmtt.fd
+INPUT C:\Program Files\MiKTeX\tex\latex\lm\ot1lmtt.fd
+INPUT C:\Program Files\MiKTeX\fonts\tfm\public\lm\rm-lmtt12.tfm
+INPUT C:\Program Files\MiKTeX\fonts\enc\dvips\lm\lm-ts1.enc
+INPUT C:\Program Files\MiKTeX\fonts\enc\dvips\lm\lm-rmtt.enc
 INPUT C:\Program Files\MiKTeX\fonts\tfm\public\lm\rm-lmr8.tfm
 INPUT C:\Program Files\MiKTeX\fonts\tfm\public\lm\rm-lmr6.tfm
 INPUT C:\Program Files\MiKTeX\tex\latex\lm\omllmm.fd
@@ -256,22 +256,9 @@ INPUT C:\Program Files\MiKTeX\tex\latex\lm\omxlmex.fd
 INPUT C:\Program Files\MiKTeX\tex\latex\lm\omxlmex.fd
 INPUT C:\Program Files\MiKTeX\tex\latex\lm\omxlmex.fd
 INPUT C:\Program Files\MiKTeX\fonts\tfm\public\lm\lmex10.tfm
-OUTPUT Relazione.toc
-INPUT C:\Program Files\MiKTeX\fonts\tfm\public\lm\rm-lmbx12.tfm
-INPUT C:\Program Files\MiKTeX\tex\latex\lm\ts1lmr.fd
-INPUT C:\Program Files\MiKTeX\tex\latex\lm\ts1lmr.fd
-INPUT C:\Program Files\MiKTeX\tex\latex\lm\ts1lmr.fd
-INPUT C:\Program Files\MiKTeX\fonts\tfm\public\lm\ts1-lmr12.tfm
-INPUT C:\Program Files\MiKTeX\tex\latex\lm\ot1lmtt.fd
-INPUT C:\Program Files\MiKTeX\tex\latex\lm\ot1lmtt.fd
-INPUT C:\Program Files\MiKTeX\tex\latex\lm\ot1lmtt.fd
-INPUT C:\Program Files\MiKTeX\fonts\tfm\public\lm\rm-lmtt12.tfm
-INPUT C:\Program Files\MiKTeX\fonts\enc\dvips\lm\lm-ts1.enc
-INPUT C:\Program Files\MiKTeX\fonts\enc\dvips\lm\lm-rmtt.enc
 INPUT Relazione.aux
 INPUT .\Relazione.out
 INPUT .\Relazione.out
-INPUT Relazione.run.xml
 OUTPUT Relazione.run.xml
 INPUT C:\Program Files\MiKTeX\fonts\type1\public\lm\lmbx10.pfb
 INPUT C:\Program Files\MiKTeX\fonts\type1\public\lm\lmbx10.pfb

@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.4.14)  15 APR 2026 11:23
+This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.4.14)  16 APR 2026 09:59
 entering extended mode
  restricted \write18 enabled.
  file:line:error style messages enabled.
@@ -500,9 +500,21 @@ Package biblatex Info: ... file 'biblatex.cfg' found.
  (C:\Program Files\MiKTeX\tex/latex/biblatex\biblatex.cfg
 File: biblatex.cfg 
 )
+
+C:\Program Files\MiKTeX\tex/latex/biblatex\biblatex.sty:16446: Package keyval Error: gibackend undefined.
+
+See the keyval package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.16446 \blx@processoptions
+                           
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
 Package biblatex Info: Input encoding 'utf8' detected.
 Package biblatex Info: Document encoding is UTF8 ....
- (C:\Program Files\MiKTeX\tex/latex/l3kernel\expl3.sty
+(C:\Program Files\MiKTeX\tex/latex/l3kernel\expl3.sty
 Package: expl3 2025-12-24 L3 programming layer (loader) 
  (C:\Program Files\MiKTeX\tex/latex/l3backend\l3backend-pdftex.def
 File: l3backend-pdftex.def 2025-10-09 L3 backend support: PDF output (pdfTeX)
@@ -610,7 +622,8 @@ Package biblatex Warning: 'babel/polyglossia' detected but 'csquotes' missing.
 LaTeX Font Info:    Trying to load font information for OT1+lmr on input line 62.
 (C:\Program Files\MiKTeX\tex/latex/lm\ot1lmr.fd
 File: ot1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
-) (Relazione.aux)
+)
+No file Relazione.aux.
 \openout1 = `Relazione.aux'.
 
 LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 62.
@@ -633,7 +646,6 @@ LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 62.
 LaTeX Font Info:    ... okay on input line 62.
 LaTeX Info: Redefining \it@ocap on input line 62.
 LaTeX Info: Redefining \it@ccap on input line 62.
-
 
 File italian.ldf warning: 
 italian.ldf    With OT1 encoding guillemets are poorly faked
@@ -717,37 +729,18 @@ Package biblatex Info: ... file 'Relazione.bbl' found.
 Package biblatex Info: Reference section=0 on input line 62.
 Package biblatex Info: Reference segment=0 on input line 62.
 Package hyperref Info: Link coloring ON on input line 62.
- (Relazione.out) (Relazione.out)
 \@outlinefile=\write4
 \openout4 = `Relazione.out'.
 
-<immagini/Logo.pdf, id=78, 225.84375pt x 225.84375pt>
+<immagini/Logo.pdf, id=3, 225.84375pt x 225.84375pt>
 File: immagini/Logo.pdf Graphic file (type pdf)
 <use immagini/Logo.pdf>
 Package pdftex.def Info: immagini/Logo.pdf  used on input line 74.
 (pdftex.def)             Requested size: 113.81102pt x 113.81412pt.
  [1
 
-{C:/Users/matti/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map}{C:/Program Files/MiKTeX/fonts/enc/dvips/lm/lm-rmsc.enc}{C:/Program Files/MiKTeX/fonts/enc/dvips/lm/lm-rm.enc} <./immagini/Logo.pdf>] (Relazione.toc
-LaTeX Font Info:    Trying to load font information for OML+lmm on input line 4.
- (C:\Program Files\MiKTeX\tex/latex/lm\omllmm.fd
-File: omllmm.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
-)
-LaTeX Font Info:    Trying to load font information for OMS+lmsy on input line 4.
- (C:\Program Files\MiKTeX\tex/latex/lm\omslmsy.fd
-File: omslmsy.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
-)
-LaTeX Font Info:    Trying to load font information for OMX+lmex on input line 4.
- (C:\Program Files\MiKTeX\tex/latex/lm\omxlmex.fd
-File: omxlmex.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
-)
-LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <12> on input line 4.
-LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <8> on input line 4.
-LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <6> on input line 4.
-)
+{C:/Users/matti/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map}{C:/Program Files/MiKTeX/fonts/enc/dvips/lm/lm-rmsc.enc}{C:/Program Files/MiKTeX/fonts/enc/dvips/lm/lm-rm.enc} <./immagini/Logo.pdf>]
+No file Relazione.toc.
 \tf@toc=\write5
 \openout5 = `Relazione.toc'.
 
@@ -770,6 +763,25 @@ Overfull \hbox (6.50035pt too wide) in paragraph at lines 156--158
  []
 
 [4] [5]
+LaTeX Font Info:    Trying to load font information for OML+lmm on input line 189.
+ (C:\Program Files\MiKTeX\tex/latex/lm\omllmm.fd
+File: omllmm.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
+)
+LaTeX Font Info:    Trying to load font information for OMS+lmsy on input line 189.
+ (C:\Program Files\MiKTeX\tex/latex/lm\omslmsy.fd
+File: omslmsy.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
+)
+LaTeX Font Info:    Trying to load font information for OMX+lmex on input line 189.
+ (C:\Program Files\MiKTeX\tex/latex/lm\omxlmex.fd
+File: omxlmex.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
+)
+LaTeX Font Info:    External font `lmex10' loaded for size
+(Font)              <12> on input line 189.
+LaTeX Font Info:    External font `lmex10' loaded for size
+(Font)              <8> on input line 189.
+LaTeX Font Info:    External font `lmex10' loaded for size
+(Font)              <6> on input line 189.
+
 Overfull \hbox (14.20894pt too wide) in paragraph at lines 189--189
 \OT1/lmtt/m/n/12 LilyGo -[] Modem -[] Series / blob / main / datasheet / LTE % 20Antenna % 20Specifications .
  []
@@ -784,24 +796,39 @@ Overfull \hbox (14.20894pt too wide) in paragraph at lines 189--189
 LaTeX2e <2025-11-01>
 L3 programming layer <2025-12-24>
  ***********
-Package rerunfilecheck Info: File `Relazione.out' has not changed.
-(rerunfilecheck)             Checksum: C0D731102CC62F8E00CAA629A4BD9829;3379.
+
+
+LaTeX Warning: There were undefined references.
+
+
+Package rerunfilecheck Warning: File `Relazione.out' has changed.
+(rerunfilecheck)                Rerun to get outlines right
+(rerunfilecheck)                or use package `bookmark'.
+
+Package rerunfilecheck Info: Checksums for `Relazione.out':
+(rerunfilecheck)             Before: <no file>
+(rerunfilecheck)             After:  C0D731102CC62F8E00CAA629A4BD9829;3379.
+
+Package biblatex Warning: Please (re)run Biber on the file:
+(biblatex)                Relazione
+(biblatex)                and rerun LaTeX afterwards.
+
 Package logreq Info: Writing requests to 'Relazione.run.xml'.
 \openout1 = `Relazione.run.xml'.
 
  ) 
 Here is how much of TeX's memory you used:
- 22083 strings out of 467871
- 386323 string characters out of 5428443
- 1244397 words of memory out of 5000000
- 50675 multiletter control sequences out of 15000+600000
+ 22054 strings out of 467871
+ 385499 string characters out of 5428443
+ 1243781 words of memory out of 5000000
+ 50654 multiletter control sequences out of 15000+600000
  680001 words of font info for 66 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  69i,5n,79p,1302b,1821s stack positions out of 10000i,1000n,20000p,200000b,200000s
 <C:/Program Files/MiKTeX/fonts/type1/public/lm/lmbx10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmbx12.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmbxi10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmcsc10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmr10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmr12.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmri12.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmtt12.pfb>
-Output written on Relazione.pdf (7 pages, 268491 bytes).
+Output written on Relazione.pdf (7 pages, 257324 bytes).
 PDF statistics:
- 236 PDF objects out of 1000 (max. 8388607)
+ 159 PDF objects out of 1000 (max. 8388607)
  39 named destinations out of 1000 (max. 500000)
- 158 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 6 words of extra memory for PDF output out of 10000 (max. 10000000)
 
