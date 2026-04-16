@@ -383,18 +383,19 @@ void loop() {
   BatInfo bat = leggiBatteria();
   Serial.println(bat.charging ? "[BAT] IN CARICA (USB)" : "[BAT] A BATTERIA");
 
+  
+  while (!gps.valid) {
+    GpsData gps = getGpsData();
+  }
+
   // Passi
   static uint32_t lastSessionSteps = 0;
   StepData step = readStepData(lastSessionSteps);
+
   if (step.hasNewSteps) {
     lastActivityTime  = millis();
     lastSessionSteps  = step.session;
     Serial.printf("[ACC] Passi sessione: %u | Andatura: %s\n", step.session, activityLabel(step.activityType).c_str());
-  }
-
-  // GPS + invio dati
-  GpsData gps = getGpsData();
-  if (gps.valid) {
     String ts = getTimestamp();
     
     // Aggiorna persistenza GPS
@@ -414,10 +415,7 @@ void loop() {
 
     StepData emptyStep = {0, 0, 0, false};
     inviaDati(gps.lat, gps.lon, bat, ts, emptyStep);
-  }
-  
-  // Deep sleep se inattivo
-if (millis() - lastActivityTime > SLEEP_TIMEOUT) {
+  } else if (millis() - lastActivityTime > SLEEP_TIMEOUT){
     Serial.println("[SYSTEM] Timeout inattività raggiunto. Invio dati finali...");
   
     String ts = getTimestamp();
@@ -428,5 +426,5 @@ if (millis() - lastActivityTime > SLEEP_TIMEOUT) {
     enterDeepSleep();
   }
 
-  delay(30000);
+  delay(20000);
 }
