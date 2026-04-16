@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.4.14)  16 APR 2026 09:59
+This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.4.14)  16 APR 2026 13:57
 entering extended mode
  restricted \write18 enabled.
  file:line:error style messages enabled.
@@ -512,6 +512,18 @@ l.16446 \blx@processoptions
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
+
+C:\Program Files\MiKTeX\tex/latex/biblatex\biblatex.sty:16446: Package keyval Error: <sorting undefined.
+
+See the keyval package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.16446 \blx@processoptions
+                           
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
 Package biblatex Info: Input encoding 'utf8' detected.
 Package biblatex Info: Document encoding is UTF8 ....
 (C:\Program Files\MiKTeX\tex/latex/l3kernel\expl3.sty
@@ -622,8 +634,7 @@ Package biblatex Warning: 'babel/polyglossia' detected but 'csquotes' missing.
 LaTeX Font Info:    Trying to load font information for OT1+lmr on input line 62.
 (C:\Program Files\MiKTeX\tex/latex/lm\ot1lmr.fd
 File: ot1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
-)
-No file Relazione.aux.
+) (Relazione.aux)
 \openout1 = `Relazione.aux'.
 
 LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 62.
@@ -646,6 +657,7 @@ LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 62.
 LaTeX Font Info:    ... okay on input line 62.
 LaTeX Info: Redefining \it@ocap on input line 62.
 LaTeX Info: Redefining \it@ccap on input line 62.
+
 
 File italian.ldf warning: 
 italian.ldf    With OT1 encoding guillemets are poorly faked
@@ -754,44 +766,56 @@ LaTeX Font Info:    Trying to load font information for TS1+lmr on input line 10
  (C:\Program Files\MiKTeX\tex/latex/lm\ts1lmr.fd
 File: ts1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
+
+LaTeX Warning: Citation 'lilygo_specs' on page 2 undefined on input line 116.
+
+
+LaTeX Warning: Citation 'LTE' on page 2 undefined on input line 118.
+
+
+LaTeX Warning: Citation 'GPS' on page 2 undefined on input line 118.
+
 LaTeX Font Info:    Trying to load font information for OT1+lmtt on input line 120.
- (C:\Program Files\MiKTeX\tex/latex/lm\ot1lmtt.fd
+(C:\Program Files\MiKTeX\tex/latex/lm\ot1lmtt.fd
 File: ot1lmtt.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
-) [2{C:/Program Files/MiKTeX/fonts/enc/dvips/lm/lm-ts1.enc}{C:/Program Files/MiKTeX/fonts/enc/dvips/lm/lm-rmtt.enc}] [3]
+)
+
+LaTeX Warning: Citation 'bma400' on page 2 undefined on input line 122.
+
+[2{C:/Program Files/MiKTeX/fonts/enc/dvips/lm/lm-ts1.enc}{C:/Program Files/MiKTeX/fonts/enc/dvips/lm/lm-rmtt.enc}]
+
+LaTeX Warning: Citation 'sim7670_at' on page 3 undefined on input line 127.
+
+
+LaTeX Warning: Citation 'pocketbase' on page 3 undefined on input line 138.
+
+
+LaTeX Warning: Citation 'ngrok' on page 3 undefined on input line 142.
+
+
+LaTeX Warning: Citation 'rclone' on page 3 undefined on input line 147.
+
+
+LaTeX Warning: Citation 'backblaze' on page 3 undefined on input line 147.
+
+[3]
+
+LaTeX Warning: Citation 'uptimerobot' on page 4 undefined on input line 151.
+
+
 Overfull \hbox (6.50035pt too wide) in paragraph at lines 156--158
 \OT1/lmr/m/n/12 I da-ti ri-ce-vu-ti ven-go-no nor-ma-liz-za-ti e me-mo-riz-za-ti in una col-le-zio-ne de-no-mi-na-ta \OT1/lmtt/m/n/12 positions\OT1/lmr/m/n/12 .
  []
 
-[4] [5]
-LaTeX Font Info:    Trying to load font information for OML+lmm on input line 189.
- (C:\Program Files\MiKTeX\tex/latex/lm\omllmm.fd
-File: omllmm.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
-)
-LaTeX Font Info:    Trying to load font information for OMS+lmsy on input line 189.
- (C:\Program Files\MiKTeX\tex/latex/lm\omslmsy.fd
-File: omslmsy.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
-)
-LaTeX Font Info:    Trying to load font information for OMX+lmex on input line 189.
- (C:\Program Files\MiKTeX\tex/latex/lm\omxlmex.fd
-File: omxlmex.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
-)
-LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <12> on input line 189.
-LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <8> on input line 189.
-LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <6> on input line 189.
+[4]
 
-Overfull \hbox (14.20894pt too wide) in paragraph at lines 189--189
-\OT1/lmtt/m/n/12 LilyGo -[] Modem -[] Series / blob / main / datasheet / LTE % 20Antenna % 20Specifications .
- []
+LaTeX Warning: Citation 'flutter' on page 5 undefined on input line 180.
 
+[5]
 
-Overfull \hbox (14.20894pt too wide) in paragraph at lines 189--189
-\OT1/lmtt/m/n/12 LilyGo -[] Modem -[] Series / blob / main / datasheet / GPS % 20Antenna % 20Specifications .
- []
+LaTeX Warning: Empty bibliography on input line 189.
 
-[6] (Relazione.aux)
+(Relazione.aux)
  ***********
 LaTeX2e <2025-11-01>
 L3 programming layer <2025-12-24>
@@ -807,7 +831,7 @@ Package rerunfilecheck Warning: File `Relazione.out' has changed.
 
 Package rerunfilecheck Info: Checksums for `Relazione.out':
 (rerunfilecheck)             Before: <no file>
-(rerunfilecheck)             After:  C0D731102CC62F8E00CAA629A4BD9829;3379.
+(rerunfilecheck)             After:  736CDF823CE3D3976B0E4D24F3189B24;3207.
 
 Package biblatex Warning: Please (re)run Biber on the file:
 (biblatex)                Relazione
@@ -818,17 +842,17 @@ Package logreq Info: Writing requests to 'Relazione.run.xml'.
 
  ) 
 Here is how much of TeX's memory you used:
- 22054 strings out of 467871
- 385499 string characters out of 5428443
- 1243781 words of memory out of 5000000
- 50654 multiletter control sequences out of 15000+600000
- 680001 words of font info for 66 fonts, out of 8000000 for 9000
+ 21962 strings out of 467871
+ 383461 string characters out of 5428443
+ 1243768 words of memory out of 5000000
+ 50590 multiletter control sequences out of 15000+600000
+ 671924 words of font info for 57 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  69i,5n,79p,1302b,1821s stack positions out of 10000i,1000n,20000p,200000b,200000s
 <C:/Program Files/MiKTeX/fonts/type1/public/lm/lmbx10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmbx12.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmbxi10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmcsc10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmr10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmr12.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmri12.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmtt12.pfb>
-Output written on Relazione.pdf (7 pages, 257324 bytes).
+Output written on Relazione.pdf (6 pages, 236579 bytes).
 PDF statistics:
- 159 PDF objects out of 1000 (max. 8388607)
- 39 named destinations out of 1000 (max. 500000)
+ 106 PDF objects out of 1000 (max. 8388607)
+ 27 named destinations out of 1000 (max. 500000)
  6 words of extra memory for PDF output out of 10000 (max. 10000000)
 

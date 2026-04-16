@@ -32,7 +32,8 @@ RTC_DATA_ATTR int bootCount = 0;
 // ═══════════════════════════════════════════════
 //  MODEM / RETE
 // ═══════════════════════════════════════════════
-const char* pb_url = "https://harvey-chairless-shenna.ngrok-free.dev/api/collections/positions/records";
+//const char* pb_url = "https://harvey-chairless-shenna.ngrok-free.dev/api/collections/positions/records";
+const char* pb_url = "https://harvey-chairless-shenna.ngrok-free.dev/api/collections/data_sent_raw/records";
 const char* apn    = "ibox.tim.it";
 
 HardwareSerial modem(1);
@@ -52,6 +53,8 @@ RTC_DATA_ATTR char  lastGpsDate[7] = ""; // ddmmyy
 RTC_DATA_ATTR char  lastGpsTime[7] = ""; // hhmmss
 RTC_DATA_ATTR bool  hasGpsFix = false;
 RTC_DATA_ATTR bool  initialized = false;
+
+RTC_DATA_ATTR char global_board_id[16] = "UNKNOWN";
 
 // ═══════════════════════════════════════════════
 //  STRUCT
@@ -230,7 +233,11 @@ String getTimestamp() {
 // ─────────────────────────────────────────────
 void inviaDati(float l_lat, float l_lon, const BatInfo& bat, const String& timestamp, const StepData& step, bool sleep) {
   String json = "{";
+   // 
+  json += "\"board_id\":\"" + String(global_board_id) + "\",";
+  // timestamp  
   json += "\"timestamp\":\"";  json += timestamp;        json += "\",";
+  // geo
   json += "\"lat\":";          json += String(l_lat, 6); json += ",";
   json += "\"lon\":";          json += String(l_lon, 6); json += ",";
   json += "\"geo\":{\"lon\":"; json += String(l_lon, 6); json += ",";
@@ -245,7 +252,7 @@ void inviaDati(float l_lat, float l_lon, const BatInfo& bat, const String& times
   json += "\"charging\":"; json += (bat.charging ? "true" : "false");
   json += ",";
   // feet
-  json += "\"feet\":"; json += step.lastSession ; json += ",";
+  json += "\"steps\":"; json += step.lastSession ; json += ",";
   // sleep
   json += "\"sleep\":"; json += sleep;
   json += "}";
@@ -330,6 +337,27 @@ void enterDeepSleep() {
   esp_deep_sleep_start();
 }
 
+// IMEI schede
+String getModemIMEI() {
+  // Svuota buffer residui
+  while (modem.available()) modem.read();
+  
+  // AT+CGSN è il comando standard per l'IMEI su SIM7670
+  String resp = sendAT("AT+CGSN", 2000);
+  
+  // Pulizia: rimuove il comando ecoato, OK, ed eventuali spazi
+  resp.replace("AT+CGSN", "");
+  resp.replace("OK", "");
+  resp.replace("ERROR", "");
+  resp.trim();
+
+  // Un IMEI deve essere di 15 cifre
+  if (resp.length() >= 15) {
+    return resp.substring(0, 15);
+  }
+  return "UNKNOWN_IMEI";
+}
+
 // ═══════════════════════════════════════════════
 //  SETUP
 // ═══════════════════════════════════════════════
@@ -356,6 +384,7 @@ void setup() {
   digitalWrite(MODEM_PWRKEY, LOW);  delay(1000);
   digitalWrite(MODEM_PWRKEY, HIGH); delay(3000);
   modem.begin(115200, SERIAL_8N1, MODEM_RX, MODEM_TX);
+  
   delay(2000);
 
   if (!initialized) {
@@ -370,6 +399,16 @@ void setup() {
     iniettaGps();
   }
   Serial.println("[MODEM] Pronto");
+
+  if (strcmp(global_board_id, "UNKNOWN") == 0) {
+    Serial.println("[SYSTEM] Recupero IMEI per board_id...");
+    String imei = getModemIMEI();
+    if (imei != "UNKNOWN_IMEI") {
+      imei.toCharArray(global_board_id, 16);
+    }
+  }
+
+  Serial.printf("BOARD_ID ATTUALE: %s\n", global_board_id);
 
   // Accelerometro
   if (!initAccelerometer()) while (1);

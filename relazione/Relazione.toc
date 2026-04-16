@@ -18,4 +18,3 @@
 \contentsline {section}{\numberline {5}Front-end e Applicazione Mobile}{5}{section.5}%
 \contentsline {section}{\numberline {6}Test e Risultati}{5}{section.6}%
 \contentsline {section}{\numberline {7}Conclusioni}{5}{section.7}%
-\contentsline {section}{Riferimenti bibliografici}{6}{section.7}%
