@@ -13,7 +13,9 @@ onRecordAfterCreateRequest((e) => {
   $app.dao().saveRecord(batteryRecord);
 
   // 2. Prepara e salva i dati nella collezione 'positions'
-  const positionsCollection = $app.dao().findCollectionByNameOrId("positions");
+  const positionsCollection = $app
+    .dao()
+    .findCollectionByNameOrId("positions_duplicate");
   const positionsRecord = new Record(positionsCollection, {
     board_id: raw.get("board_id"),
     timestamp: raw.get("timestamp"),
