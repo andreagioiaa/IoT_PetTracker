@@ -148,7 +148,7 @@ Future<int?> getUltimoLivelloBatteria() async {
 
     if (result.items.isEmpty) return null;
 
-    return result.items.first.getIntValue('battery');
+    return result.items.first.getIntValue('battery_percent');
   } catch (e) {
     print('🛑 Errore lettura batteria: $e');
     return null;
@@ -172,8 +172,6 @@ Future<DateTime?> getUltimoTimestamp() async {
     return null;
   }
 }
-
-// Aggiungi questa funzione in scambio.dart
 
 /// Effettua il login utilizzando l'identità (Email o Username) e la Password.
 Future<bool> loginUtente(String identity, String password) async {
