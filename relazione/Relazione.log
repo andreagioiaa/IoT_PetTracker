@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.4.14)  17 APR 2026 10:35
+This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.4.14)  17 APR 2026 10:40
 entering extended mode
  restricted \write18 enabled.
  file:line:error style messages enabled.
@@ -775,38 +775,44 @@ File: ts1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 LaTeX Font Info:    Trying to load font information for T1+lmtt on input line 149.
  (C:\Program Files\MiKTeX\tex/latex/lm\t1lmtt.fd
 File: t1lmtt.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
-) [2{C:/Program Files/MiKTeX/fonts/enc/dvips/lm/lm-ts1.enc}]
-Overfull \hbox (5.60365pt too wide) in paragraph at lines 181--182
+) [2{C:/Program Files/MiKTeX/fonts/enc/dvips/lm/lm-ts1.enc}] (C:\Program Files\MiKTeX\tex/latex/listings\lstlang1.sty
+File: lstlang1.sty 2025/11/14 1.11b listings language file
+) (C:\Program Files\MiKTeX\tex/latex/listings\lstlang1.sty
+File: lstlang1.sty 2025/11/14 1.11b listings language file
+) (C:\Program Files\MiKTeX\tex/latex/listings\lstmisc.sty
+File: lstmisc.sty 2025/11/14 1.11b (Carsten Heinz)
+)
+Package hyperref Info: bookmark level for unknown lstlisting defaults to 0 on input line 167.
+LaTeX Font Info:    Font shape `T1/lmtt/bx/n' in size <10> not available
+(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 168.
+LaTeX Font Info:    External font `lmex10' loaded for size
+(Font)              <10> on input line 168.
+LaTeX Font Info:    External font `lmex10' loaded for size
+(Font)              <7> on input line 168.
+LaTeX Font Info:    External font `lmex10' loaded for size
+(Font)              <5> on input line 168.
+ [3{C:/Program Files/MiKTeX/fonts/enc/dvips/lm/lm-mathit.enc}{C:/Program Files/MiKTeX/fonts/enc/dvips/lm/lm-mathsy.enc}]
+Overfull \hbox (5.60365pt too wide) in paragraph at lines 202--203
 []\T1/lmr/bx/n/12 Invio Fi-na-le\T1/lmr/m/n/12 : Se non vie-ne ri-le-va-ta at-ti-vi-tà per un tem-po su-pe-rio-re a \T1/lmtt/m/n/12 SLEEP_TIMEOUT
  []
 
-[3] [4]
-Overfull \hbox (31.20036pt too wide) in paragraph at lines 209--211
+[4]
+Overfull \hbox (31.20036pt too wide) in paragraph at lines 239--241
 \T1/lmr/m/n/12 I da-ti ri-ce-vu-ti ven-go-no nor-ma-liz-za-ti e me-mo-riz-za-ti in una col-le-zio-ne de-no-mi-na-ta \T1/lmtt/m/n/12 data_sent_raw\T1/lmr/m/n/12 .
  []
 
-
-Overfull \hbox (11.94272pt too wide) in paragraph at lines 231--231
+[5]
+Overfull \hbox (11.94272pt too wide) in paragraph at lines 261--261
 |[]\T1/lmr/bx/n/14.4 Logica di Smi-sta-men-to e Nor-ma-liz-za-zio-ne (Server-side Hooks)| 
  []
 
-[5]
-Package hyperref Info: bookmark level for unknown lstlisting defaults to 0 on input line 243.
-LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <10> on input line 244.
-LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <7> on input line 244.
-LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <5> on input line 244.
-LaTeX Font Info:    Font shape `T1/lmtt/bx/n' in size <10> not available
-(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 245.
- [6] [7]
-Overfull \hbox (14.20894pt too wide) in paragraph at lines 290--290
+[6] [7]
+Overfull \hbox (14.20894pt too wide) in paragraph at lines 320--320
 \T1/lmtt/m/n/12 LilyGo -[] Modem -[] Series / blob / main / datasheet / LTE % 20Antenna % 20Specifications .
  []
 
 
-Overfull \hbox (14.20894pt too wide) in paragraph at lines 290--290
+Overfull \hbox (14.20894pt too wide) in paragraph at lines 320--320
 \T1/lmtt/m/n/12 LilyGo -[] Modem -[] Series / blob / main / datasheet / GPS % 20Antenna % 20Specifications .
  []
 
@@ -822,17 +828,17 @@ Package logreq Info: Writing requests to 'Relazione.run.xml'.
 
  ) 
 Here is how much of TeX's memory you used:
- 23285 strings out of 467871
- 402029 string characters out of 5428443
- 1620940 words of memory out of 5000000
- 51814 multiletter control sequences out of 15000+600000
+ 23498 strings out of 467871
+ 405001 string characters out of 5428443
+ 1619940 words of memory out of 5000000
+ 51992 multiletter control sequences out of 15000+600000
  701810 words of font info for 81 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 69i,5n,79p,1302b,1821s stack positions out of 10000i,1000n,20000p,200000b,200000s
-<C:/Program Files/MiKTeX/fonts/type1/public/lm/lmbx10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmbx12.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmbxi10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmcsc10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmr10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmr12.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmr6.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmri12.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmtk10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmtt10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmtt12.pfb>
-Output written on Relazione.pdf (9 pages, 362522 bytes).
+ 69i,6n,79p,1302b,2114s stack positions out of 10000i,1000n,20000p,200000b,200000s
+<C:/Program Files/MiKTeX/fonts/type1/public/lm/lmbx10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmbx12.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmbxi10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmcsc10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmmi10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmr10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmr12.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmr6.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmri12.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmsy10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmtk10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmtt10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmtt12.pfb>
+Output written on Relazione.pdf (9 pages, 382949 bytes).
 PDF statistics:
- 324 PDF objects out of 1000 (max. 8388607)
- 77 named destinations out of 1000 (max. 500000)
+ 368 PDF objects out of 1000 (max. 8388607)
+ 104 named destinations out of 1000 (max. 500000)
  214 words of extra memory for PDF output out of 10000 (max. 10000000)
 

@@ -164,6 +164,15 @@ Al risveglio del dispositivo, la funzione \texttt{iniettaGps()} esegue le seguen
     \item Sincronizza l'orario del modem con il comando \texttt{AT+CGNSSTIME}.
 \end{itemize}
 Questo meccanismo abilita la modalità \textbf{Hot Start}, che minimizza il tempo di ricerca dei satelliti e, di conseguenza, il consumo energetico.
+\begin{lstlisting}[language=C++, caption={Ottimizzazione del fix GPS tramite iniezione di dati persistenti}]
+void iniettaGps() {
+  if (!hasGpsFix) return;
+  // Costruzione comando per Hot Start basato su ultima posizione nota
+  String cmdPos = "AT+CGNSSPOS=" + formatCoordinate(lastLat, true) + "," + latDir + "," + 
+                  formatCoordinate(lastLon, false) + "," + lonDir + ",0,100";
+  sendAT(cmdPos.c_str());
+}
+\end{lstlisting}
 
 \subsection{Protocollo di Comunicazione HTTPS}
 La trasmissione dei dati al backend PocketBase è affidata a una serie di comandi AT inviati via seriale al modem SIM7670G. Il firmware incapsula le informazioni in un oggetto JSON strutturato, inviato tramite una richiesta \texttt{HTTPS POST}. Il payload include:
@@ -173,6 +182,18 @@ La trasmissione dei dati al backend PocketBase è affidata a una serie di comand
     \item \texttt{battery} / \texttt{steps}: telemetria sullo stato di carica e sull'attività motoria rilevata;
     \item \texttt{sleep}: un flag booleano che segnala al server l'imminente entrata in stato di inattività.
 \end{itemize}
+\begin{lstlisting}[language=C++, caption={Esempio di strutturazione del payload JSON}]
+void inviaDati(float l_lat, float l_lon, const BatInfo& bat, const String& timestamp, const StepData& step, bool isSleeping) {
+  String json = "{";
+  json += "\"timestamp\":\"" + timestamp + "\",";
+  json += "\"geo\":{\"lon\":" + String(l_lon, 6) + ",\"lat\":" + String(l_lat, 6) + "},";
+  json += "\"battery\":" + String(bat.voltage, 2) + ",";
+  json += "\"sleep\":" + String(isSleeping ? "true" : "false");
+  json += "}";
+  // Invio tramite comandi AT HTTP
+  modem.print(json);
+}
+\end{lstlisting}
 
 \subsection{Risparmio Energetico e Deep Sleep}
 Il sistema è progettato per massimizzare l'autonomia della batteria da 3000mAh. La logica di risparmio energetico è coordinata con l'accelerometro \textbf{BMA400}:
@@ -181,6 +202,15 @@ Il sistema è progettato per massimizzare l'autonomia della batteria da 3000mAh.
     \item \textbf{Invio Finale}: Se non viene rilevata attività per un tempo superiore a \texttt{SLEEP\_TIMEOUT} (30 secondi), il sistema invia un ultimo pacchetto dati aggiornando il flag \texttt{sleep} a \texttt{true}.
     \item \textbf{Ibernazione}: Il microcontrollore entra in \textit{Deep Sleep}, spegnendo i moduli radio. Il risveglio è gestito tramite interrupt hardware sul pin \texttt{GPIO\_5}, generato dal BMA400 solo al rilevamento di un nuovo movimento.
 \end{enumerate}
+\begin{lstlisting}[language=C++, caption={Configurazione del Deep Sleep con risveglio tramite accelerometro}]
+void enterDeepSleep() {
+  Serial.println("\nEntro in Deep Sleep...");
+  // Configura il pin di risveglio (GPIO 5) collegato al BMA400
+  pinMode(WAKEUP_PIN, INPUT_PULLDOWN);
+  esp_sleep_enable_ext0_wakeup(WAKEUP_PIN, 1);
+  esp_deep_sleep_start();
+}
+\end{lstlisting}
 
 \subsection{Monitoraggio Hardware e Batteria}
 Il firmware gestisce in modo intelligente l'alimentazione per evitare letture errate o consumi parassiti:
