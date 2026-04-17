@@ -2,6 +2,7 @@ import 'dart:convert'; // Necessario per jsonEncode/Decode
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
+import 'package:pet_tracker/home.dart';
 import 'package:pet_tracker/login.dart';
 import 'package:pocketbase/pocketbase.dart';
 import 'dart:async';
@@ -163,7 +164,7 @@ Future<bool?> isDeviceCharging() async {
   }
 
   try {
-    final result = await pb.collection('positions').getList(
+    final result = await pb.collection(tabellaPositions).getList(
           page: 1,
           perPage: 1,
           sort: '-timestamp', // Prende l'ultimo record basato sul tempo
