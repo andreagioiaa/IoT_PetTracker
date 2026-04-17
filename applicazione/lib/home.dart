@@ -7,6 +7,13 @@ import 'dart:async';
 import 'scambio.dart' as scambio;
 import 'settings.dart';
 
+/**
+ * DIFFERENZA TRA ValueNotifier e const (non cancellare, memo)
+ *    - ValueNotifier: rimane in attesa di una modifica della variabile globale
+ *    - const: fissa e immutabile
+ */
+
+
 // --- VARIABILE GLOBALE PER IL TASTO ALLARME ---
 final ValueNotifier<bool> isTrackingMode = ValueNotifier(false);
 
@@ -18,6 +25,13 @@ final ValueNotifier<String> mapFocusPreference = ValueNotifier('Animale');
 
 // --- VARIABILE GLOBALE PER GESTIONE PERMESSI ---
 final ValueNotifier<bool> hasLocationPermission = ValueNotifier(false);
+
+
+// --- VARIABILE GLOBALE DELLE TABELLE ---
+const String tableGeofences = "geofences";
+const String tabellaPositions = "positions";
+// const String tabellaNomeTabella = "nometabella"; (copiare e incollare)
+
 
 class PetTrackerApp extends StatelessWidget {
   const PetTrackerApp({super.key});

@@ -55,7 +55,8 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     _caricaZoneDalDatabase();
 
     _streamSubscription = scambio.posizioneStream.listen((nuovoRecord) {
-      debugPrint('🗺️ [MAPPA] Il tubo ha vibrato! Aggiorno la zampetta...');
+      debugPrint(
+          '🗺️ [MAPPA] Il tubo ha vibrato! Aggiorno la posizone animale...');
 
       try {
         final lat = nuovoRecord.getDoubleValue('lat');
@@ -656,29 +657,51 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
           try {
             if (isUpdating && updateIndex != null) {
               final id = savedPlaces[updateIndex]['id'];
+              final oldCenter = savedPlaces[updateIndex]['center'] as LatLng;
+              const Distance distCalc = Distance();
+              final double dist = distCalc(oldCenter, newCenter);
 
-              final rec = await scambio.pb
-                  .collection('geofences')
-                  .update(id, body: body);
+              // Se l'indirizzo ha prodotto un centro diverso (più di 10 metri di scarto)
+              if (dist > 10) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content:
+                          Text("Indirizzo modificato: ridisegna il perimetro!"),
+                      backgroundColor: Colors.blueAccent));
+                }
+                return {
+                  'success': true,
+                  'requiresDrawing':
+                      true, // <-- Flag speciale per indicare il cambio di posizione
+                  'id': id,
+                  'newZoneData': body,
+                  'name': rawName,
+                  'center': newCenter
+                };
+              } else {
+                // Le coordinate sono uguali (o hai cambiato solo il nome): aggiorna e chiudi
+                final rec = await scambio.pb
+                    .collection('geofences')
+                    .update(id, body: body);
 
-              await _caricaZoneDalDatabase(forceSelectId: rec.id);
+                await _caricaZoneDalDatabase(forceSelectId: rec.id);
 
-              _activeCard.value = ActiveCard.zone;
+                _activeCard.value = ActiveCard.zone;
+                _mapController.move(newCenter, 18.0);
 
-              _mapController.move(newCenter, 18.0);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text("Area aggiornata!"),
+                      backgroundColor: Colors.green));
+                }
 
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                    content: Text("Area aggiornata!"),
-                    backgroundColor: Colors.green));
+                return {
+                  'success': true,
+                  'id': rec.id,
+                  'name': rawName,
+                  'center': newCenter
+                };
               }
-
-              return {
-                'success': true,
-                'id': rec.id,
-                'name': rawName,
-                'center': newCenter
-              };
             } else {
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -1008,17 +1031,21 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                             if (resultData.containsKey('error')) {
                               setDialogState(() {
                                 generalError = resultData['error'];
-
                                 isLoading = false;
                               });
                             } else if (resultData['success'] == true) {
                               Navigator.pop(dialogContext);
 
-                              if (!isEditing) {
+                              // Avvia l'editor se è una nuova area OPPURE se l'indirizzo è cambiato
+                              if (!isEditing ||
+                                  resultData['requiresDrawing'] == true) {
                                 _navigateToPolygonEditor(
-                                    newZoneData: resultData['newZoneData'],
-                                    placeName: resultData['name'],
-                                    center: resultData['center']);
+                                  placeId: resultData['id'],
+                                  newZoneData: resultData['newZoneData'],
+                                  placeName: resultData['name'],
+                                  center: resultData['center'],
+                                  initialVertices: const <LatLng>[],
+                                );
                               }
                             } else {
                               setDialogState(() => isLoading = false);
@@ -1051,7 +1078,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text("Elimina"),
-          content: Text("Vuoi eliminare la Area '$placeName'?"),
+          content: Text("Vuoi eliminare Area '$placeName'?"),
           actions: [
             TextButton(
                 child: const Text("Annulla"),

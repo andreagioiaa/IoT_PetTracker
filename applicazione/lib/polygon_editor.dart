@@ -222,12 +222,15 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
       String? savedZoneId;
 
       if (widget.placeId != null) {
-        // MODIFICA ZONA ESISTENTE
+        // MODIFICA ZONA ESISTENTE: Ora unisce i nuovi dati dell'indirizzo (se presenti) ai vertici
+        Map<String, dynamic> bodyToUpdate = widget.newZoneData != null
+            ? Map<String, dynamic>.from(widget.newZoneData!)
+            : {};
+        bodyToUpdate["vertices"] = jsonVertices;
+
         final rec = await scambio.pb
             .collection('geofences')
-            .update(widget.placeId!, body: {
-          "vertices": jsonVertices,
-        });
+            .update(widget.placeId!, body: bodyToUpdate);
         savedZoneId = rec.id;
       } else if (widget.newZoneData != null) {
         // CREAZIONE NUOVA ZONA
