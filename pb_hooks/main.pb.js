@@ -1,90 +1,143 @@
-onRecordAfterCreateRequest((e) => {
-  const raw = e.record;
+onRecordAfterCreateSuccess((e) => {
+    const raw = e.record;
+    const boardId = raw.getString("board_id");
+    const timestamp = raw.getString("timestamp");
+    const sleep = raw.getBool("sleep");
+    const steps = raw.getInt("steps");
 
-  // 1. Prepara e salva i dati nella collezione 'battery_data'
-  const batteryCollection = $app.dao().findCollectionByNameOrId("battery_data");
-  const batteryRecord = new Record(batteryCollection, {
-    board_id: raw.get("board_id"),
-    timestamp: raw.get("timestamp"),
-    battery: raw.get("battery"),
-    battery_percent: raw.get("battery_percent"),
-    charging: raw.get("charging"),
-  });
-  $app.dao().saveRecord(batteryRecord);
+    console.log("--- SMISTAMENTO AVVIATO PER BOARD: " + boardId + " | sleep: " + sleep + " | steps: " + steps + " ---");
 
-  // 2. Prepara e salva i dati nella collezione 'positions'
-  const positionsCollection = $app
-    .dao()
-    .findCollectionByNameOrId("positions_duplicate");
-  const positionsRecord = new Record(positionsCollection, {
-    board_id: raw.get("board_id"),
-    timestamp: raw.get("timestamp"),
-    lon: raw.get("lon"),
-    lat: raw.get("lat"),
-    geo: raw.get("geo"),
-    sleep: raw.get("sleep"),
-  });
-  $app.dao().saveRecord(positionsRecord);
+    // 1. SMISTAMENTO BATTERIA
+    try {
+        const batteryCollection = e.app.findCollectionByNameOrId("battery_data");
+        const batteryRecord = new Record(batteryCollection);
+        batteryRecord.set("board_id", boardId);
+        batteryRecord.set("timestamp", timestamp);
+        batteryRecord.set("battery", raw.getFloat("battery"));
+        batteryRecord.set("battery_percent", raw.getInt("battery_percent"));
+        batteryRecord.set("charging", raw.getBool("charging"));
+        e.app.save(batteryRecord);
+        console.log("-> battery_data: OK");
+    } catch (err) {
+        console.log("-> battery_data: ERRORE: " + err);
+    }
 
-  // Nota opzionale: Se vuoi cancellare il record raw dopo averlo processato
-  // per non occupare spazio inutilmente, scommenta la riga sotto:
-  // $app.dao().deleteRecord(raw);
+    // 2. SMISTAMENTO POSIZIONI
+    try {
+        const positionsCollection = e.app.findCollectionByNameOrId("positions_duplicate");
+        const positionsRecord = new Record(positionsCollection);
+        positionsRecord.set("board_id", boardId);
+        positionsRecord.set("timestamp", timestamp);
+        positionsRecord.set("lon", raw.getFloat("lon"));
+        positionsRecord.set("lat", raw.getFloat("lat"));
+        positionsRecord.set("geo", raw.get("geo"));
+        e.app.save(positionsRecord);
+        console.log("-> positions_duplicate: OK");
+    } catch (err) {
+        console.log("-> positions_duplicate: ERRORE: " + err);
+    }
+
+    // 3. SMISTAMENTO ACTIVITIES
+    try {
+        let activeActivity = null;
+        try {
+            activeActivity = e.app.findFirstRecordByFilter(
+                "activities",
+                "board_id = {:boardId} && is_active = true",
+                { "boardId": boardId }
+            );
+        } catch (_) {
+            // Nessuna activity attiva trovata, activeActivity resta null
+        }
+
+        if (!sleep) {
+            // Dispositivo SVEGLIO → sessione attiva
+            if (activeActivity) {
+                const currentSteps = activeActivity.getInt("total_steps");
+                activeActivity.set("total_steps", currentSteps + steps);
+                activeActivity.set("end_time", null);
+                e.app.save(activeActivity);
+                console.log("-> activities UPDATE (steps: " + (currentSteps + steps) + "): OK");
+            } else {
+                const activitiesCollection = e.app.findCollectionByNameOrId("activities");
+                const activitiesRecord = new Record(activitiesCollection);
+                activitiesRecord.set("board_id", boardId);
+                activitiesRecord.set("total_steps", steps);
+                activitiesRecord.set("start_time", timestamp);
+                activitiesRecord.set("end_time", timestamp);
+                activitiesRecord.set("is_active", true);
+                e.app.save(activitiesRecord);
+                console.log("-> activities CREATE nuova sessione: OK");
+            }
+        } else {
+            // Dispositivo in SLEEP → chiudi sessione
+            if (activeActivity) {
+                activeActivity.set("end_time", timestamp);
+                activeActivity.set("is_active", false);
+                e.app.save(activeActivity);
+                console.log("-> activities CHIUSURA sessione: OK");
+            } else {
+                console.log("-> activities: sleep=true ma nessuna sessione attiva trovata, nulla da fare");
+            }
+        }
+    } catch (err) {
+        console.log("-> activities: ERRORE: " + err);
+    }
+
+    e.next();
+
 }, "data_sent_raw");
 
-onRecordAfterCreateRequest((e) => {
-  const raw = e.record;
-  const boardId = raw.get("board_id");
-  const isAsleep = raw.get("sleep");
-  const steps = raw.get("steps") || 0;
-  const timestamp = raw.get("timestamp");
+/*
+routerAdd("POST", "/api/ttn-uplink", (e) => {
+    try {
+        const body = e.requestInfo().body;
+        
+        // Log di debug: stampa nel terminale di PocketBase tutto quello che arriva
 
-  // 1. Cerchiamo se esiste un'attività già aperta (is_active = true) per questa board
-  let activeActivity;
-  try {
-    activeActivity = $app
-      .dao()
-      .findFirstRecordByFilter(
-        "activities",
-        `board_id = "${boardId}" && is_active = true`,
-      );
-  } catch (err) {
-    activeActivity = null;
-  }
+        const uplink = body.uplink_message;
+        if (!uplink) return e.json(400, { error: "No uplink message" });
 
-  if (!isAsleep) {
-    // --- IL DISPOSITIVO È SVEGLIO ---
-    if (!activeActivity) {
-      // Se non c'è un'attività aperta, ne iniziamo una NUOVA
-      const collection = $app.dao().findCollectionByNameOrId("activities");
-      const newAct = new Record(collection, {
-        board_id: boardId,
-        total_steps: steps,
-        start_time: timestamp,
-        end_time: timestamp,
-        is_active: true,
-      });
-      $app.dao().saveRecord(newAct);
-    } else {
-      // Se c'è un'attività aperta, AGGIORNIAMO i dati esistenti
-      activeActivity.set(
-        "total_steps",
-        activeActivity.get("total_steps") + steps,
-      );
-      activeActivity.set("end_time", timestamp);
-      $app.dao().saveRecord(activeActivity);
+        const payload = uplink.decoded_payload;
+        if (!payload) return e.json(400, { error: "Payload non decodificato da TTN" });
+
+        const collection = e.app.findCollectionByNameOrId("positions");
+        const record = new Record(collection);
+
+        // Identificativo dispositivo
+        record.set("device_id", body.end_device_ids.device_id);
+
+        // Coordinate (usiamo i nomi del tuo Formatted Code su TTN)
+        record.set("lat", payload.latitude);
+        record.set("lon", payload.longitude);
+
+        // TIMESTAMP: Prende l'ora di ricezione da TTN
+        // Se non la trova, usa l'ora attuale del server
+        const ttnTime = body.received_at || new Date().toISOString();
+        record.set("timestamp", ttnTime);
+
+
+	    // GEO
+        const geoJSON = {
+            lon: parseFloat(payload.longitude),
+            lat: parseFloat(payload.latitude)
+        };
+        
+        // Passiamo l'oggetto direttamente
+        record.set("geo", geoJSON);
+
+	// BATTERIA
+	record.set("battery", payload.battery_percentage)
+
+        e.app.save(record);
+
+        console.log("SUCCESSO: Salvato " + payload.latitude + "," + payload.longitude + " ore " + ttnTime);
+
+        return e.json(200, { ok: true });
+
+    } catch(err) {
+        console.log("ERRORE SALVATAGGIO: " + err.message);
+        return e.json(500, { error: err.message });
     }
-  } else {
-    // --- IL DISPOSITIVO DORME ---
-    if (activeActivity) {
-      // Se c'era un'attività aperta, la CHIUDIAMO
-      // (Opzionale: aggiungi gli ultimi passi se il record 'true' ne contiene)
-      activeActivity.set(
-        "total_steps",
-        activeActivity.get("total_steps") + steps,
-      );
-      activeActivity.set("end_time", timestamp);
-      activeActivity.set("is_active", false);
-      $app.dao().saveRecord(activeActivity);
-    }
-  }
-}, "data_sent_raw");
+});
+*/
