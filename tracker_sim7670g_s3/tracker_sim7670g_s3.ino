@@ -24,8 +24,8 @@ const gpio_num_t WAKEUP_PIN   = GPIO_NUM_5;
 
 // Tempi (in millisecondi)
 const unsigned long SLEEP_TIMEOUT = 30000;
-const unsigned long NET_TIMEOUT   = 30000; // Max tempo per cercare la rete prima di arrendersi
-const unsigned long GPS_TIMEOUT   = 20000; // Max tempo per fix GPS
+const unsigned long NET_TIMEOUT   = 60000; // Max tempo per cercare la rete prima di arrendersi
+const unsigned long GPS_TIMEOUT   = 180000; // Max tempo per fix GPS
 
 // ═══════════════════════════════════════════════
 //  MEMORIA PERSISTENTE (Sopravvive al Deep Sleep)
@@ -145,12 +145,12 @@ BatInfo leggiBatteria() {
 //  RETE E CONNESSIONE FAST
 // ═══════════════════════════════════════════════
 bool connectToNetworkFast() {
-  Serial.println("[NET] Configurazione Rapida VERY MOBILE...");
+  Serial.println("[NET] Configurazione Rapida ISP...");
   
   // 1. Forza modalità LTE (Cat-1) per saltare la scansione lenta del 2G/3G
   sendAT("AT+CNMP=38", 1000); 
   
-  // 2. Imposta l'APN di Very Mobile
+  // 2. Imposta l'APN 
   String apnCmd = "AT+CGDCONT=1,\"IP\",\"" + String(apn) + "\"";
   sendAT(apnCmd.c_str(), 1000);
   
@@ -181,8 +181,7 @@ void iniettaGps() {
   Serial.println("[GPS] Iniettando dati per Hot Start...");
   String latDir = (lastLat >= 0) ? "N" : "S";
   String lonDir = (lastLon >= 0) ? "E" : "W";
-  String cmdPos = "AT+CGNSSPOS=" + formatCoordinate(lastLat, true) + "," + latDir + "," + 
-                  formatCoordinate(lastLon, false) + "," + lonDir + ",0,100";
+  String cmdPos = "AT+CGNSSPOS=" + formatCoordinate(lastLat, true) + "," + latDir + "," + formatCoordinate(lastLon, false) + "," + lonDir + ",0,100";
   sendAT(cmdPos.c_str(), 500);
   if (lastGpsDate[0] != '\0') {
     String cmdTime = "AT+CGNSSTIME=" + String(lastGpsDate) + "," + String(lastGpsTime) + ",1000";
@@ -339,12 +338,24 @@ void setup() {
     enterDeepSleep();
   }
 
-  // Se c'è rete, accendiamo il GPS
-  sendAT("AT+CGNSSPWR=1", 1000);
-  sendAT("AT+CGDRT=4,1", 500); // Antenna GPS attiva (su board Lilygo)
-  sendAT("AT+CGSETV=4,1", 500);
+  Serial.println("[GPS] Configurazione antenna e costellazioni...");
   
-  if (hasGpsFix) iniettaGps();
+  // 1. Reset e Alimentazione Antenna
+  sendAT("AT+CGNSSPWR=0", 500);      // Assicurati che sia spento prima di configurare
+  sendAT("AT+CVAUXV=3000", 500);     // Imposta il voltaggio ausiliario a 3.0V
+  sendAT("AT+CVAUXS=1", 500);        // Attiva l'uscita di alimentazione per l'antenna
+  // 2. Selezione Costellazioni (GPS + GLONASS + GALILEO)
+  // Questo comando aumenta drasticamente il numero di satelliti visibili in Italia
+  sendAT("AT+CGNSCFG=11", 500);      
+  // 3. Comandi specifici Lilygo per il routing del segnale
+  sendAT("AT+CGDRT=4,1", 500); 
+  sendAT("AT+CGSETV=4,1", 500);
+  // 4. Accensione finale
+  sendAT("AT+CGNSSPWR=1", 1000);
+
+  if (hasGpsFix) iniettaGps(); // Iniezione dati salvati in RTC
+  
+  Serial.println("[GPS] Modulo alimentato e in ascolto.");
 
   lastActivityTime = millis();
   Serial.println("=== SISTEMA PRONTO ===");
@@ -377,6 +388,7 @@ void loop() {
     
     // Salva le coordinate per la prossima accensione
     if(gps.valid) {
+      Serial.println("[GPS] GPS valido, Lat: "); Serial.print(gps.lat, 6); Serial.print(" | Lon: "); Serial.println(gps.lon, 6);
       lastLat = gps.lat; 
       lastLon = gps.lon; 
       hasGpsFix = true;
@@ -388,10 +400,10 @@ void loop() {
         strncpy(lastGpsDate, rawDate.c_str(), 6);
         strncpy(lastGpsTime, rawTime.c_str(), 6);
       }
+      inviaDati(gps.lat, gps.lon, bat, ts, step, false);
+    }else{
+      Serial.println("[SYS] Movimento rilevato ma GPS NON valido. Pacchetto saltato.");
     }
-
-    inviaDati(gps.lat, gps.lon, bat, ts, step, false);
-    
   } 
   // Se non ci muoviamo più, andiamo in sleep
   else if (millis() - lastActivityTime > SLEEP_TIMEOUT) {
