@@ -1,21 +1,12 @@
 import 'package:flutter/material.dart';
-
 import 'package:flutter_map/flutter_map.dart';
-
 import 'package:latlong2/latlong.dart';
-
 import 'package:http/http.dart' as http;
-
 import 'dart:convert';
-
 import 'package:geolocator/geolocator.dart';
-
 import 'dart:async';
-
 import 'scambio.dart' as scambio;
-
 import 'polygon_editor.dart';
-
 import 'home.dart';
 
 enum ActiveCard { none, zone, user, pet }
@@ -1304,93 +1295,108 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                                     BoxShadow(
                                         color: Colors.black12, blurRadius: 10)
                                   ]),
-                              child: DropdownButtonHideUnderline(
-                                child: DropdownButton<int>(
-                                  isExpanded: true,
-                                  menuMaxHeight: 240,
-                                  value: selectedPlaceIndex,
-                                  hint: FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    child: Text("Seleziona Area...",
-                                        style: TextStyle(
-                                            color: Colors.black54,
-                                            fontSize: 15 * scale,
-                                            fontWeight: FontWeight.w600)),
-                                  ),
-                                  selectedItemBuilder: (BuildContext context) {
-                                    return savedPlaces.map<Widget>((item) {
-                                      return Align(
-                                        alignment: Alignment.centerLeft,
-                                        child: FittedBox(
-                                          fit: BoxFit.scaleDown,
-                                          child: Text("Area Sicura",
-                                              style: TextStyle(
-                                                  color: Colors.black87,
-                                                  fontSize: 15 * scale,
-                                                  fontWeight: FontWeight.w600)),
+                              child: Theme(
+                                data: selectedPlaceIndex == null
+                                    ? Theme.of(context).copyWith(
+                                        // Applica la trasparenza SOLO se non c'è una selezione attiva
+                                        focusColor: Colors.transparent,
+                                        hoverColor: Colors.transparent,
+                                        highlightColor: Colors.transparent,
+                                        splashColor: Colors.transparent,
+                                      )
+                                    : Theme.of(context),
+                                child: DropdownButtonHideUnderline(
+                                  child: DropdownButton<int>(
+                                    isExpanded: true,
+                                    menuMaxHeight: 240,
+                                    dropdownColor: Colors.white,
+                                    value: selectedPlaceIndex,
+                                    hint: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text("Seleziona Area...",
+                                          style: TextStyle(
+                                              color: Colors.black54,
+                                              fontSize: 15 * scale,
+                                              fontWeight: FontWeight.w600)),
+                                    ),
+                                    selectedItemBuilder:
+                                        (BuildContext context) {
+                                      return savedPlaces.map<Widget>((item) {
+                                        return Align(
+                                          alignment: Alignment.centerLeft,
+                                          child: FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            child: Text("Area Sicura",
+                                                style: TextStyle(
+                                                    color: Colors.black87,
+                                                    fontSize: 15 * scale,
+                                                    fontWeight:
+                                                        FontWeight.w600)),
+                                          ),
+                                        );
+                                      }).toList();
+                                    },
+                                    style: TextStyle(
+                                        color: Colors.black87,
+                                        fontSize: 15 * scale,
+                                        fontWeight: FontWeight.w600),
+                                    items:
+                                        List.generate(savedPlaces.length, (i) {
+                                      bool isActiveZone =
+                                          savedPlaces[i]['is_active'] ?? false;
+
+                                      return DropdownMenuItem(
+                                        value: i,
+                                        child: Row(
+                                          children: [
+                                            Container(
+                                              width: 8,
+                                              height: 8,
+                                              decoration: BoxDecoration(
+                                                shape: BoxShape.circle,
+                                                color: isActiveZone
+                                                    ? Colors.green
+                                                    : Colors.orange,
+                                                boxShadow: [
+                                                  if (isActiveZone)
+                                                    BoxShadow(
+                                                        color: Colors.green
+                                                            .withOpacity(0.4),
+                                                        blurRadius: 4,
+                                                        spreadRadius: 1)
+                                                ],
+                                              ),
+                                            ),
+                                            SizedBox(width: 10 * scale),
+                                            Expanded(
+                                                child: Text(
+                                                    savedPlaces[i]['name'],
+                                                    style: TextStyle(
+                                                        fontSize: 14 * scale,
+                                                        color: isActiveZone
+                                                            ? Colors.black87
+                                                            : Colors.black45,
+                                                        fontWeight: isActiveZone
+                                                            ? FontWeight.w600
+                                                            : FontWeight
+                                                                .normal),
+                                                    overflow:
+                                                        TextOverflow.ellipsis)),
+                                          ],
                                         ),
                                       );
-                                    }).toList();
-                                  },
-                                  style: TextStyle(
-                                      color: Colors.black87,
-                                      fontSize: 15 * scale,
-                                      fontWeight: FontWeight.w600),
-                                  items: List.generate(savedPlaces.length, (i) {
-                                    bool isActiveZone =
-                                        savedPlaces[i]['is_active'] ?? false;
+                                    }),
+                                    onChanged: (val) {
+                                      setState(() => selectedPlaceIndex = val!);
 
-                                    return DropdownMenuItem(
-                                      value: i,
-                                      child: Row(
-                                        children: [
-                                          Container(
-                                            width: 8,
-                                            height: 8,
-                                            decoration: BoxDecoration(
-                                              shape: BoxShape.circle,
-                                              color: isActiveZone
-                                                  ? Colors.green
-                                                  : Colors.orange,
-                                              boxShadow: [
-                                                if (isActiveZone)
-                                                  BoxShadow(
-                                                      color: Colors.green
-                                                          .withOpacity(0.4),
-                                                      blurRadius: 4,
-                                                      spreadRadius: 1)
-                                              ],
-                                            ),
-                                          ),
-                                          SizedBox(width: 10 * scale),
-                                          Expanded(
-                                              child: Text(
-                                                  savedPlaces[i]['name'],
-                                                  style: TextStyle(
-                                                      fontSize: 14 * scale,
-                                                      color: isActiveZone
-                                                          ? Colors.black87
-                                                          : Colors.black45,
-                                                      fontWeight: isActiveZone
-                                                          ? FontWeight.w600
-                                                          : FontWeight.normal),
-                                                  overflow:
-                                                      TextOverflow.ellipsis)),
-                                        ],
-                                      ),
-                                    );
-                                  }),
-                                  onChanged: (val) {
-                                    setState(() => selectedPlaceIndex = val!);
+                                      _activeCard.value = ActiveCard.zone;
 
-                                    _activeCard.value = ActiveCard.zone;
-
-                                    _mapController.move(
-                                        savedPlaces[val!]['center'], 18.0);
-                                  },
+                                      _mapController.move(
+                                          savedPlaces[val!]['center'], 18.0);
+                                    },
+                                  ),
                                 ),
-                              ),
-                            )
+                              ))
                           : Container(
                               padding: EdgeInsets.symmetric(
                                   horizontal: 15 * scale, vertical: 10 * scale),

@@ -10,26 +10,52 @@ class BatteryScreen extends StatefulWidget {
   State<BatteryScreen> createState() => _BatteryScreenState();
 }
 
-class _BatteryScreenState extends State<BatteryScreen> {
+// 1. Aggiunto SingleTickerProviderStateMixin per le animazioni
+class _BatteryScreenState extends State<BatteryScreen>
+    with SingleTickerProviderStateMixin {
   int? _currentBattery;
+  bool _isCharging = false;
   bool _isLoading = true;
   StreamSubscription? _streamSubscription;
+
+  // 2. Aggiunto l'AnimationController
+  late AnimationController _spinController;
 
   @override
   void initState() {
     super.initState();
 
+    // Inizializza il controller per la rotazione (impiega 2 secondi per fare un giro completo)
+    _spinController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    );
+
     _streamSubscription = scambio.posizioneStream.listen((nuovoRecord) {
       debugPrint('🔊 [BATTERY SCREEN] Leggo il pacchetto...');
 
       try {
-        final nuovaBatteria = nuovoRecord.getIntValue('battery');
-        debugPrint(
-            '🔋 [BATTERY SCREEN] Nuova batteria in diretta: $nuovaBatteria%');
+        final inCarica = nuovoRecord.getBoolValue('charging');
 
         if (mounted) {
           setState(() {
-            _currentBattery = nuovaBatteria;
+            _isCharging = inCarica;
+
+            if (_isCharging) {
+              // Se è in carica, avvia l'animazione all'infinito
+              _spinController.repeat();
+              debugPrint(
+                  '⚡ [BATTERY SCREEN] Dispositivo in carica, ignoro la percentuale.');
+            } else {
+              // Se non è in carica, ferma l'animazione e torna alla posizione iniziale
+              _spinController.stop();
+              _spinController.reset();
+
+              _currentBattery = nuovoRecord.getIntValue('battery');
+              debugPrint(
+                  '🔋 [BATTERY SCREEN] Nuova batteria: $_currentBattery%');
+            }
+
             _isLoading = false;
           });
         }
@@ -42,18 +68,33 @@ class _BatteryScreenState extends State<BatteryScreen> {
   }
 
   Future<void> _scaricaDatoIniziale() async {
-    final batteriaIniziale = await scambio.getUltimoLivelloBatteria();
-    if (mounted && _currentBattery == null) {
-      setState(() {
-        _currentBattery = batteriaIniziale;
-        _isLoading = false;
-      });
+    final inCarica = await scambio.isDeviceCharging();
+
+    if (mounted) {
+      if (inCarica == true) {
+        setState(() {
+          _isCharging = true;
+          _isLoading = false;
+        });
+        // Avvia l'animazione subito se parte già in carica
+        _spinController.repeat();
+      } else {
+        final batteriaIniziale = await scambio.getUltimoLivelloBatteria();
+
+        setState(() {
+          _isCharging = false;
+          _currentBattery = batteriaIniziale;
+          _isLoading = false;
+        });
+      }
     }
   }
 
   @override
   void dispose() {
     _streamSubscription?.cancel();
+    _spinController
+        .dispose(); // 3. Importante: ricordarsi di distruggere il controller
     super.dispose();
   }
 
@@ -70,91 +111,113 @@ class _BatteryScreenState extends State<BatteryScreen> {
   Widget _buildBody(BuildContext context) {
     if (_isLoading) {
       return const Center(
-          child: CircularProgressIndicator(color: Color(0xFF00C6B8)));
+        child: CircularProgressIndicator(color: Color(0xFF00C6B8)),
+      );
     }
 
-    if (_currentBattery == null) {
+    if (!_isCharging && _currentBattery == null) {
       return const Center(child: Text("Errore nel recupero dati batteria"));
     }
 
-    final int batteryInt = _currentBattery!;
-    final double batteryLevel = batteryInt / 100.0;
-
+    double batteryLevel = 0.0;
     List<Color> ringColors;
     Color mainColor;
     String statusText;
-
-    if (batteryInt <= 0) {
-      ringColors = [Colors.red.shade900, Colors.red.shade700];
-      mainColor = Colors.red;
-      statusText = "Scarica";
-    } else if (batteryInt <= 20) {
-      ringColors = [Colors.orange, Colors.redAccent];
-      mainColor = Colors.redAccent;
-      statusText = "In esaurimento";
-    } else {
-      ringColors = const [Color(0xFF00E2C1), Color(0xFF00C6B8)];
-      mainColor = const Color(0xFF00C6B8);
-      statusText = "Carica";
-    }
-
-    double estimatedDays = (batteryInt / 100.0) * 7.0;
+    Widget centerWidget;
+    double estimatedDays = 0.0;
 
     double screenHeight = MediaQuery.of(context).size.height;
     double scale = (screenHeight / 800).clamp(0.7, 1.2);
 
+    if (_isCharging) {
+      // VISUALIZZAZIONE "IN CARICA"
+      batteryLevel = 1.0;
+      ringColors = const [Colors.green, Colors.greenAccent, Colors.green];
+
+      mainColor = Colors.green;
+      statusText = "In Ricarica";
+      centerWidget = Icon(Icons.bolt, size: 60 * scale, color: mainColor);
+      estimatedDays = 0.0;
+    } else {
+      // VISUALIZZAZIONE NORMALE BATTERIA
+      final int batteryInt = _currentBattery!;
+      batteryLevel = batteryInt / 100.0;
+      estimatedDays = (batteryInt / 100.0) * 7.0;
+
+      if (batteryInt <= 0) {
+        ringColors = [Colors.red.shade900, Colors.red.shade700];
+        mainColor = Colors.red;
+        statusText = "Scarica";
+      } else if (batteryInt <= 20) {
+        ringColors = [Colors.orange, Colors.redAccent];
+        mainColor = Colors.redAccent;
+        statusText = "In esaurimento";
+      } else {
+        ringColors = const [Color(0xFF00E2C1), Color(0xFF00C6B8)];
+        mainColor = const Color(0xFF00C6B8);
+        statusText = "In uso";
+      }
+
+      centerWidget = Text(
+        '$batteryInt%',
+        style: TextStyle(
+          fontSize: 50 * scale,
+          fontWeight: FontWeight.bold,
+          color: mainColor,
+        ),
+      );
+    }
+
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 25.0 * scale),
       child: Column(
-        // Cambiato in center per allineare tutto al centro
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           SizedBox(height: 20 * scale),
-
-          // 1. Titolo Centrato
           Text(
             'Stato Batteria',
             textAlign: TextAlign.center,
             style: TextStyle(
-                fontSize: 26 * scale, // Leggermente più piccolo per eleganza
-                fontWeight: FontWeight.bold,
-                color: const Color(0xFF2D3142)),
+              fontSize: 26 * scale,
+              fontWeight: FontWeight.bold,
+              color: const Color(0xFF2D3142),
+            ),
           ),
-
           const Spacer(flex: 2),
-
-          // 2. Anello di progresso batteria RIDOTTO
           Center(
             child: SizedBox(
-              width: 200 * scale, // Ridotto da 240 a 200
-              height: 200 * scale, // Ridotto da 240 a 200
+              width: 200 * scale,
+              height: 200 * scale,
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  GradientCircularProgress(
-                    percentage: batteryLevel,
-                    strokeWidth: 18 * scale, // Ridotto spessore
-                    colors: ringColors,
+                  // 4. Aggiunto RotationTransition attorno al cerchio per farlo girare
+                  RotationTransition(
+                    turns: _isCharging
+                        ? _spinController
+                        : const AlwaysStoppedAnimation(
+                            0), // Se non carica, sta fermo a 0
+                    child: GradientCircularProgress(
+                      percentage: batteryLevel,
+                      strokeWidth: 18 * scale,
+                      colors: ringColors,
+                    ),
                   ),
                   Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(
-                        '$batteryInt%',
-                        style: TextStyle(
-                            fontSize: 50 * scale, // Ridotto da 60 a 50
-                            fontWeight: FontWeight.bold,
-                            color: mainColor),
-                      ),
+                      centerWidget,
                       Text(
                         statusText,
                         style: TextStyle(
-                            fontSize: 12 * scale,
-                            color:
-                                batteryInt <= 20 ? mainColor : Colors.black38,
-                            fontWeight: batteryInt <= 20
-                                ? FontWeight.bold
-                                : FontWeight.normal),
+                          fontSize: 12 * scale,
+                          color: (!_isCharging && _currentBattery! <= 20)
+                              ? mainColor
+                              : Colors.black38,
+                          fontWeight: (!_isCharging && _currentBattery! <= 20)
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                        ),
                       ),
                     ],
                   ),
@@ -162,45 +225,44 @@ class _BatteryScreenState extends State<BatteryScreen> {
               ),
             ),
           ),
-
           const Spacer(flex: 2),
-
-          // 3. Card Durata Stimata
           _buildBatteryDetailCard(
-              Icons.access_time,
-              "Durata Stimata",
-              batteryInt <= 0
-                  ? "Spento"
-                  : "~ ${estimatedDays.toStringAsFixed(1)} giorni",
-              batteryInt <= 20 ? Colors.redAccent : Colors.blue,
-              scale),
-
+            Icons.access_time,
+            "Durata Stimata",
+            _isCharging
+                ? "Dispositivo in ricarica"
+                : (_currentBattery! <= 0
+                    ? "Dispositivo spento"
+                    : "~ ${estimatedDays.toStringAsFixed(1)} giorni"),
+            _isCharging
+                ? Colors.green
+                : ((_currentBattery ?? 100) <= 20
+                    ? Colors.redAccent
+                    : Colors.blue),
+            scale,
+          ),
           const Spacer(flex: 2),
-
-          // 4. Dettagli Tecnici
           _buildTechDetail(
               "Capacità Batteria", "3000 mAh", Icons.battery_full, scale),
           SizedBox(height: 15 * scale),
-          _buildTechDetail("Consumo ad Invio", "~ ? mA", Icons.sensors, scale),
+          _buildTechDetail(
+              "Consumo ad Invio", "~ 120 mA", Icons.sensors, scale),
           SizedBox(height: 15 * scale),
           _buildTechDetail("Intervallo medio", "1 min", Icons.history, scale),
-
           const Spacer(flex: 2),
-
-          // 5. Nota a piè di pagina abbreviata e rimpicciolita
           Center(
             child: Text(
               "Nota Bene: Stima basata sui dati inviati dal dispositivo",
-              maxLines: 1, // Forza una riga sola
+              maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
               style: TextStyle(
-                  fontStyle: FontStyle.italic,
-                  color: Colors.grey,
-                  fontSize: 10.5 * scale), // Ridotto da 12 a 10.5
+                fontStyle: FontStyle.italic,
+                color: Colors.grey,
+                fontSize: 10.5 * scale,
+              ),
             ),
           ),
-
           SizedBox(height: 15 * scale),
         ],
       ),
@@ -313,6 +375,7 @@ class _GradientCircularProgressPainter extends CustomPainter {
       ..color = const Color(0xFFE5E5EA)
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth;
+
     canvas.drawArc(rect, 0, pi * 2, false, backgroundPaint);
 
     if (percentage > 0) {
@@ -325,10 +388,15 @@ class _GradientCircularProgressPainter extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round
         ..strokeWidth = strokeWidth;
+
       canvas.drawArc(rect, -pi / 2, pi * 2 * percentage, false, progressPaint);
     }
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  bool shouldRepaint(covariant _GradientCircularProgressPainter oldDelegate) {
+    return oldDelegate.percentage != percentage ||
+        oldDelegate.strokeWidth != strokeWidth ||
+        oldDelegate.colors != colors;
+  }
 }

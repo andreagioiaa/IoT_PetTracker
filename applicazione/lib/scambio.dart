@@ -155,6 +155,29 @@ Future<int?> getUltimoLivelloBatteria() async {
   }
 }
 
+Future<bool?> isDeviceCharging() async {
+  if (!isReady) {
+    print('⏳ Attesa autenticazione prima di leggere lo stato di ricarica...');
+    await Future.delayed(const Duration(seconds: 1));
+    if (!isReady) return null;
+  }
+
+  try {
+    final result = await pb.collection('positions').getList(
+          page: 1,
+          perPage: 1,
+          sort: '-timestamp', // Prende l'ultimo record basato sul tempo
+        );
+
+    if (result.items.isEmpty) return null;
+
+    return result.items.first.getBoolValue('charging');
+  } catch (e) {
+    print('🛑 Errore lettura stato ricarica: $e');
+    return null;
+  }
+}
+
 Future<DateTime?> getUltimoTimestamp() async {
   try {
     final result = await pb.collection('positions').getList(
