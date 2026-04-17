@@ -23,6 +23,7 @@ const int        I2C_SCL      = 42;
 const gpio_num_t WAKEUP_PIN   = GPIO_NUM_5;
 
 const unsigned long SLEEP_TIMEOUT = 30000;
+const unsigned long MISURE_INTERVAL = 20000;
 uint32_t            stepCountAtWakeup = 0;
 unsigned long       lastActivityTime  = 0;
 
@@ -239,6 +240,7 @@ void inviaDati(float l_lat, float l_lon, const BatInfo& bat, const String& times
   sendAT("AT+HTTPREAD=0,512", 3000);
   Serial.print("[HTTP] "); Serial.println(res);
   sendAT("AT+HTTPTERM");
+  delay(2000);
 }
 
 bool initAccelerometer() {
@@ -390,46 +392,6 @@ void setup() {
 //  LOOP
 // ═══════════════════════════════════════════════
 void loop() {
-  /*
-  static uint32_t lastSessionStepsCount = 0;
-  StepData step = readStepData(lastSessionStepsCount);
-  BatInfo bat = leggiBatteria();
-
-  GpsData gps;
-  while(!gps.valid) { gps = getGpsData(); delay(1000); }
-
-  if (step.hasNewSteps) {
-    lastActivityTime = millis();
-    step.lastSession = step.session - lastSessionStepsCount;
-    lastSessionStepsCount = step.session;
-
-    String ts = getTimestamp();
-    lastLat = gps.lat; lastLon = gps.lon; hasGpsFix = true;
-    
-    // Aggiornamento dati per Hot Start
-    String r = sendAT("AT+CCLK?", 500);
-    int q1 = r.indexOf('"');
-    if (q1 != -1) {
-      String rawDate = r.substring(q1 + 7, q1 + 9) + r.substring(q1 + 4, q1 + 6) + r.substring(q1 + 1, q1 + 3);
-      String rawTime = r.substring(q1 + 10, q1 + 12) + r.substring(q1 + 13, q1 + 15) + r.substring(q1 + 16, q1 + 18);
-      strncpy(lastGpsDate, rawDate.c_str(), 6);
-      strncpy(lastGpsTime, rawTime.c_str(), 6);
-    }
-
-    // CHIAMATA CORRETTA: sleep = false
-    inviaDati(gps.lat, gps.lon, bat, ts, step, false); 
-
-  } else if (millis() - lastActivityTime > SLEEP_TIMEOUT) {
-    Serial.println("[SYSTEM] Timeout. Invio finale...");
-    String ts = getTimestamp();
-    
-    // CHIAMATA CORRETTA: sleep = true
-    inviaDati(gps.lat, gps.lon, bat, ts, step, true);
-    
-    delay(1000);
-    enterDeepSleep();
-    */
-    
   static uint32_t lastSessionStepsCount = 0;
   StepData step = readStepData(lastSessionStepsCount);
   BatInfo bat = leggiBatteria();
@@ -476,11 +438,9 @@ void loop() {
     // Se non c'è movimento per 30 secondi, invia l'ultimo pacchetto e dorme
     Serial.println("[SYSTEM] Timeout inattività. Invio stato finale e Deep Sleep.");
     String ts = getTimestamp();
+    //Invio dati al server
     inviaDati(gps.lat, gps.lon, bat, ts, step, true);
-    
-    delay(2000); // Assicura che il modem finisca di trasmettere
+    //Inizio Deep Sleep
     enterDeepSleep();
   }
-
-  delay(20000);
 }
