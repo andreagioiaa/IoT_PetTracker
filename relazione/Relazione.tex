@@ -1,5 +1,6 @@
 \documentclass[12pt,a4paper]{article}
 \usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
 \usepackage[italian]{babel}
 
 \addto\captionsitalian{%
@@ -19,10 +20,11 @@
 \usepackage{enumitem}
 \usepackage{float}
 \usepackage{booktabs}
+\usepackage{csquotes} 
 
-\usepackage[gi
+\usepackage[
     backend=biber,
-    style=numeric,<
+    style=numeric,
     sorting=none
 ]{biblatex}
 \addbibresource{riferimenti.bib}
@@ -135,7 +137,7 @@ Il firmware, sviluppato in ambiente Arduino, implementa una macchina a stati per
 \end{enumerate}
 
 \section{Back-end e Database}
-Il centro nevralgico della gestione dati è basato su \textbf{PocketBase}  \cite{pocketbase} , una soluzione open-source che integra un database embedded SQLite con un'interfaccia API REST. 
+Il centro nevralgico della gestione dati è basato su \textbf{PocketBase} \cite{pocketbase}, una soluzione open-source che integra un database embedded SQLite con un'interfaccia API REST. 
 
 \subsection{Architettura di Hosting e Network Exposure}
 L'istanza di PocketBase è stata ospitata su una workstation locale e data la natura del sistema IoT, che richiede la raggiungibilità del backend da parte del dispositivo (tramite rete LTE) e dell'applicazione mobile (tramite rete dati/Wi-Fi), si è reso necessario esporre il servizio locale su rete pubblica.
@@ -144,13 +146,11 @@ Tale URL funge da \textit{Reverse Proxy}, reindirizzando il traffico HTTPS in in
 
 \subsection{Sistema di Backup e Data Retention}
 Per garantire la resilienza dei dati e prevenire perdite accidentali dovute a guasti del server locale, è stato implementato un sistema di backup automatizzato. 
-Il processo utilizza l'utility \textbf{rclone} \cite{rclone}, uno strumento a riga di comando per la gestione del cloud storage, configurato per eseguire la sincronizzazione della directory dei dati di PocketBase (inclusi il database SQLite e gli eventuali asset) verso un bucket remoto su \textbf{Backblaze B2} \cite{backblaze}. 
-L'automazione è gestita tramite un \textit{cron job} (o un'operazione pianificata) che esegue il backup in modo incrementale ogni primo giorno del mese. Questa strategia assicura che, nonostante l'hosting sia inizialmente locale, il sistema rispetti i criteri di persistenza a lungo termine.
+Il processo utilizza l'utility \textbf{rclone} \cite{rclone}, uno strumento a riga di comando per la gestione del cloud storage, configurato per eseguire la sincronizzazione della directory dei dati di PocketBase verso un bucket remoto su \textbf{Backblaze B2} \cite{backblaze}. 
+L'automazione è gestita tramite un \textit{cron job} che esegue il backup in modo incrementale ogni primo giorno del mese.
 
 \subsection{Monitoraggio e Business Continuity}
-Per garantire l'affidabilità dell'intero ecosistema, è stato implementato un sistema di monitoraggio esterno tramite \textbf{UptimeRobot} \cite{uptimerobot}. Dato che l'accessibilità del backend dipende dalla stabilità del tunnel ngrok e dall'operatività del server locale, il monitoraggio è configurato per interrogare l'endpoint HTTPS a intervalli regolari.
-In caso di mancata risposta (dovuta a un crash di ngrok, interruzione di rete o downtime del server), il sistema invia notifiche push e email immediate al team di sviluppo per interventi tecnici sulla disponibilità del servizio.
-Tale approccio permette di minimizzare il \textit{Mean Time To Repair} (MTTR) e garantisce una maggiore robustezza della soluzione proposta.
+Per garantire l'affidabilità dell'intero ecosistema, è stato implementato un sistema di monitoraggio esterno tramite \textbf{UptimeRobot} \cite{uptimerobot}. Dato che l'accessibilità del backend dipende dalla stabilità del tunnel ngrok, il monitoraggio interroga l'endpoint HTTPS a intervalli regolari, inviando notifiche immediate in caso di downtime.
 
 \subsection{Struttura dei dati}
 I dati ricevuti vengono normalizzati e memorizzati in una collezione denominata \texttt{positions}. La struttura del record prevede i seguenti campi:
@@ -164,20 +164,39 @@ I dati ricevuti vengono normalizzati e memorizzati in una collezione denominata 
 \end{itemize}
 
 \subsection{Interfaccia API e API Rules}
-L'accesso ai dati memorizzati nel backend avviene esclusivamente tramite un'interfaccia \textbf{RESTful API} fornita nativamente da PocketBase. Questo approccio permette di separare nettamente il livello di persistenza (Database) dal livello di fruizione (Applicazione Mobile), in linea con il Livello 5 (Data Abstraction) del modello IoTWF.
+L'accesso ai dati memorizzati nel backend avviene esclusivamente tramite un'interfaccia \textbf{RESTful API} fornita nativamente da PocketBase. Questo approccio permette di separare nettamente il livello di persistenza (Database) dal livello di fruizione (Applicazione Mobile).
+
 \subsubsection{API Rules e Sicurezza}
-Per garantire l'integrità e la riservatezza dei dati, sono state configurate specifiche \textbf{API Rules}. A differenza di un database tradizionale, PocketBase utilizza un sistema di regole basato su espressioni booleane per filtrare le operazioni di:
+Per garantire l'integrità e la riservatezza dei dati, sono state configurate specifiche \textbf{API Rules} basate su espressioni booleane:
 \begin{itemize}
-    \item \textbf{List/View:} Definisce chi può leggere i record. Nel nostro caso, è stata impostata una regola che permette la visualizzazione solo agli utenti autenticati.
-    \item \textbf{Create:} Permette l'inserimento di nuovi dati. Questa operazione è abilitata per il dispositivo LilyGo tramite un token di autenticazione o restrizioni sull'origine delle richieste.
-    \item \textbf{Update/Delete:} Queste operazioni sono state disabilitate o ristrette ai soli amministratori del sistema per evitare la manomissione accidentale dello storico delle posizioni.
+    \item \textbf{List/View:} Visualizzazione permessa solo agli utenti autenticati.
+    \item \textbf{Create:} Abilitata per il dispositivo LilyGo tramite autenticazione dedicata.
+    \item \textbf{Update/Delete:} Ristrette ai soli amministratori del sistema.
 \end{itemize}
 
-L'utilizzo delle API Rules sostituisce la necessità di scrivere codice di back-end personalizzato per la validazione, permettendo di gestire in modo granulare i permessi direttamente dal pannello di controllo del server.
+% --- CORREZIONE TITOLO LUNGO ---
+\subsection[Smistamento e Normalizzazione]{Logica di Smistamento e Normalizzazione (Server-side Hooks)}
 
+Per ottimizzare la gestione dei dati e garantire la separazione delle responsabilità, è stata implementata una logica di smistamento automatico lato server tramite i \textit{JavaScript Event Hooks} di PocketBase. 
+Questa architettura permette di mantenere la collezione \texttt{data\_sent\_raw} come un punto di accumulo ``grezzo'', delegando al server il compito di distribuire le informazioni nelle tabelle specializzate.
+
+\subsubsection{Funzionamento del Trigger onRecordAfterCreateSuccess}
+Il sistema sfrutta l'hook \texttt{onRecordAfterCreateSuccess}. Il processo di smistamento opera come segue:
+\begin{itemize}
+    \item \textbf{Monitoraggio Energetico}: I parametri di tensione e carica vengono isolati nella collezione \texttt{battery\_data}.
+    \item \textbf{Tracciamento Geografico}: Le coordinate vengono duplicate in \texttt{positions\_duplicate}, mantenendo un riferimento univoco (\texttt{raw\_data\_id}).
+    \item \textbf{Analisi dell'Attività}: I dati del contapassi vengono indirizzati alla collezione \texttt{activities}.
+\end{itemize}
+
+\subsubsection{Vantaggi Architetturali e Corrispondenza IoTWF}
+\begin{itemize}
+    \item \textbf{Efficienza del Livello 3 (Edge)}: Riducendo il numero di richieste HTTPS (invio singolo ``bulk''), si preserva la batteria della LilyGo.
+    \item \textbf{Ottimizzazione del Livello 5 (Abstraction)}: L'app Flutter interroga API già strutturate, garantendo fluidità sulla mappa.
+    \item \textbf{Resilienza}: L'uso di \texttt{try-catch} assicura che errori su sensori secondari non compromettano il salvataggio del GPS.
+\end{itemize}
 
 \section{Front-end e Applicazione Mobile}
-L'applicazione mobile, sviluppata in Flutter \cite{flutter}, è progettata per interagire con i dati tramite il PocketBase SDK, che semplifica l'interazione con l'endpoint HTTPS e la gestione dei token di autenticazione, garantendo una comunicazione asincrona e performante.
+L'applicazione mobile, sviluppata in Flutter \cite{flutter}, interagisce con i dati tramite il PocketBase SDK, garantendo una comunicazione asincrona e performante.
 
 \section{Test e Risultati}
 
