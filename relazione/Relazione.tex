@@ -61,6 +61,33 @@
 
 \geometry{top=2.5cm,bottom=2.5cm,left=2.5cm,right=2.5cm}
 
+% --- CONFIGURAZIONE LISTINGS PER JAVASCRIPT ---
+\definecolor{lightgray}{rgb}{.95,.95,.95}
+\definecolor{darkgray}{rgb}{.4,.4,.4}
+\definecolor{purple}{rgb}{0.65, 0.12, 0.82}
+
+\lstdefinelanguage{JavaScript}{
+  keywords={break, case, catch, continue, debugger, default, delete, do, else, false, finally, for, function, if, in, instanceof, new, null, return, switch, this, throw, true, try, typeof, var, void, while, with, const, let},
+  morecomment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  morestring=[b]',
+  morestring=[b]",
+  ndkeywords={class, export, boolean, throw, implements, import, this},
+  keywordstyle=\color{blue}\bfseries,
+  ndkeywordstyle=\color{darkgray}\bfseries,
+  identifierstyle=\color{black},
+  commentstyle=\color{purple}\ttfamily,
+  stringstyle=\color{codegreen}\ttfamily,
+  sensitive=true
+}
+
+\lstset{
+    style=mystyle,
+    language=JavaScript,
+    breaklines=true,
+    postbreak=\mbox{\textcolor{red}{$\hookrightarrow$}\space},
+}
+
 \begin{document}
 
 \begin{titlepage}
@@ -153,14 +180,15 @@ L'automazione è gestita tramite un \textit{cron job} che esegue il backup in mo
 Per garantire l'affidabilità dell'intero ecosistema, è stato implementato un sistema di monitoraggio esterno tramite \textbf{UptimeRobot} \cite{uptimerobot}. Dato che l'accessibilità del backend dipende dalla stabilità del tunnel ngrok, il monitoraggio interroga l'endpoint HTTPS a intervalli regolari, inviando notifiche immediate in caso di downtime.
 
 \subsection{Struttura dei dati}
-I dati ricevuti vengono normalizzati e memorizzati in una collezione denominata \texttt{positions}. La struttura del record prevede i seguenti campi:
+I dati ricevuti vengono normalizzati e memorizzati in una collezione denominata \texttt{data\_sent\_raw}. La struttura del record prevede i seguenti campi:
 \begin{itemize}
     \item \texttt{timestamp}: riferimento temporale dell'acquisizione.
     \item \texttt{lat} / \texttt{lon}: coordinate geografiche acquisite dal modulo GNSS;
     \item \texttt{battery}: stato di carica della batteria (espresso in voltaggio);
     \item \texttt{battery\_percent}: stato di carica della batteria (espresso in percentuale);
     \item \texttt{charging}: booleano che indica se la batteria è in corso di ricarica;
-    \item \texttt{feet}: conteggio dei passi rilevato dall'accelerometro BMA400;
+    \item \texttt{steps}: conteggio dei passi rilevato dall'accelerometro BMA400;
+    \item \texttt{sleep}: booleano che indica se il dispositivo è in stato di "sleep" (assenza di movimento prolungata);
 \end{itemize}
 
 \subsection{Interfaccia API e API Rules}
@@ -174,27 +202,61 @@ Per garantire l'integrità e la riservatezza dei dati, sono state configurate sp
     \item \textbf{Update/Delete:} Ristrette ai soli amministratori del sistema.
 \end{itemize}
 
-% --- CORREZIONE TITOLO LUNGO ---
 \subsection[Smistamento e Normalizzazione]{Logica di Smistamento e Normalizzazione (Server-side Hooks)}
-
-Per ottimizzare la gestione dei dati e garantire la separazione delle responsabilità, è stata implementata una logica di smistamento automatico lato server tramite i \textit{JavaScript Event Hooks} di PocketBase. 
-Questa architettura permette di mantenere la collezione \texttt{data\_sent\_raw} come un punto di accumulo ``grezzo'', delegando al server il compito di distribuire le informazioni nelle tabelle specializzate.
+Per ottimizzare la gestione dei dati e garantire la separazione delle responsabilità, è stata implementata una logica di smistamento automatico lato server tramite i \textit{JavaScript Event Hooks} di PocketBase. Questa architettura permette di mantenere la collezione \texttt{data\_sent\_raw} come un punto di accumulo ``grezzo'', delegando al server il compito di distribuire le informazioni nelle tabelle specializzate.
 
 \subsubsection{Funzionamento del Trigger onRecordAfterCreateSuccess}
-Il sistema sfrutta l'hook \texttt{onRecordAfterCreateSuccess}. Il processo di smistamento opera come segue:
+Il sistema sfrutta l'hook \texttt{onRecordAfterCreateSuccess}, che si attiva immediatamente dopo il salvataggio di un nuovo record inviato dalla board LilyGo. Il processo opera su tre direttrici principali:
+
 \begin{itemize}
-    \item \textbf{Monitoraggio Energetico}: I parametri di tensione e carica vengono isolati nella collezione \texttt{battery\_data}.
-    \item \textbf{Tracciamento Geografico}: Le coordinate vengono duplicate in \texttt{positions\_duplicate}, mantenendo un riferimento univoco (\texttt{raw\_data\_id}).
-    \item \textbf{Analisi dell'Attività}: I dati del contapassi vengono indirizzati alla collezione \texttt{activities}.
+    \item \textbf{Persistenza Geografica ed Energetica:} I parametri di tensione, percentuale di carica e coordinate GPS vengono estratti e duplicati nelle collezioni \texttt{battery\_data} e \texttt{positions\_duplicate}. L'uso di blocchi \textit{try-catch} indipendenti garantisce che un errore in un sensore secondario non comprometta il tracciamento GPS.
+    \item \textbf{Logica di Sessione (Activity Tracking):} Il trigger implementa una macchina a stati basata sul parametro \texttt{sleep}. Se il dispositivo è attivo, il sistema verifica l'esistenza di una sessione: in caso positivo aggiorna il conteggio passi, in caso negativo crea una nuova attività.
+    \item \textbf{Gestione dello Stato Sleep:} Al ricezione di un pacchetto con \texttt{sleep: true}, il trigger chiude la sessione corrente impostando \texttt{is\_active = false}, permettendo una segmentazione precisa dei periodi di movimento.
 \end{itemize}
+
+\begin{lstlisting}[language=JavaScript, caption={Implementazione della logica di sessione in PocketBase}]
+onRecordAfterCreateSuccess((e) => {
+    const raw = e.record;
+    const boardId = raw.getString("board_id");
+    const timestamp = raw.getString("timestamp");
+    const sleep = raw.getBool("sleep");
+    const steps = raw.getInt("steps");
+
+    // 1. Logica di gestione delle sessioni (Activity Tracking)
+    if (!sleep) {
+        if (activeActivity) {
+            // Aggiorna passi e fine sessione corrente
+            activeActivity.set("total_steps", currentSteps + steps);
+            activeActivity.set("end_time", timestamp);
+            e.app.save(activeActivity);
+        } else {
+            // Crea nuova sessione attiva se non esistente
+            activitiesRecord.set("is_active", true);
+            activitiesRecord.set("total_steps", steps);
+            e.app.save(activitiesRecord);
+        }
+    } else if (activeActivity) {
+        // Chiusura sessione per stato SLEEP del dispositivo
+        activeActivity.set("is_active", false);
+        e.app.save(activeActivity);
+    }
+    e.next();
+}, "data_sent_raw");
+\end{lstlisting}
 
 \subsubsection{Vantaggi Architetturali e Corrispondenza IoTWF}
-\begin{itemize}
-    \item \textbf{Efficienza del Livello 3 (Edge)}: Riducendo il numero di richieste HTTPS (invio singolo ``bulk''), si preserva la batteria della LilyGo.
-    \item \textbf{Ottimizzazione del Livello 5 (Abstraction)}: L'app Flutter interroga API già strutturate, garantendo fluidità sulla mappa.
-    \item \textbf{Resilienza}: L'uso di \texttt{try-catch} assicura che errori su sensori secondari non compromettano il salvataggio del GPS.
-\end{itemize}
+Questa implementazione riflette i principi del Modello IoTWF in due punti chiave:
+\begin{enumerate}
+    \item \textbf{Efficienza del Livello 3 (Edge):} La LilyGo invia un unico pacchetto ``bulk'', riducendo il tempo di attività del modem LTE e preservando la batteria.
+    \item \textbf{Ottimizzazione del Livello 5 (Data Abstraction):} L'applicazione Flutter non deve processare dati grezzi; interroga API già normalizzate dal trigger, garantendo una visualizzazione fluida della cronologia.
+\end{enumerate}
 
+\subsection{Vantaggi Architetturali e Corrispondenza IoTWF}
+Questa implementazione riflette i principi del Modello IoTWF in due punti chiave:
+\begin{enumerate}
+    \item \textbf{Efficienza del Livello 3 (Edge):} La LilyGo invia un unico pacchetto "bulk", riducendo il tempo di attività del modem LTE e preservando la batteria[cite: 95].
+    \item \textbf{Ottimizzazione del Livello 5 (Data Abstraction):} L'applicazione Flutter non deve processare dati grezzi; interroga API già strutturate e normalizzate dal trigger, garantendo una visualizzazione fluida della cronologia e delle attività[cite: 96].
+\end{enumerate}
 \section{Front-end e Applicazione Mobile}
 L'applicazione mobile, sviluppata in Flutter \cite{flutter}, interagisce con i dati tramite il PocketBase SDK, garantendo una comunicazione asincrona e performante.
 

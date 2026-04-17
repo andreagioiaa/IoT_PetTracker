@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.4.14)  16 APR 2026 18:25
+This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.4.14)  17 APR 2026 10:30
 entering extended mode
  restricted \write18 enabled.
  file:line:error style messages enabled.
@@ -623,32 +623,32 @@ Package csquotes Info: Checking for multilingual support...
 Package csquotes Info: ... found 'babel' package.
 Package csquotes Info: Adjusting default style.
 Package csquotes Info: Redefining alias 'default' -> 'italian'.
-LaTeX Font Info:    Trying to load font information for T1+lmr on input line 64.
+LaTeX Font Info:    Trying to load font information for T1+lmr on input line 91.
  (C:\Program Files\MiKTeX\tex/latex/lm\t1lmr.fd
 File: t1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 ) (Relazione.aux)
 \openout1 = `Relazione.aux'.
 
-LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 64.
-LaTeX Font Info:    ... okay on input line 64.
-LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 64.
-LaTeX Font Info:    ... okay on input line 64.
-LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 64.
-LaTeX Font Info:    ... okay on input line 64.
-LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 64.
-LaTeX Font Info:    ... okay on input line 64.
-LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 64.
-LaTeX Font Info:    ... okay on input line 64.
-LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 64.
-LaTeX Font Info:    ... okay on input line 64.
-LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 64.
-LaTeX Font Info:    ... okay on input line 64.
-LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 64.
-LaTeX Font Info:    ... okay on input line 64.
-LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 64.
-LaTeX Font Info:    ... okay on input line 64.
-LaTeX Info: Redefining \it@ocap on input line 64.
-LaTeX Info: Redefining \it@ccap on input line 64.
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 91.
+LaTeX Font Info:    ... okay on input line 91.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 91.
+LaTeX Font Info:    ... okay on input line 91.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 91.
+LaTeX Font Info:    ... okay on input line 91.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 91.
+LaTeX Font Info:    ... okay on input line 91.
+LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 91.
+LaTeX Font Info:    ... okay on input line 91.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 91.
+LaTeX Font Info:    ... okay on input line 91.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 91.
+LaTeX Font Info:    ... okay on input line 91.
+LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 91.
+LaTeX Font Info:    ... okay on input line 91.
+LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 91.
+LaTeX Font Info:    ... okay on input line 91.
+LaTeX Info: Redefining \it@ocap on input line 91.
+LaTeX Info: Redefining \it@ccap on input line 91.
 Package caption Info: Begin \AtBeginDocument code.
 Package caption Info: float package is loaded.
 Package caption Info: hyperref package is loaded.
@@ -721,17 +721,17 @@ Package biblatex Info: Automatic encoding selection.
 Package biblatex Info: Trying to load bibliographic data...
 Package biblatex Info: ... file 'Relazione.bbl' found.
  (Relazione.bbl)
-Package biblatex Info: Reference section=0 on input line 64.
-Package biblatex Info: Reference segment=0 on input line 64.
-Package hyperref Info: Link coloring ON on input line 64.
+Package biblatex Info: Reference section=0 on input line 91.
+Package biblatex Info: Reference segment=0 on input line 91.
+Package hyperref Info: Link coloring ON on input line 91.
  (Relazione.out) (Relazione.out)
 \@outlinefile=\write4
 \openout4 = `Relazione.out'.
 
-<immagini/Logo.pdf, id=90, 225.84375pt x 225.84375pt>
+<immagini/Logo.pdf, id=94, 225.84375pt x 225.84375pt>
 File: immagini/Logo.pdf Graphic file (type pdf)
 <use immagini/Logo.pdf>
-Package pdftex.def Info: immagini/Logo.pdf  used on input line 76.
+Package pdftex.def Info: immagini/Logo.pdf  used on input line 103.
 (pdftex.def)             Requested size: 113.81102pt x 113.81412pt.
  [1
 
@@ -766,72 +766,68 @@ LaTeX Font Info:    External font `lmex10' loaded for size
 pdfTeX warning (ext4): destination with the same identifier (name{page.1}) has been already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.100 \newpage
+l.127 \newpage
                [1]
-LaTeX Font Info:    Trying to load font information for TS1+lmr on input line 107.
+LaTeX Font Info:    Trying to load font information for TS1+lmr on input line 134.
  (C:\Program Files\MiKTeX\tex/latex/lm\ts1lmr.fd
 File: ts1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
-LaTeX Font Info:    Trying to load font information for T1+lmtt on input line 122.
+LaTeX Font Info:    Trying to load font information for T1+lmtt on input line 149.
  (C:\Program Files\MiKTeX\tex/latex/lm\t1lmtt.fd
 File: t1lmtt.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 ) [2{C:/Program Files/MiKTeX/fonts/enc/dvips/lm/lm-ts1.enc}] [3]
-Overfull \hbox (6.50035pt too wide) in paragraph at lines 156--158
-\T1/lmr/m/n/12 I da-ti ri-ce-vu-ti ven-go-no nor-ma-liz-za-ti e me-mo-riz-za-ti in una col-le-zio-ne de-no-mi-na-ta \T1/lmtt/m/n/12 positions\T1/lmr/m/n/12 .
+Overfull \hbox (31.20036pt too wide) in paragraph at lines 183--185
+\T1/lmr/m/n/12 I da-ti ri-ce-vu-ti ven-go-no nor-ma-liz-za-ti e me-mo-riz-za-ti in una col-le-zio-ne de-no-mi-na-ta \T1/lmtt/m/n/12 data_sent_raw\T1/lmr/m/n/12 .
  []
 
 
-Overfull \hbox (11.94272pt too wide) in paragraph at lines 178--178
+Overfull \hbox (11.94272pt too wide) in paragraph at lines 205--205
 |[]\T1/lmr/bx/n/14.4 Logica di Smi-sta-men-to e Nor-ma-liz-za-zio-ne (Server-side Hooks)| 
  []
 
 [4]
-Overfull \hbox (25.43878pt too wide) in paragraph at lines 187--188
-[]\T1/lmr/bx/n/12 Tracciamento Geo-gra-fi-co\T1/lmr/m/n/12 : Le coor-di-na-te ven-go-no du-pli-ca-te in \T1/lmtt/m/n/12 positions_duplicate\T1/lmr/m/n/12 ,
- []
-
-[5]
-Overfull \hbox (14.20894pt too wide) in paragraph at lines 208--208
+Package hyperref Info: bookmark level for unknown lstlisting defaults to 0 on input line 217.
+LaTeX Font Info:    External font `lmex10' loaded for size
+(Font)              <10> on input line 218.
+LaTeX Font Info:    External font `lmex10' loaded for size
+(Font)              <7> on input line 218.
+LaTeX Font Info:    External font `lmex10' loaded for size
+(Font)              <5> on input line 218.
+LaTeX Font Info:    Font shape `T1/lmtt/bx/n' in size <10> not available
+(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 219.
+ [5] [6]
+Overfull \hbox (14.20894pt too wide) in paragraph at lines 270--270
 \T1/lmtt/m/n/12 LilyGo -[] Modem -[] Series / blob / main / datasheet / LTE % 20Antenna % 20Specifications .
  []
 
 
-Overfull \hbox (14.20894pt too wide) in paragraph at lines 208--208
+Overfull \hbox (14.20894pt too wide) in paragraph at lines 270--270
 \T1/lmtt/m/n/12 LilyGo -[] Modem -[] Series / blob / main / datasheet / GPS % 20Antenna % 20Specifications .
  []
 
-[6] (Relazione.aux)
+[7] (Relazione.aux)
  ***********
 LaTeX2e <2025-11-01>
 L3 programming layer <2025-12-24>
  ***********
-
-
-LaTeX Warning: There were undefined references.
-
 Package rerunfilecheck Info: File `Relazione.out' has not changed.
-(rerunfilecheck)             Checksum: E10AFE80C045BD045C7EAB4F00E190FC;4235.
-
-Package biblatex Warning: Please (re)run Biber on the file:
-(biblatex)                Relazione
-(biblatex)                and rerun LaTeX afterwards.
-
+(rerunfilecheck)             Checksum: 4F32620B423B7FCDB035C49E2FEC48FB;4535.
 Package logreq Info: Writing requests to 'Relazione.run.xml'.
 \openout1 = `Relazione.run.xml'.
 
  ) 
 Here is how much of TeX's memory you used:
- 22887 strings out of 467871
- 398506 string characters out of 5428443
- 1263828 words of memory out of 5000000
- 51462 multiletter control sequences out of 15000+600000
- 684409 words of font info for 68 fonts, out of 8000000 for 9000
+ 23284 strings out of 467871
+ 402097 string characters out of 5428443
+ 1620997 words of memory out of 5000000
+ 51814 multiletter control sequences out of 15000+600000
+ 701810 words of font info for 81 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  69i,5n,79p,1302b,1821s stack positions out of 10000i,1000n,20000p,200000b,200000s
-<C:/Program Files/MiKTeX/fonts/type1/public/lm/lmbx10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmbx12.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmbxi10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmcsc10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmr10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmr12.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmri12.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmtt12.pfb>
-Output written on Relazione.pdf (7 pages, 271657 bytes).
+<C:/Program Files/MiKTeX/fonts/type1/public/lm/lmbx10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmbx12.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmbxi10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmcsc10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmr10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmr12.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmr6.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmri12.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmtk10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmtt10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmtt12.pfb>
+Output written on Relazione.pdf (8 pages, 358806 bytes).
 PDF statistics:
- 249 PDF objects out of 1000 (max. 8388607)
- 42 named destinations out of 1000 (max. 500000)
- 182 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 312 PDF objects out of 1000 (max. 8388607)
+ 76 named destinations out of 1000 (max. 500000)
+ 190 words of extra memory for PDF output out of 10000 (max. 10000000)
 
