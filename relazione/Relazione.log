@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.4.14)  17 APR 2026 10:40
+This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.4.14)  17 APR 2026 10:56
 entering extended mode
  restricted \write18 enabled.
  file:line:error style messages enabled.
@@ -64,6 +64,11 @@ Language: italian 2024/01/03 v.1.5.00 Italian support for the babel system
 )) (C:\Program Files\MiKTeX\tex/latex/etoolbox\etoolbox.sty
 Package: etoolbox 2025/10/02 v2.5m e-TeX tools for LaTeX (JAW)
 \etb@tempcnta=\count288
+) (C:\Program Files\MiKTeX\tex/latex/tools\verbatim.sty
+Package: verbatim 2024-01-22 v1.5x LaTeX2e package for verbatim enhancements
+\every@verbatim=\toks19
+\verbatim@line=\toks20
+\verbatim@in@stream=\read3
 ) (C:\Program Files\MiKTeX\tex/latex/caption\subcaption.sty
 Package: subcaption 2023/07/28 v1.6b Sub-captions (AR)
  (C:\Program Files\MiKTeX\tex/latex/caption\caption.sty
@@ -72,7 +77,7 @@ Package: caption 2023/08/05 v3.6o Customizing captions (AR)
 Package: caption3 2023/07/31 v2.4d caption3 kernel (AR)
  (C:\Program Files\MiKTeX\tex/latex/graphics\keyval.sty
 Package: keyval 2022/05/29 v1.15 key=value parser (DPC)
-\KV@toks@=\toks19
+\KV@toks@=\toks21
 )
 \caption@tempdima=\dimen150
 \captionmargin=\dimen151
@@ -122,7 +127,7 @@ Package: fancyhdr 2025/02/07 v5.2 Extensive control of page headers and footers
 \f@nch@widthL=\skip62
 \f@nch@widthC=\skip63
 \f@nch@widthR=\skip64
-\@temptokenb=\toks20
+\@temptokenb=\toks22
 ) (C:\Program Files\MiKTeX\tex/latex/titlesec\titlesec.sty
 Package: titlesec 2025/01/04 v2.17 Sectioning titles
 \ttl@box=\box53
@@ -130,7 +135,7 @@ Package: titlesec 2025/01/04 v2.17 Sectioning titles
 \aftertitleunit=\skip66
 \ttl@plus=\dimen160
 \ttl@minus=\dimen161
-\ttl@toksa=\toks21
+\ttl@toksa=\toks23
 \titlewidth=\dimen162
 \titlewidthlast=\dimen163
 \titlewidthfirst=\dimen164
@@ -186,7 +191,7 @@ Package: iftex 2024/12/12 v1.0g TeX engine tests
 \Gm@layoutheight=\dimen170
 \Gm@layouthoffset=\dimen171
 \Gm@layoutvoffset=\dimen172
-\Gm@dimlist=\toks22
+\Gm@dimlist=\toks24
  (C:\Program Files\MiKTeX\tex/latex/geometry\geometry.cfg)) (C:\Program Files\MiKTeX\tex/latex/setspace\setspace.sty
 Package: setspace 2022/12/04 v6.7b set line spacing
 ) (C:\Program Files\MiKTeX\tex/latex/parskip\parskip.sty
@@ -200,7 +205,7 @@ Package: kvsetkeys 2022-10-05 v1.19 Key value parser (HO)
 ))) (C:\Program Files\MiKTeX\tex/latex/listings\listings.sty
 \lst@mode=\count296
 \lst@gtempboxa=\box54
-\lst@token=\toks23
+\lst@token=\toks25
 \lst@length=\count297
 \lst@currlwidth=\dimen173
 \lst@column=\count298
@@ -248,16 +253,16 @@ Package xcolor Info: Model `wave' substituted by `hsb' on input line 1372.
 Package: enumitem 2025/02/06 v3.11 Customized lists
 \labelindent=\skip67
 \enit@outerparindent=\dimen177
-\enit@toks=\toks24
+\enit@toks=\toks26
 \enit@inbox=\box56
 \enit@count@id=\count304
 \enitdp@description=\count305
 ) (C:\Program Files\MiKTeX\tex/latex/float\float.sty
 Package: float 2001/11/08 v1.3d Float enhancements (AL)
 \c@float@type=\count306
-\float@exts=\toks25
+\float@exts=\toks27
 \float@box=\box57
-\@float@everytoks=\toks26
+\@float@everytoks=\toks28
 \@floatcapt=\box58
 ) (C:\Program Files\MiKTeX\tex/latex/booktabs\booktabs.sty
 Package: booktabs 2020/01/12 v1.61803398 Publication quality tables
@@ -286,7 +291,7 @@ Package: csquotes 2024-04-04 v5.2o context-sensitive quotations (JAW)
 \csq@qlevel=\count314
 \csq@maxlvl=\count315
 \csq@tshold=\count316
-\csq@ltx@everypar=\toks27
+\csq@ltx@everypar=\toks29
  (C:\Program Files\MiKTeX\tex/latex/csquotes\csquotes.def
 File: csquotes.def 2024-04-04 v5.2o csquotes generic definitions (JAW)
 )
@@ -366,7 +371,7 @@ Package: url 2013/09/16  ver 3.4  Verb mode for urls, etc.
 \bibinitsep=\skip73
 \bibparsep=\skip74
 \bibhang=\skip75
-\blx@bcfin=\read3
+\blx@bcfin=\read4
 \blx@bcfout=\write3
 \blx@langwohyphens=\language80
 \c@mincomprange=\count361
@@ -615,7 +620,7 @@ Package uniquecounter Info: New unique counter `rerunfilecheck' on input line 28
 )
 \Hy@SectionHShift=\skip90
 )
-Package hyperref Info: Option `colorlinks' set `true' on input line 33.
+Package hyperref Info: Option `colorlinks' set `true' on input line 37.
  (C:\Program Files\MiKTeX\tex/latex/listings\lstlang1.sty
 File: lstlang1.sty 2025/11/14 1.11b listings language file
 )
@@ -623,32 +628,32 @@ Package csquotes Info: Checking for multilingual support...
 Package csquotes Info: ... found 'babel' package.
 Package csquotes Info: Adjusting default style.
 Package csquotes Info: Redefining alias 'default' -> 'italian'.
-LaTeX Font Info:    Trying to load font information for T1+lmr on input line 91.
+LaTeX Font Info:    Trying to load font information for T1+lmr on input line 95.
  (C:\Program Files\MiKTeX\tex/latex/lm\t1lmr.fd
 File: t1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 ) (Relazione.aux)
 \openout1 = `Relazione.aux'.
 
-LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 91.
-LaTeX Font Info:    ... okay on input line 91.
-LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 91.
-LaTeX Font Info:    ... okay on input line 91.
-LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 91.
-LaTeX Font Info:    ... okay on input line 91.
-LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 91.
-LaTeX Font Info:    ... okay on input line 91.
-LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 91.
-LaTeX Font Info:    ... okay on input line 91.
-LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 91.
-LaTeX Font Info:    ... okay on input line 91.
-LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 91.
-LaTeX Font Info:    ... okay on input line 91.
-LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 91.
-LaTeX Font Info:    ... okay on input line 91.
-LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 91.
-LaTeX Font Info:    ... okay on input line 91.
-LaTeX Info: Redefining \it@ocap on input line 91.
-LaTeX Info: Redefining \it@ccap on input line 91.
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 95.
+LaTeX Font Info:    ... okay on input line 95.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 95.
+LaTeX Font Info:    ... okay on input line 95.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 95.
+LaTeX Font Info:    ... okay on input line 95.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 95.
+LaTeX Font Info:    ... okay on input line 95.
+LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 95.
+LaTeX Font Info:    ... okay on input line 95.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 95.
+LaTeX Font Info:    ... okay on input line 95.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 95.
+LaTeX Font Info:    ... okay on input line 95.
+LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 95.
+LaTeX Font Info:    ... okay on input line 95.
+LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 95.
+LaTeX Font Info:    ... okay on input line 95.
+LaTeX Info: Redefining \it@ocap on input line 95.
+LaTeX Info: Redefining \it@ccap on input line 95.
 Package caption Info: Begin \AtBeginDocument code.
 Package caption Info: float package is loaded.
 Package caption Info: hyperref package is loaded.
@@ -661,12 +666,12 @@ Package caption Info: End \AtBeginDocument code.
 \scratchbox=\box59
 \nofMPsegments=\count456
 \nofMParguments=\count457
-\everyMPshowfont=\toks28
+\everyMPshowfont=\toks30
 \MPscratchCnt=\count458
 \MPscratchDim=\dimen196
 \MPnumerator=\count459
 \makeMPintoPDFobject=\count460
-\everyMPtoPDFconversion=\toks29
+\everyMPtoPDFconversion=\toks31
 ) (C:\Program Files\MiKTeX\tex/latex/epstopdf-pkg\epstopdf-base.sty
 Package: epstopdf-base 2020-01-24 v2.11 Base part for package epstopdf
 Package epstopdf-base Info: Redefining graphics rule for `.eps' on input line 485.
@@ -721,21 +726,26 @@ Package biblatex Info: Automatic encoding selection.
 Package biblatex Info: Trying to load bibliographic data...
 Package biblatex Info: ... file 'Relazione.bbl' found.
  (Relazione.bbl)
-Package biblatex Info: Reference section=0 on input line 91.
-Package biblatex Info: Reference segment=0 on input line 91.
-Package hyperref Info: Link coloring ON on input line 91.
+Package biblatex Info: Reference section=0 on input line 95.
+Package biblatex Info: Reference segment=0 on input line 95.
+Package hyperref Info: Link coloring ON on input line 95.
  (Relazione.out) (Relazione.out)
 \@outlinefile=\write4
 \openout4 = `Relazione.out'.
 
-<immagini/Logo.pdf, id=106, 225.84375pt x 225.84375pt>
+<immagini/Logo.pdf, id=110, 225.84375pt x 225.84375pt>
 File: immagini/Logo.pdf Graphic file (type pdf)
 <use immagini/Logo.pdf>
-Package pdftex.def Info: immagini/Logo.pdf  used on input line 103.
+Package pdftex.def Info: immagini/Logo.pdf  used on input line 107.
 (pdftex.def)             Requested size: 113.81102pt x 113.81412pt.
  [1
 
-{C:/Users/matti/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map}{C:/Program Files/MiKTeX/fonts/enc/dvips/lm/lm-ec.enc} <./immagini/Logo.pdf>] (Relazione.toc
+{C:/Users/matti/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map}{C:/Program Files/MiKTeX/fonts/enc/dvips/lm/lm-ec.enc} <./immagini/Logo.pdf>]
+pdfTeX warning (ext4): destination with the same identifier (name{page.1}) has been already used, duplicate ignored
+<to be read again> 
+                   \relax 
+l.133 \newpage
+               [1] (Relazione.toc
 LaTeX Font Info:    Trying to load font information for OT1+lmr on input line 4.
  (C:\Program Files\MiKTeX\tex/latex/lm\ot1lmr.fd
 File: ot1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
@@ -762,83 +772,78 @@ LaTeX Font Info:    External font `lmex10' loaded for size
 \tf@toc=\write5
 \openout5 = `Relazione.toc'.
 
-
-pdfTeX warning (ext4): destination with the same identifier (name{page.1}) has been already used, duplicate ignored
-<to be read again> 
-                   \relax 
-l.127 \newpage
-               [1]
-LaTeX Font Info:    Trying to load font information for TS1+lmr on input line 134.
+ [2]
+LaTeX Font Info:    Trying to load font information for TS1+lmr on input line 144.
  (C:\Program Files\MiKTeX\tex/latex/lm\ts1lmr.fd
 File: ts1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
-LaTeX Font Info:    Trying to load font information for T1+lmtt on input line 149.
+LaTeX Font Info:    Trying to load font information for T1+lmtt on input line 159.
  (C:\Program Files\MiKTeX\tex/latex/lm\t1lmtt.fd
 File: t1lmtt.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
-) [2{C:/Program Files/MiKTeX/fonts/enc/dvips/lm/lm-ts1.enc}] (C:\Program Files\MiKTeX\tex/latex/listings\lstlang1.sty
+) [3{C:/Program Files/MiKTeX/fonts/enc/dvips/lm/lm-ts1.enc}] (C:\Program Files\MiKTeX\tex/latex/listings\lstlang1.sty
 File: lstlang1.sty 2025/11/14 1.11b listings language file
 ) (C:\Program Files\MiKTeX\tex/latex/listings\lstlang1.sty
 File: lstlang1.sty 2025/11/14 1.11b listings language file
 ) (C:\Program Files\MiKTeX\tex/latex/listings\lstmisc.sty
 File: lstmisc.sty 2025/11/14 1.11b (Carsten Heinz)
 )
-Package hyperref Info: bookmark level for unknown lstlisting defaults to 0 on input line 167.
+Package hyperref Info: bookmark level for unknown lstlisting defaults to 0 on input line 177.
 LaTeX Font Info:    Font shape `T1/lmtt/bx/n' in size <10> not available
-(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 168.
+(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 178.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <10> on input line 168.
+(Font)              <10> on input line 178.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <7> on input line 168.
+(Font)              <7> on input line 178.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <5> on input line 168.
- [3{C:/Program Files/MiKTeX/fonts/enc/dvips/lm/lm-mathit.enc}{C:/Program Files/MiKTeX/fonts/enc/dvips/lm/lm-mathsy.enc}]
-Overfull \hbox (5.60365pt too wide) in paragraph at lines 202--203
+(Font)              <5> on input line 178.
+ [4{C:/Program Files/MiKTeX/fonts/enc/dvips/lm/lm-mathit.enc}{C:/Program Files/MiKTeX/fonts/enc/dvips/lm/lm-mathsy.enc}]
+Overfull \hbox (5.60365pt too wide) in paragraph at lines 212--213
 []\T1/lmr/bx/n/12 Invio Fi-na-le\T1/lmr/m/n/12 : Se non vie-ne ri-le-va-ta at-ti-vi-tà per un tem-po su-pe-rio-re a \T1/lmtt/m/n/12 SLEEP_TIMEOUT
  []
 
-[4]
-Overfull \hbox (31.20036pt too wide) in paragraph at lines 239--241
+[5]
+Overfull \hbox (31.20036pt too wide) in paragraph at lines 249--251
 \T1/lmr/m/n/12 I da-ti ri-ce-vu-ti ven-go-no nor-ma-liz-za-ti e me-mo-riz-za-ti in una col-le-zio-ne de-no-mi-na-ta \T1/lmtt/m/n/12 data_sent_raw\T1/lmr/m/n/12 .
  []
 
-[5]
-Overfull \hbox (11.94272pt too wide) in paragraph at lines 261--261
+[6]
+Overfull \hbox (11.94272pt too wide) in paragraph at lines 271--271
 |[]\T1/lmr/bx/n/14.4 Logica di Smi-sta-men-to e Nor-ma-liz-za-zio-ne (Server-side Hooks)| 
  []
 
-[6] [7]
-Overfull \hbox (14.20894pt too wide) in paragraph at lines 320--320
+[7] [8] [9]
+Overfull \hbox (14.20894pt too wide) in paragraph at lines 339--339
 \T1/lmtt/m/n/12 LilyGo -[] Modem -[] Series / blob / main / datasheet / LTE % 20Antenna % 20Specifications .
  []
 
 
-Overfull \hbox (14.20894pt too wide) in paragraph at lines 320--320
+Overfull \hbox (14.20894pt too wide) in paragraph at lines 339--339
 \T1/lmtt/m/n/12 LilyGo -[] Modem -[] Series / blob / main / datasheet / GPS % 20Antenna % 20Specifications .
  []
 
-[8] (Relazione.aux)
+[10] (Relazione.aux)
  ***********
 LaTeX2e <2025-11-01>
 L3 programming layer <2025-12-24>
  ***********
 Package rerunfilecheck Info: File `Relazione.out' has not changed.
-(rerunfilecheck)             Checksum: 0DB95AA5AC2514144727F021AA5C16D3;5192.
+(rerunfilecheck)             Checksum: E3401B0F25AD6869C48AE2D581E13665;5332.
 Package logreq Info: Writing requests to 'Relazione.run.xml'.
 \openout1 = `Relazione.run.xml'.
 
  ) 
 Here is how much of TeX's memory you used:
- 23498 strings out of 467871
- 405001 string characters out of 5428443
- 1619940 words of memory out of 5000000
- 51992 multiletter control sequences out of 15000+600000
+ 23541 strings out of 467871
+ 405903 string characters out of 5428443
+ 1621635 words of memory out of 5000000
+ 52029 multiletter control sequences out of 15000+600000
  701810 words of font info for 81 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  69i,6n,79p,1302b,2114s stack positions out of 10000i,1000n,20000p,200000b,200000s
 <C:/Program Files/MiKTeX/fonts/type1/public/lm/lmbx10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmbx12.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmbxi10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmcsc10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmmi10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmr10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmr12.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmr6.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmri12.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmsy10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmtk10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmtt10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmtt12.pfb>
-Output written on Relazione.pdf (9 pages, 382949 bytes).
+Output written on Relazione.pdf (11 pages, 389545 bytes).
 PDF statistics:
- 368 PDF objects out of 1000 (max. 8388607)
- 104 named destinations out of 1000 (max. 500000)
- 214 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 381 PDF objects out of 1000 (max. 8388607)
+ 107 named destinations out of 1000 (max. 500000)
+ 222 words of extra memory for PDF output out of 10000 (max. 10000000)
 

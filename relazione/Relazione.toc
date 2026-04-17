@@ -1,28 +1,29 @@
 \babel@toc {italian}{}\relax 
 \babel@toc {italian}{}\relax 
-\contentsline {section}{\numberline {1}Architettura del sistema}{2}{section.1}%
-\contentsline {subsection}{\numberline {1.1}Mappatura sul modello IoTWF}{2}{subsection.1.1}%
-\contentsline {section}{\numberline {2}Hardware}{2}{section.2}%
-\contentsline {subsection}{\numberline {2.1}LiLyGo T-SIM7670G-S3}{2}{subsection.2.1}%
-\contentsline {subsection}{\numberline {2.2}Antenna GPS e LTE}{2}{subsection.2.2}%
-\contentsline {subsection}{\numberline {2.3}Batteria e Power Management}{2}{subsection.2.3}%
-\contentsline {subsection}{\numberline {2.4}BMA400 CJMCU-400}{3}{subsection.2.4}%
-\contentsline {section}{\numberline {3}Firmware: Logica di funzionamento}{3}{section.3}%
-\contentsline {subsection}{\numberline {3.1}Gestione della Persistenza e Hot Start}{3}{subsection.3.1}%
-\contentsline {subsection}{\numberline {3.2}Protocollo di Comunicazione HTTPS}{3}{subsection.3.2}%
-\contentsline {subsection}{\numberline {3.3}Risparmio Energetico e Deep Sleep}{4}{subsection.3.3}%
-\contentsline {subsection}{\numberline {3.4}Monitoraggio Hardware e Batteria}{4}{subsection.3.4}%
-\contentsline {section}{\numberline {4}Back-end e Database}{5}{section.4}%
-\contentsline {subsection}{\numberline {4.1}Architettura di Hosting e Network Exposure}{5}{subsection.4.1}%
-\contentsline {subsection}{\numberline {4.2}Sistema di Backup e Data Retention}{5}{subsection.4.2}%
-\contentsline {subsection}{\numberline {4.3}Monitoraggio e Business Continuity}{5}{subsection.4.3}%
-\contentsline {subsection}{\numberline {4.4}Struttura dei dati}{5}{subsection.4.4}%
-\contentsline {subsection}{\numberline {4.5}Interfaccia API e API Rules}{6}{subsection.4.5}%
-\contentsline {subsubsection}{\numberline {4.5.1}API Rules e Sicurezza}{6}{subsubsection.4.5.1}%
-\contentsline {subsection}{\numberline {4.6}Smistamento e Normalizzazione}{6}{subsection.4.6}%
-\contentsline {subsubsection}{\numberline {4.6.1}Funzionamento del Trigger onRecordAfterCreateSuccess}{6}{subsubsection.4.6.1}%
-\contentsline {subsubsection}{\numberline {4.6.2}Vantaggi Architetturali e Corrispondenza IoTWF}{7}{subsubsection.4.6.2}%
-\contentsline {section}{\numberline {5}Front-end e Applicazione Mobile}{7}{section.5}%
-\contentsline {section}{\numberline {6}Test e Risultati}{7}{section.6}%
-\contentsline {section}{\numberline {7}Conclusioni}{7}{section.7}%
-\contentsline {section}{Riferimenti bibliografici}{8}{section.7}%
+\contentsline {section}{\numberline {1}Architettura del sistema}{3}{section.1}%
+\contentsline {subsection}{\numberline {1.1}Mappatura sul modello IoTWF}{3}{subsection.1.1}%
+\contentsline {section}{\numberline {2}Hardware}{3}{section.2}%
+\contentsline {subsection}{\numberline {2.1}LiLyGo T-SIM7670G-S3}{3}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}Antenna GPS e LTE}{3}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.3}Batteria e Power Management}{3}{subsection.2.3}%
+\contentsline {subsection}{\numberline {2.4}BMA400 CJMCU-400}{4}{subsection.2.4}%
+\contentsline {section}{\numberline {3}Firmware: Logica di funzionamento}{4}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Gestione della Persistenza e Hot Start}{4}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}Protocollo di Comunicazione HTTPS}{4}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}Risparmio Energetico e Deep Sleep}{5}{subsection.3.3}%
+\contentsline {subsection}{\numberline {3.4}Monitoraggio Hardware e Batteria}{5}{subsection.3.4}%
+\contentsline {section}{\numberline {4}Back-end e Database}{6}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Architettura di Hosting e Network Exposure}{6}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Sistema di Backup e Data Retention}{6}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}Monitoraggio e Business Continuity}{6}{subsection.4.3}%
+\contentsline {subsection}{\numberline {4.4}Struttura dei dati}{6}{subsection.4.4}%
+\contentsline {subsection}{\numberline {4.5}Interfaccia API e API Rules}{7}{subsection.4.5}%
+\contentsline {subsubsection}{\numberline {4.5.1}API Rules e Sicurezza}{7}{subsubsection.4.5.1}%
+\contentsline {subsection}{\numberline {4.6}Smistamento e Normalizzazione}{7}{subsection.4.6}%
+\contentsline {subsubsection}{\numberline {4.6.1}Funzionamento del Trigger onRecordAfterCreateSuccess}{7}{subsubsection.4.6.1}%
+\contentsline {subsubsection}{\numberline {4.6.2}Vantaggi Architetturali e Corrispondenza IoTWF}{8}{subsubsection.4.6.2}%
+\contentsline {section}{\numberline {5}Front-end e Applicazione Mobile}{8}{section.5}%
+\contentsline {section}{\numberline {6}Test e Risultati}{8}{section.6}%
+\contentsline {section}{\numberline {7}Limiti del sistema}{8}{section.7}%
+\contentsline {section}{\numberline {8}Conclusioni}{9}{section.8}%
+\contentsline {section}{Riferimenti bibliografici}{10}{section.8}%

@@ -3,9 +3,13 @@
 \usepackage[T1]{fontenc}
 \usepackage[italian]{babel}
 
+\usepackage{verbatim}
+
+\begin{comment}
 \addto\captionsitalian{%
   \renewcommand{\abstractname}{Abstract}%
 }
+\end{comment}
 
 \usepackage{subcaption}
 \usepackage{graphicx}
@@ -117,10 +121,16 @@
 \end{titlepage}
 
 \begin{abstract}
-    Il progetto Pet-Tracker nasce con l'obiettivo di realizzare un sistema di localizzazione GPS in tempo reale per animali domestici di media taglia, 
-    in grado di trasmettere la posizione, lo stato della batteria ed il numero di passi verso un server remoto accessibile tramite internet, 
-    e di visualizzare tali dati attraverso un'applicazione dedicata.
+Il progetto Pet-Tracker propone la realizzazione di un sistema IoT per il tracciamento in tempo reale di animali domestici di media taglia. 
+La soluzione integra un dispositivo embedded basato su ESP32-S3 con connettività LTE e modulo GNSS, in grado di acquisire e trasmettere dati di posizione, stato della batteria e attività motoria verso un backend remoto.
+
+L'architettura segue il modello IoT World Forum (IoTWF) e adotta tecniche di ottimizzazione energetica, tra cui modalità Deep Sleep e strategie di Hot Start per il GPS. 
+I dati vengono elaborati e resi disponibili tramite API REST e visualizzati attraverso un'applicazione mobile dedicata.
+
+L'obiettivo principale è garantire un sistema affidabile, a basso consumo energetico e scalabile per il monitoraggio continuo dell'animale.
 \end{abstract}
+
+\newpage
 
 \tableofcontents
 
@@ -311,6 +321,15 @@ Questa implementazione riflette i principi del Modello IoTWF in due punti chiave
 L'applicazione mobile, sviluppata in Flutter \cite{flutter}, interagisce con i dati tramite il PocketBase SDK, garantendo una comunicazione asincrona e performante.
 
 \section{Test e Risultati}
+
+\section{Limiti del sistema}
+Nonostante i risultati ottenuti, il sistema presenta alcune limitazioni:
+\begin{itemize}
+    \item \textbf{Dipendenza dalla rete LTE:} in assenza di copertura, la trasmissione dei dati non è garantita.
+    \item \textbf{Prestazioni indoor:} il modulo GNSS risulta poco affidabile in ambienti chiusi.
+    \item \textbf{Backend locale:} l'utilizzo di PocketBase su macchina locale, esposto tramite ngrok, introduce dipendenze da servizi esterni e limita la scalabilità.
+    \item \textbf{Consumo energetico del modem LTE:} la trasmissione dati rappresenta la principale fonte di consumo.
+\end{itemize}
 
 \section{Conclusioni}
 
