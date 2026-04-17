@@ -270,11 +270,42 @@ String activityLabel(uint8_t activityType) {
   }
 }
 
+/*
 void enterDeepSleep() {
   Serial.println("\nEntro in Deep Sleep...");
   uint16_t status;
   do { accelerometer.getInterruptStatus(&status); delay(50); } while (digitalRead(WAKEUP_PIN) == HIGH);
   pinMode(WAKEUP_PIN, INPUT_PULLDOWN);
+  esp_sleep_enable_ext0_wakeup(WAKEUP_PIN, 1);
+  esp_deep_sleep_start();
+}
+*/
+
+void enterDeepSleep() {
+  Serial.println("\n[POWER] Inizio procedura di spegnimento...");
+
+  // 1. Spegne il motore GNSS (risparmio ~30mA)
+  sendAT("AT+CGNSSPWR=0");
+  
+  // 2. Distacco dalla rete e Power Down del modem
+  // Questo comando è fondamentale per non lasciare la radio in idle
+  sendAT("AT+CPOWD=1"); 
+  delay(1000); 
+
+  // 3. Hardware Power Off
+  digitalWrite(PIN_EN, LOW);     // Disattiva il regolatore del modem
+  digitalWrite(BAT_ADC_EN, LOW); // Spegne il partitore della batteria
+
+  Serial.println("[SYSTEM] ESP32 in Deep Sleep. Sveglia attiva su movimento (BMA400).");
+  
+  // Pulizia buffer interrupt dell'accelerometro per evitare risvegli immediati
+  uint16_t status;
+  do { 
+    accelerometer.getInterruptStatus(&status); 
+    delay(50); 
+  } while (digitalRead(WAKEUP_PIN) == HIGH);
+
+  // Configura il risveglio solo sul pin dell'accelerometro
   esp_sleep_enable_ext0_wakeup(WAKEUP_PIN, 1);
   esp_deep_sleep_start();
 }
@@ -284,6 +315,24 @@ String getModemIMEI() {
   String resp = sendAT("AT+CGSN", 2000);
   resp.replace("AT+CGSN", ""); resp.replace("OK", ""); resp.replace("ERROR", ""); resp.trim();
   return (resp.length() >= 15) ? resp.substring(0, 15) : "UNKNOWN_IMEI";
+}
+
+bool waitForNetwork() {
+  for (int i = 0; i < 20; i++) {
+    String resp = sendAT("AT+CEREG?", 1000);
+    Serial.println(resp);
+
+    if (resp.indexOf("0,1") != -1 || resp.indexOf("0,5") != -1) {
+      Serial.println("✅ Registrato in rete");
+      return true;
+    }
+
+    Serial.println("⏳ Aspetto rete...");
+    delay(1000);
+  }
+
+  Serial.println("❌ Nessuna rete");
+  return false;
 }
 
 // ═══════════════════════════════════════════════
@@ -306,6 +355,14 @@ void setup() {
   digitalWrite(MODEM_PWRKEY, HIGH); delay(3000);
   modem.begin(115200, SERIAL_8N1, MODEM_RX, MODEM_TX);
   delay(2000);
+
+  if (waitForNetwork()) {
+    String resp = sendAT("AT+CPSI?", 2000);
+    Serial.println("=== INFO RETE ===");
+    Serial.println(resp);
+    Serial.println(sendAT("AT+CSQ", 1000));     // segnale
+    Serial.println(sendAT("AT+CNSMOD?", 1000)); // tipo rete
+  }
 
   if (!initialized) {
     sendAT(("AT+CGDCONT=1,\"IP\",\"" + String(apn) + "\"").c_str());
@@ -333,6 +390,7 @@ void setup() {
 //  LOOP
 // ═══════════════════════════════════════════════
 void loop() {
+  /*
   static uint32_t lastSessionStepsCount = 0;
   StepData step = readStepData(lastSessionStepsCount);
   BatInfo bat = leggiBatteria();
@@ -369,6 +427,58 @@ void loop() {
     inviaDati(gps.lat, gps.lon, bat, ts, step, true);
     
     delay(1000);
+    enterDeepSleep();
+    */
+    
+  static uint32_t lastSessionStepsCount = 0;
+  StepData step = readStepData(lastSessionStepsCount);
+  BatInfo bat = leggiBatteria();
+
+  // Tentativo di fix GPS con timeout (per evitare di scaricare la batteria se sei al chiuso)
+  GpsData gps;
+  unsigned long gpsStart = millis();
+  Serial.println("[GPS] Ricerca segnale...");
+  
+  while(!gps.valid && (millis() - gpsStart < 20000)) { 
+    gps = getGpsData();
+    if (!gps.valid) delay(1000);
+  }
+
+  if (step.hasNewSteps) {
+    // Aggiornamento dati attività
+    lastActivityTime = millis();
+    step.lastSession = step.session - lastSessionStepsCount;
+    lastSessionStepsCount = step.session;
+    
+    String ts = getTimestamp();
+    
+    // Se il fix è valido, salva le coordinate per il prossimo "Hot Start"
+    if(gps.valid) {
+      lastLat = gps.lat; 
+      lastLon = gps.lon; 
+      hasGpsFix = true;
+      
+      // Salvataggio data/ora nel formato richiesto dal comando AT+CGNSSTIME
+      String r = sendAT("AT+CCLK?", 500);
+      int q1 = r.indexOf('"');
+      if (q1 != -1) {
+        String rawDate = r.substring(q1 + 7, q1 + 9) + r.substring(q1 + 4, q1 + 6) + r.substring(q1 + 1, q1 + 3);
+        String rawTime = r.substring(q1 + 10, q1 + 12) + r.substring(q1 + 13, q1 + 15) + r.substring(q1 + 16, q1 + 18);
+        strncpy(lastGpsDate, rawDate.c_str(), 6);
+        strncpy(lastGpsTime, rawTime.c_str(), 6);
+      }
+    }
+
+    // Invio dati al server
+    inviaDati(gps.lat, gps.lon, bat, ts, step, false);
+    
+  } else if (millis() - lastActivityTime > SLEEP_TIMEOUT) {
+    // Se non c'è movimento per 30 secondi, invia l'ultimo pacchetto e dorme
+    Serial.println("[SYSTEM] Timeout inattività. Invio stato finale e Deep Sleep.");
+    String ts = getTimestamp();
+    inviaDati(gps.lat, gps.lon, bat, ts, step, true);
+    
+    delay(2000); // Assicura che il modem finisca di trasmettere
     enterDeepSleep();
   }
 
