@@ -151,17 +151,43 @@ Viene impiegata una batteria ricaricabile 3000mAh 30A Litio-Ion ad alta capacit�
 L'accelerometro usato è un \textbf{BMA400} \cite{bma400} integrato nella breadboard \textbf{CJMCU-400}, che viene interrogato per rilevare il movimento, consentendo l'implementazione di un contapassi utile al monitoraggio della salute dell'animale.
 
 \section{Firmware: Logica di funzionamento}
-Il firmware, sviluppato in ambiente Arduino, implementa una macchina a stati per l'acquisizione e l'invio:
+Il firmware, sviluppato in ambiente \texttt{Arduino} per il SoC \texttt{ESP32-S3}, gestisce l'acquisizione dei dati dai sensori, il controllo del modem LTE e l'ottimizzazione energetica tramite una macchina a stati finiti.
+
+\subsection{Gestione della Persistenza e Hot Start}
+Per ridurre drasticamente il \textit{Time To First Fix} (TTFF) del modulo GNSS, il firmware sfrutta la memoria \textbf{RTC (Real-Time Clock)} dell'ESP32. Questa memoria permette di mantenere i dati vitali anche durante i cicli di \textit{Deep Sleep}. 
+Le variabili critiche, come l'ultima posizione valida (\texttt{lastLat}, \texttt{lastLon}) e i timestamp (\texttt{lastGpsDate}, \texttt{lastGpsTime}), vengono dichiarate con l'attributo \texttt{RTC\_DATA\_ATTR}.
+
+Al risveglio del dispositivo, la funzione \texttt{iniettaGps()} esegue le seguenti operazioni:
+\begin{itemize}
+    \item Recupera le coordinate geografiche e temporali salvate nel ciclo precedente.
+    \item Inietta la posizione nota nel modulo GNSS tramite il comando \texttt{AT+CGNSSPOS}.
+    \item Sincronizza l'orario del modem con il comando \texttt{AT+CGNSSTIME}.
+\end{itemize}
+Questo meccanismo abilita la modalità \textbf{Hot Start}, che minimizza il tempo di ricerca dei satelliti e, di conseguenza, il consumo energetico.
+
+\subsection{Protocollo di Comunicazione HTTPS}
+La trasmissione dei dati al backend PocketBase è affidata a una serie di comandi AT inviati via seriale al modem SIM7670G. Il firmware incapsula le informazioni in un oggetto JSON strutturato, inviato tramite una richiesta \texttt{HTTPS POST}. Il payload include:
+\begin{itemize}
+    \item \texttt{board\_id}: un identificativo univoco derivato dall'IMEI del modem;
+    \item \texttt{geo}: un oggetto con latitudine e longitudine per la gestione cartografica;
+    \item \texttt{battery} / \texttt{steps}: telemetria sullo stato di carica e sull'attività motoria rilevata;
+    \item \texttt{sleep}: un flag booleano che segnala al server l'imminente entrata in stato di inattività.
+\end{itemize}
+
+\subsection{Risparmio Energetico e Deep Sleep}
+Il sistema è progettato per massimizzare l'autonomia della batteria da 3000mAh. La logica di risparmio energetico è coordinata con l'accelerometro \textbf{BMA400}:
 \begin{enumerate}
-    \item \textbf{Inizializzazione:} Configurazione dei pin, avvio della seriale hardware per il modem e attivazione del motore GNSS tramite comandi AT \cite{sim7670_at} (\texttt{AT+CGNSSPWR=1}).
-    \item \textbf{Loop Principale:} 
-        \begin{itemize}
-            \item Lettura dei dati GNSS tramite il comando \texttt{AT+CGNSSINFO}.
-            \item Acquisizione dello stato batteria (\texttt{leggiBatteria()}).
-            \item Parsing dei dati per verificare la validità del fix GPS.
-        \end{itemize}
-    \item \textbf{Trasmissione:} Se il fix è valido, i dati vengono incapsulati in una stringa JSON e inviati tramite una richiesta \texttt{HTTPS POST} all'endpoint di PocketBase.
+    \item \textbf{Rilevamento Attività}: Il firmware monitora costantemente il numero di passi. Ogni nuovo movimento resetta un timer di inattività (\texttt{lastActivityTime}).
+    \item \textbf{Invio Finale}: Se non viene rilevata attività per un tempo superiore a \texttt{SLEEP\_TIMEOUT} (30 secondi), il sistema invia un ultimo pacchetto dati aggiornando il flag \texttt{sleep} a \texttt{true}.
+    \item \textbf{Ibernazione}: Il microcontrollore entra in \textit{Deep Sleep}, spegnendo i moduli radio. Il risveglio è gestito tramite interrupt hardware sul pin \texttt{GPIO\_5}, generato dal BMA400 solo al rilevamento di un nuovo movimento.
 \end{enumerate}
+
+\subsection{Monitoraggio Hardware e Batteria}
+Il firmware gestisce in modo intelligente l'alimentazione per evitare letture errate o consumi parassiti:
+\begin{itemize}
+    \item \textbf{Controllo ADC}: Il circuito del partitore di tensione per la batteria viene attivato solo durante la lettura tramite il pin \texttt{BAT\_ADC\_EN}, garantendo la precisione del voltaggio acquisito dal pin \texttt{ADC\_BAT}.
+    \item \textbf{Stato USB}: Attraverso la lettura dei registri hardware dell'ESP32, il sistema rileva se il dispositivo è collegato a una fonte di ricarica USB, settando dinamicamente il campo \texttt{charging} nel pacchetto dati.
+\end{itemize}
 
 \section{Back-end e Database}
 Il centro nevralgico della gestione dati è basato su \textbf{PocketBase} \cite{pocketbase}, una soluzione open-source che integra un database embedded SQLite con un'interfaccia API REST. 
@@ -251,12 +277,6 @@ Questa implementazione riflette i principi del Modello IoTWF in due punti chiave
     \item \textbf{Ottimizzazione del Livello 5 (Data Abstraction):} L'applicazione Flutter non deve processare dati grezzi; interroga API già normalizzate dal trigger, garantendo una visualizzazione fluida della cronologia.
 \end{enumerate}
 
-\subsection{Vantaggi Architetturali e Corrispondenza IoTWF}
-Questa implementazione riflette i principi del Modello IoTWF in due punti chiave:
-\begin{enumerate}
-    \item \textbf{Efficienza del Livello 3 (Edge):} La LilyGo invia un unico pacchetto "bulk", riducendo il tempo di attività del modem LTE e preservando la batteria[cite: 95].
-    \item \textbf{Ottimizzazione del Livello 5 (Data Abstraction):} L'applicazione Flutter non deve processare dati grezzi; interroga API già strutturate e normalizzate dal trigger, garantendo una visualizzazione fluida della cronologia e delle attività[cite: 96].
-\end{enumerate}
 \section{Front-end e Applicazione Mobile}
 L'applicazione mobile, sviluppata in Flutter \cite{flutter}, interagisce con i dati tramite il PocketBase SDK, garantendo una comunicazione asincrona e performante.
 
