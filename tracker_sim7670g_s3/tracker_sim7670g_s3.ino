@@ -23,37 +23,45 @@ const int        I2C_SDA      = 41;
 const int        I2C_SCL      = 42;
 const gpio_num_t WAKEUP_PIN   = GPIO_NUM_5;
 
-// Tempi (in millisecondi)
-const unsigned long SLEEP_TIMEOUT = 30000;
-const unsigned long NET_TIMEOUT   = 60000;
-const unsigned long GPS_TIMEOUT   = 180000;
+// ═══════════════════════════════════════════════
+//  TEMPI
+// ═══════════════════════════════════════════════
+const unsigned long SLEEP_TIMEOUT     = 60000;  // Inattività prima del deep sleep
+const unsigned long NET_TIMEOUT       = 60000;  // Max attesa registrazione rete
+const unsigned long GPS_TIMEOUT       = 120000; // Max attesa fix GPS al setup (2 min)
+const unsigned long GPS_POLL_INTERVAL = 1000;   // Frequenza polling GPS nel loop
+const unsigned long LOOP_INTERVAL     = 5000;   // Pausa principale tra i check del loop
 
 // ═══════════════════════════════════════════════
 //  MEMORIA PERSISTENTE (Sopravvive al Deep Sleep)
 // ═══════════════════════════════════════════════
-RTC_DATA_ATTR int   bootCount          = 0;
-RTC_DATA_ATTR int   netFailCount       = 0;  // Boot consecutivi senza rete
-RTC_DATA_ATTR float lastValidVoltage   = 0.0f;
-RTC_DATA_ATTR int   lastValidPercent   = 0;
-RTC_DATA_ATTR float lastLat            = 0.0f;
-RTC_DATA_ATTR float lastLon            = 0.0f;
-RTC_DATA_ATTR char  lastGpsDate[7]     = "";
-RTC_DATA_ATTR char  lastGpsTime[7]     = "";
-RTC_DATA_ATTR bool  hasGpsFix          = false;
-RTC_DATA_ATTR char  global_board_id[16] = "UNKNOWN";
-RTC_DATA_ATTR uint32_t stepCountAtWakeup = 0;
+RTC_DATA_ATTR int      bootCount          = 0;
+RTC_DATA_ATTR int      netFailCount       = 0;   // Boot consecutivi senza rete
+RTC_DATA_ATTR int      gpsFailCount       = 0;   // Pacchetti consecutivi senza fix GPS
+RTC_DATA_ATTR float    lastValidVoltage   = 0.0f;
+RTC_DATA_ATTR int      lastValidPercent   = 0;
+RTC_DATA_ATTR float    lastLat            = 0.0f;
+RTC_DATA_ATTR float    lastLon            = 0.0f;
+RTC_DATA_ATTR char     lastGpsDate[7]     = "";
+RTC_DATA_ATTR char     lastGpsTime[7]     = "";
+RTC_DATA_ATTR bool     hasGpsFix          = false;
+RTC_DATA_ATTR char     global_board_id[16] = "UNKNOWN";
+RTC_DATA_ATTR uint32_t stepCountAtWakeup  = 0;
 
-// Variabili di sessione (non RTC)
+// ═══════════════════════════════════════════════
+//  VARIABILI DI SESSIONE (si azzerano ad ogni boot)
+// ═══════════════════════════════════════════════
 unsigned long lastActivityTime  = 0;
+unsigned long lastGpsPollTime   = 0;
 bool isNetworkConnected         = false;
+int  previousNetFails           = 0; // Fail di rete PRIMA di questo boot (da mandare al server)
 Preferences prefs;
 
 // ═══════════════════════════════════════════════
 //  MODEM / RETE
 // ═══════════════════════════════════════════════
 const char* pb_url = "https://harvey-chairless-shenna.ngrok-free.dev/api/collections/data_sent_raw/records";
-const char* apn    = "ibox.tim.it";
-
+const char* apn    = "internet.it";
 HardwareSerial modem(1);
 
 // ═══════════════════════════════════════════════
@@ -159,12 +167,12 @@ bool connectToNetworkFast() {
   while (millis() - startWait < NET_TIMEOUT) {
     String resp = sendAT("AT+CEREG?", 1000);
     if (resp.indexOf("0,1") != -1 || resp.indexOf("0,5") != -1) {
-      Serial.println("[NET] Registrato in rete LTE con successo!");
+      Serial.println("[NET] Registrato in rete LTE!");
       return true;
     }
     Serial.print(".");
   }
-  Serial.println("\n[NET] Timeout rete! Segnale assente o troppo debole.");
+  Serial.println("\n[NET] Timeout rete.");
   return false;
 }
 
@@ -173,10 +181,11 @@ bool connectToNetworkFast() {
 // ═══════════════════════════════════════════════
 void iniettaGps() {
   if (!hasGpsFix) return;
-  Serial.println("[GPS] Iniettando dati per Hot Start...");
+  Serial.println("[GPS] Hot Start injection...");
   String latDir = (lastLat >= 0) ? "N" : "S";
   String lonDir = (lastLon >= 0) ? "E" : "W";
-  String cmdPos = "AT+CGNSSPOS=" + formatCoordinate(lastLat, true) + "," + latDir + "," + formatCoordinate(lastLon, false) + "," + lonDir + ",0,100";
+  String cmdPos = "AT+CGNSSPOS=" + formatCoordinate(lastLat, true) + "," + latDir + ","
+                + formatCoordinate(lastLon, false) + "," + lonDir + ",0,100";
   sendAT(cmdPos.c_str(), 500);
   if (lastGpsDate[0] != '\0') {
     String cmdTime = "AT+CGNSSTIME=" + String(lastGpsDate) + "," + String(lastGpsTime) + ",1000";
@@ -184,6 +193,7 @@ void iniettaGps() {
   }
 }
 
+// Polling GPS non-bloccante: ritorna subito con valid=false se non c'è fix
 GpsData getGpsData() {
   GpsData gps = {0.0f, 0.0f, false};
   String raw = sendAT("AT+CGNSSINFO", 1500);
@@ -198,10 +208,21 @@ GpsData getGpsData() {
   float lat = raw.substring(pos + 1, p6).toFloat();
   float lon = raw.substring(p7 + 1, p8).toFloat();
 
-  if (lat != 0 && lon != 0) {
+  if (lat != 0.0f && lon != 0.0f) {
     gps.lat = lat; gps.lon = lon; gps.valid = true;
   }
   return gps;
+}
+
+// Salva data/ora corrente nella RTC memory per il prossimo hot start
+void salvaDataOraGps() {
+  String r = sendAT("AT+CCLK?", 500);
+  int q1 = r.indexOf('"');
+  if (q1 == -1) return;
+  String rawDate = r.substring(q1 + 7, q1 + 9) + r.substring(q1 + 4, q1 + 6) + r.substring(q1 + 1, q1 + 3);
+  String rawTime = r.substring(q1 + 10, q1 + 12) + r.substring(q1 + 13, q1 + 15) + r.substring(q1 + 16, q1 + 18);
+  strncpy(lastGpsDate, rawDate.c_str(), 6);
+  strncpy(lastGpsTime, rawTime.c_str(), 6);
 }
 
 String getTimestamp() {
@@ -240,7 +261,6 @@ void salvaInCoda(const String& json) {
   Serial.println("[QUEUE] Pacchetto salvato in coda (" + String(count + 1) + " in attesa).");
 }
 
-// Invia un singolo JSON già costruito via HTTP, restituisce true se OK
 bool inviaJsonHTTP(const String& json) {
   sendAT("AT+HTTPINIT", 1000);
   sendAT(("AT+HTTPPARA=\"URL\",\"" + String(pb_url) + "\"").c_str(), 1000);
@@ -253,16 +273,13 @@ bool inviaJsonHTTP(const String& json) {
   String res = sendAT("AT+HTTPACTION=1", 10000);
   Serial.print("[HTTP] "); Serial.println(res);
   sendAT("AT+HTTPTERM", 1000);
-  return (res.indexOf(",20") != -1); // HTTP 2xx = successo
+  return (res.indexOf(",20") != -1);
 }
 
 void svuotaCoda() {
   prefs.begin("pkt_queue", false);
   int count = prefs.getInt("count", 0);
-  if (count == 0) {
-    prefs.end();
-    return;
-  }
+  if (count == 0) { prefs.end(); return; }
 
   Serial.println("[QUEUE] " + String(count) + " pacchetti in coda. Ritrasmissione...");
   int inviati = 0;
@@ -270,36 +287,37 @@ void svuotaCoda() {
   for (int i = 0; i < count; i++) {
     String json = prefs.getString(("p" + String(i)).c_str(), "");
     if (json.length() == 0) { inviati++; continue; }
-
     if (inviaJsonHTTP(json)) {
       inviati++;
-      Serial.println("[QUEUE] Pacchetto " + String(i) + " ritrasmesso OK.");
+      Serial.println("[QUEUE] Pacchetto " + String(i) + " OK.");
       delay(300);
     } else {
-      Serial.println("[QUEUE] Pacchetto " + String(i) + " fallito ancora. Interrompo.");
-      break; // Se uno fallisce la rete è instabile, smetti
+      Serial.println("[QUEUE] Pacchetto " + String(i) + " ancora fallito. Interrompo.");
+      break;
     }
   }
 
-  // Shift dei pacchetti rimanenti in coda
   int remaining = count - inviati;
   for (int i = 0; i < remaining; i++) {
     String val = prefs.getString(("p" + String(i + inviati)).c_str(), "");
     prefs.putString(("p" + String(i)).c_str(), val);
   }
-  for (int i = remaining; i < count; i++) {
-    prefs.remove(("p" + String(i)).c_str());
-  }
+  for (int i = remaining; i < count; i++) prefs.remove(("p" + String(i)).c_str());
   prefs.putInt("count", remaining);
   prefs.end();
-
-  Serial.println("[QUEUE] Fine ritrasmissione. Rimasti: " + String(remaining));
+  Serial.println("[QUEUE] Rimasti in coda: " + String(remaining));
 }
 
 // ═══════════════════════════════════════════════
 //  INVIO HTTP PRINCIPALE
+//
+//  Campi diagnostici nel payload:
+//    gps_valid      → le coordinate sono fresche (true) o ultima nota RTC (false)
+//    gps_fail_count → quanti pacchetti di fila senza fix GPS (reset a 0 al primo fix)
+//    net_fail_count → quanti boot consecutivi senza rete prima di questo boot
 // ═══════════════════════════════════════════════
-void inviaDati(float l_lat, float l_lon, const BatInfo& bat, const String& timestamp, const StepData& step, bool isSleeping, bool gpsValid, int failCount) {
+void inviaDati(float l_lat, float l_lon, const BatInfo& bat, const String& timestamp,
+               const StepData& step, bool isSleeping, bool gpsValid) {
 
   String json = "{";
   json += "\"board_id\":\"" + String(global_board_id) + "\",";
@@ -313,13 +331,14 @@ void inviaDati(float l_lat, float l_lon, const BatInfo& bat, const String& times
   json += "\"steps\":" + String(step.lastSession) + ",";
   json += "\"sleep\":" + String(isSleeping ? "true" : "false") + ",";
   json += "\"gps_valid\":" + String(gpsValid ? "true" : "false") + ",";
-  json += "\"net_fail_count\":" + String(failCount);  // boot senza rete prima di questo
+  json += "\"gps_fail_count\":" + String(gpsFailCount) + ",";
+  json += "\"net_fail_count\":" + String(previousNetFails);
   json += "}";
 
   Serial.println("[JSON] " + json);
 
   if (!inviaJsonHTTP(json)) {
-    Serial.println("[HTTP] Invio fallito. Salvo in coda per la prossima volta.");
+    Serial.println("[HTTP] Invio fallito. Salvo in coda.");
     salvaInCoda(json);
   }
 }
@@ -328,12 +347,10 @@ void inviaDati(float l_lat, float l_lon, const BatInfo& bat, const String& times
 //  POWER MANAGEMENT
 // ═══════════════════════════════════════════════
 void enterDeepSleep() {
-  Serial.println("\n[POWER] Spegnimento moduli e Deep Sleep...");
-
+  Serial.println("\n[POWER] Deep Sleep...");
   sendAT("AT+CGNSSPWR=0");
   sendAT("AT+CPOWD=1");
   delay(1000);
-
   digitalWrite(PIN_EN, LOW);
   digitalWrite(BAT_ADC_EN, LOW);
 
@@ -377,7 +394,7 @@ void setup() {
   delay(1000);
   bootCount++;
 
-  if (!initAccelerometer()) { Serial.println("ACC Error"); while(1); }
+  if (!initAccelerometer()) { Serial.println("[ERR] Accelerometro non trovato!"); while(1); }
 
   pinMode(PIN_EN, OUTPUT);
   digitalWrite(PIN_EN, HIGH);
@@ -395,7 +412,7 @@ void setup() {
     if (imei != "UNKNOWN_IMEI") imei.toCharArray(global_board_id, 16);
   }
 
-  // ── Connessione rete ──────────────────────────
+  // ── Connessione rete ─────────────────────────────────────────────────────
   isNetworkConnected = connectToNetworkFast();
 
   if (!isNetworkConnected) {
@@ -405,50 +422,90 @@ void setup() {
     return;
   }
 
-  // Rete OK: azzera il contatore e ritrasmetti pacchetti in coda
-  int previousFails = netFailCount;
+  // Rete OK: cattura il contatore dei fail precedenti e azzera
+  previousNetFails = netFailCount;
   netFailCount = 0;
 
-  if (previousFails > 0) {
-    Serial.println("[SYS] Rete ripristinata dopo " + String(previousFails) + " boot senza segnale.");
+  if (previousNetFails > 0) {
+    Serial.println("[SYS] Rete ripristinata dopo " + String(previousNetFails) + " boot senza segnale.");
   }
 
-  svuotaCoda(); // Ritrasmetti tutto quello che era in coda
+  // Ritrasmetti pacchetti salvati durante i boot senza rete
+  svuotaCoda();
 
-  // ── GPS ──────────────────────────────────────
-  Serial.println("[GPS] Configurazione antenna e costellazioni...");
+  // ── GPS ──────────────────────────────────────────────────────────────────
+  Serial.println("[GPS] Configurazione antenna...");
   sendAT("AT+CGNSSPWR=0", 500);
   sendAT("AT+CVAUXV=3000", 500);
   sendAT("AT+CVAUXS=1", 500);
-  sendAT("AT+CGNSCFG=11", 500);
+  sendAT("AT+CGNSCFG=11", 500);   // GPS + GLONASS + GALILEO
   sendAT("AT+CGDRT=4,1", 500);
   sendAT("AT+CGSETV=4,1", 500);
   sendAT("AT+CGNSSPWR=1", 1000);
 
-  if (hasGpsFix) iniettaGps();
+  if (hasGpsFix) iniettaGps();    // Hot start con ultima posizione RTC
 
-  Serial.println("[GPS] Modulo alimentato e in ascolto.");
+  // Attesa fix GPS solo al setup, con timeout — il loop non si blocca mai
+  Serial.println("[GPS] Attesa fix iniziale (max " + String(GPS_TIMEOUT / 1000) + "s)...");
+  unsigned long gpsSetupStart = millis();
+  GpsData initialGps;
+  while (!initialGps.valid && (millis() - gpsSetupStart < GPS_TIMEOUT)) {
+    initialGps = getGpsData();
+    if (!initialGps.valid) delay(GPS_POLL_INTERVAL);
+  }
+
+  if (initialGps.valid) {
+    lastLat = initialGps.lat;
+    lastLon = initialGps.lon;
+    hasGpsFix = true;
+    gpsFailCount = 0;
+    salvaDataOraGps();
+    Serial.print("[GPS] Fix iniziale OK → ");
+    Serial.print(lastLat, 6); Serial.print(", "); Serial.println(lastLon, 6);
+  } else {
+    Serial.println("[GPS] Nessun fix iniziale. Si userà ultima posizione RTC se disponibile.");
+  }
+
   lastActivityTime = millis();
+  lastGpsPollTime  = millis();
   Serial.println("=== SISTEMA PRONTO === (boot #" + String(bootCount) + ")");
 }
 
 // ═══════════════════════════════════════════════
 //  LOOP
+//
+//  Logica:
+//  1. Ogni GPS_POLL_INTERVAL interroga il GPS → aggiorna currentGps se valido
+//  2. Legge passi e batteria
+//  3. Se ci sono nuovi passi → invia pacchetto con la posizione migliore disponibile
+//  4. Se inattivo da SLEEP_TIMEOUT → invia sleep e va in deep sleep
 // ═══════════════════════════════════════════════
 void loop() {
   static uint32_t lastSessionStepsCount = 0;
+  static GpsData  currentGps;           // Ultimo fix GPS ottenuto in questo boot
+
+  // ── 1. Poll GPS non-bloccante ─────────────────────────────────────────────
+  if (millis() - lastGpsPollTime >= GPS_POLL_INTERVAL) {
+    lastGpsPollTime = millis();
+    GpsData polled = getGpsData();
+    if (polled.valid) {
+      currentGps = polled;
+      // Aggiorna RTC solo se la posizione è cambiata in modo significativo
+      if (abs(polled.lat - lastLat) > 0.00001f || abs(polled.lon - lastLon) > 0.00001f || !hasGpsFix) {
+        lastLat = polled.lat;
+        lastLon = polled.lon;
+        hasGpsFix = true;
+        gpsFailCount = 0;
+        salvaDataOraGps();
+      }
+    }
+  }
+
+  // ── 2. Lettura passi e batteria ───────────────────────────────────────────
   StepData step = readStepData(lastSessionStepsCount);
   BatInfo  bat  = leggiBatteria();
 
-  // Fix GPS (con timeout)
-  GpsData gps;
-  unsigned long gpsStart = millis();
-  Serial.println("[GPS] Ricerca segnale...");
-  while (!gps.valid && (millis() - gpsStart < GPS_TIMEOUT)) {
-    gps = getGpsData();
-    if (!gps.valid) delay(1000);
-  }
-
+  // ── 3. Nuovi passi rilevati ───────────────────────────────────────────────
   if (step.hasNewSteps) {
     lastActivityTime = millis();
     step.lastSession = step.session - lastSessionStepsCount;
@@ -456,39 +513,39 @@ void loop() {
 
     String ts = getTimestamp();
 
-    if (gps.valid) {
-      // GPS valido: aggiorna posizione salvata in RTC
-      Serial.print("[GPS] Fix OK → Lat: "); Serial.print(gps.lat, 6); Serial.print(" | Lon: "); Serial.println(gps.lon, 6);
-      lastLat = gps.lat;
-      lastLon = gps.lon;
-      hasGpsFix = true;
-      String r = sendAT("AT+CCLK?", 500);
-      int q1 = r.indexOf('"');
-      if (q1 != -1) {
-        String rawDate = r.substring(q1 + 7, q1 + 9) + r.substring(q1 + 4, q1 + 6) + r.substring(q1 + 1, q1 + 3);
-        String rawTime = r.substring(q1 + 10, q1 + 12) + r.substring(q1 + 13, q1 + 15) + r.substring(q1 + 16, q1 + 18);
-        strncpy(lastGpsDate, rawDate.c_str(), 6);
-        strncpy(lastGpsTime, rawTime.c_str(), 6);
-      }
-      inviaDati(gps.lat, gps.lon, bat, ts, step, false, true, 0);
+    if (currentGps.valid) {
+      // Fix fresco ottenuto in questo boot
+      Serial.print("[GPS] Fix valido → ");
+      Serial.print(currentGps.lat, 6); Serial.print(", "); Serial.println(currentGps.lon, 6);
+      inviaDati(currentGps.lat, currentGps.lon, bat, ts, step, false, true);
+
+    } else if (hasGpsFix) {
+      // Nessun fix in questo boot ma abbiamo l'ultima posizione dalla RTC memory
+      gpsFailCount++;
+      Serial.println("[GPS] No fix. Uso ultima posizione RTC (gps_fail_count=" + String(gpsFailCount) + ").");
+      inviaDati(lastLat, lastLon, bat, ts, step, false, false);
+
     } else {
-      // GPS non disponibile: usa ultima posizione nota dalla RTC memory
-      float fallbackLat = hasGpsFix ? lastLat : 0.0f;
-      float fallbackLon = hasGpsFix ? lastLon : 0.0f;
-      Serial.println("[GPS] Nessun fix. Invio con ultima posizione nota (gps_valid=false).");
-      inviaDati(fallbackLat, fallbackLon, bat, ts, step, false, false, 0);
+      // Mai avuto un fix: manda comunque, PocketBase lo gestirà con gps_valid=false e lat/lon=0
+      gpsFailCount++;
+      Serial.println("[GPS] No fix e nessuna posizione nota. Invio senza coordinate.");
+      inviaDati(0.0f, 0.0f, bat, ts, step, false, false);
     }
-  } else if (millis() - lastActivityTime > SLEEP_TIMEOUT) {
-    // Timeout inattività → pacchetto sleep + deep sleep
-    Serial.println("[SYS] Timeout inattività. Invio stato 'sleep' e chiusura sessione.");
+  }
+
+  // ── 4. Timeout inattività → sleep ────────────────────────────────────────
+  else if (millis() - lastActivityTime > SLEEP_TIMEOUT) {
+    Serial.println("[SYS] Inattività. Invio sleep e vado in deep sleep.");
     String ts = getTimestamp();
 
-    float sLat = gps.valid ? gps.lat : (hasGpsFix ? lastLat : 0.0f);
-    float sLon = gps.valid ? gps.lon : (hasGpsFix ? lastLon : 0.0f);
-    inviaDati(sLat, sLon, bat, ts, step, true, gps.valid, 0);
+    float sLat      = currentGps.valid ? currentGps.lat : lastLat;
+    float sLon      = currentGps.valid ? currentGps.lon : lastLon;
+    bool  sGpsValid = currentGps.valid || hasGpsFix;
 
+    inviaDati(sLat, sLon, bat, ts, step, true, sGpsValid);
     delay(2000);
     enterDeepSleep();
   }
-  delay(5000);
+
+  delay(LOOP_INTERVAL);
 }
