@@ -3,6 +3,7 @@ import 'package:geolocator/geolocator.dart';
 import 'scambio.dart' as scambio;
 import 'home.dart';
 import "repositories/users_repo.dart"; // Rimuovi 'as users' se preferisci usare la classe direttamente
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SettingsScreen extends StatefulWidget {
   final VoidCallback onProfileUpdated;
@@ -243,7 +244,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!_validateFields()) return;
     setState(() => _isLoading = true);
 
-    // USARE _usersRepo invece di users. e il nome corretto del metodo
+    // 1. Salvataggio su database (PocketBase)
     bool successAnagrafica = await _usersRepo.updateProfile(
       _nameController.text.trim(),
       _surnameController.text.trim(),
@@ -251,22 +252,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     bool successPassword = true;
     if (_isChangingPassword) {
-      // CORREZIONE: il metodo in repo si chiama updatePassword, non aggiornaPassword
       successPassword = await _usersRepo.updatePassword(
           _currentPassController.text.trim(), _newPassController.text.trim());
     }
 
+    // 2. Salvataggio Preferenze Locali (Focus Mappa)
+    if (successAnagrafica && successPassword) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('map_focus_priority', _currentMapFocus);
+      
+      // Aggiorna il ValueNotifier globale così le altre schermate reagiscono subito
+      mapFocusPreference.value = _currentMapFocus;
+    }
+
     setState(() => _isLoading = false);
 
-    // Se ha fallito qualcosa, mostriamo l'errore senza chiudere la pagina
     if (!successAnagrafica || !successPassword) {
-      setState(() => _inlineErrorMessage =
-          "Errore di connessione o password attuale errata.");
+      setState(() => _inlineErrorMessage = "Errore di connessione o password attuale errata.");
       return;
     }
 
-    // Se tutto va bene, salviamo le preferenze locali e usciamo
-    mapFocusPreference.value = _currentMapFocus;
     widget.onProfileUpdated();
     setState(() => _isDirty = false);
     if (mounted) Navigator.pop(context);

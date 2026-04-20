@@ -11,12 +11,20 @@ import "repositories/positions_repo.dart";
 import "repositories/users_repo.dart"; // Aggiunto import
 import "objects/positions.dart"; // Aggiunto per il tipo Positions
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // --- VARIABILI GLOBALI DI STATO ---
 final ValueNotifier<bool> isTrackingMode = ValueNotifier(false);
 final ValueNotifier<int> geofenceUpdateSignal = ValueNotifier(0);
 final ValueNotifier<String> mapFocusPreference = ValueNotifier('Animale');
 final ValueNotifier<bool> hasLocationPermission = ValueNotifier(false);
+
+// Funzione globale da chiamare all'avvio dell'app (es. nel main o in initState di PetTrackerApp)
+Future<void> loadMapPreferences() async {
+  final prefs = await SharedPreferences.getInstance();
+  final String savedFocus = prefs.getString('map_focus_priority') ?? 'Animale';
+  mapFocusPreference.value = savedFocus;
+}
 
 class PetTrackerApp extends StatelessWidget {
   const PetTrackerApp({super.key});
@@ -220,21 +228,28 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
 
   // Funzione per il calendario che aggiorna anche la riga dei giorni
   Future<void> _selezionaData(BuildContext context) async {
-    final DateTime? scelta = await showDatePicker(
-      context: context,
-      initialDate: _dataSelezionata,
-      firstDate: DateTime(2024),
-      lastDate: DateTime.now(),
-      locale: const Locale('it', 'IT'),
-    );
+      final DateTime? scelta = await showDatePicker(
+        context: context,
+        initialDate: _dataSelezionata,
+        firstDate: DateTime(2024),
+        lastDate: DateTime.now(),
+        locale: const Locale('it', 'IT'),
+      );
 
-  if (scelta != null) {
-    setState(() => _dataSelezionata = scelta);
-    _initializeDates(riferimento: scelta); // RIGENERA la settimana
-    _scaricaDatiAttivita(scelta); // Scarica i dati (passi, km, min) per quel giorno
+    if (scelta != null) {
+      setState(() => _dataSelezionata = scelta);
+      _initializeDates(riferimento: scelta); // RIGENERA la settimana
+      _scaricaDatiAttivita(scelta); // Scarica i dati (passi, km, min) per quel giorno
+    }
   }
-}
 
+  Future<void> caricaPreferenzeMappa() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? focusSalvato = prefs.getString('map_focus_priority');
+    if (focusSalvato != null) {
+      mapFocusPreference.value = focusSalvato;
+    }
+  }
 
   Future<void> _scaricaDatiAttivita(DateTime data) async {
     setState(() => _isLoading = true); // Mostra un caricamento se vuoi
