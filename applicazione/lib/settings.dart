@@ -260,7 +260,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (successAnagrafica && successPassword) {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('map_focus_priority', _currentMapFocus);
-      
+
       // Aggiorna il ValueNotifier globale così le altre schermate reagiscono subito
       mapFocusPreference.value = _currentMapFocus;
     }
@@ -268,7 +268,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _isLoading = false);
 
     if (!successAnagrafica || !successPassword) {
-      setState(() => _inlineErrorMessage = "Errore di connessione o password attuale errata.");
+      setState(() => _inlineErrorMessage =
+          "Errore di connessione o password attuale errata.");
       return;
     }
 
@@ -690,7 +691,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onPressed: () {
               Navigator.pop(context); // Chiude il dialog
               // CHIAMATA CORRETTA:
-              _usersRepo.eseguiLogout(context); 
+              _usersRepo.eseguiLogout(context);
             },
             child: const Text("ESCI", style: TextStyle(color: Colors.red)),
           ),
@@ -699,5 +700,3 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 }
-
-// modifiche SISTEMATE?

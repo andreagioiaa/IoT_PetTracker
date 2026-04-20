@@ -22,7 +22,8 @@ class _TrackingScreenState extends State<TrackingScreen> {
   final MapController _mapController = MapController();
   final UsersRepository _usersRepo = UsersRepository();
   // Istanziamo il repository (usando EXCHANGE.pb come abbiamo definito)
-  late final PositionsRepository _positionsRepo = PositionsRepository(scambio.pb);
+  late final PositionsRepository _positionsRepo =
+      PositionsRepository(scambio.pb);
 
   LatLng? _petLocation;
   LatLng? _userLocation;
@@ -38,6 +39,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
   double? _directionToPet;
   double? _phoneHeading;
   bool _isSatellite = true;
+  bool _hasLocationPermission = false;
 
   // --- IL CUORE DEL CAMALEONTE: Il cane è al sicuro? ---
   bool _isPetSafe =
@@ -172,7 +174,8 @@ class _TrackingScreenState extends State<TrackingScreen> {
     _positionsRepo.subscribeToPositions();
 
     // 2. Ascoltiamo lo stream di oggetti 'Positions' (non più record grezzi)
-    _petStreamSubscription = _positionsRepo.positionsStream.listen((nuovaPosizione) {
+    _petStreamSubscription =
+        _positionsRepo.positionsStream.listen((nuovaPosizione) {
       try {
         // Notazione corretta: nuovaPosizione è un oggetto, non un RecordModel
         final newPos = LatLng(nuovaPosizione.lat, nuovaPosizione.lon);
@@ -180,15 +183,15 @@ class _TrackingScreenState extends State<TrackingScreen> {
         if (mounted) {
           setState(() {
             _petLocation = newPos;
-            
+
             // Gestione cronologia
             if (_history.isEmpty || _history.last != newPos) {
               _history.add(newPos);
             }
-            
+
             _ricalcolaDirezione();
           });
-          
+
           _checkPetSafety(); // Logica di sicurezza immutata
         }
       } catch (e) {
@@ -213,6 +216,62 @@ class _TrackingScreenState extends State<TrackingScreen> {
           }
         });
       }
+    }
+    await _checkAndStartLocation();
+  }
+
+  Future<void> _checkAndStartLocation() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) return;
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.whileInUse ||
+        permission == LocationPermission.always) {
+      if (mounted) setState(() => _hasLocationPermission = true);
+      _avviaStreamPosizioneUtente();
+    } else {
+      if (mounted) setState(() => _hasLocationPermission = false);
+    }
+  }
+
+  void _avviaStreamPosizioneUtente() {
+    _userLocationStream ??= Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high, distanceFilter: 5),
+    ).listen((Position pos) {
+      if (mounted) {
+        setState(() {
+          _userLocation = LatLng(pos.latitude, pos.longitude);
+          _ricalcolaDirezione();
+        });
+      }
+    });
+  }
+
+  Future<void> _determinePosition() async {
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.always ||
+        permission == LocationPermission.whileInUse) {
+      if (mounted) setState(() => _hasLocationPermission = true);
+      _avviaStreamPosizioneUtente();
+
+      // Tenta di prendere subito la posizione per non far aspettare lo stream
+      try {
+        Position pos = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.high);
+        if (mounted) {
+          setState(() {
+            _userLocation = LatLng(pos.latitude, pos.longitude);
+            _ricalcolaDirezione();
+          });
+        }
+      } catch (_) {}
+    } else {
+      if (mounted) setState(() => _hasLocationPermission = false);
     }
   }
 
@@ -506,12 +565,39 @@ class _TrackingScreenState extends State<TrackingScreen> {
                   }
                 }, isSmallScreen, "trackLocatePet", iconColor: petColor),
                 const SizedBox(height: 10),
-                _miniFAB(Icons.smartphone, Colors.white, () {
-                  if (_userLocation != null) {
-                    _mapController.move(_userLocation!, 18.0);
-                  }
-                }, isSmallScreen, "trackLocateMe",
-                    iconColor: Colors.blueAccent),
+                _miniFAB(
+                  Icons.smartphone,
+                  _hasLocationPermission ? Colors.white : Colors.grey[300]!,
+                  () async {
+                    if (!_hasLocationPermission) {
+                      await _determinePosition(); // Chiede i permessi
+
+                      if (!_hasLocationPermission && mounted) {
+                        // Mostra errore se rifiuta
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                                "Fornisci l'autorizzazione alla posizione nelle impostazioni per usare questa funzione."),
+                            backgroundColor: Colors.grey,
+                          ),
+                        );
+                      } else if (_hasLocationPermission &&
+                          _userLocation != null) {
+                        _mapController.move(_userLocation!, 18.0);
+                      }
+                    } else {
+                      // Se ha già i permessi, sposta solo la mappa
+                      if (_userLocation != null) {
+                        _mapController.move(_userLocation!, 18.0);
+                      }
+                    }
+                  },
+                  isSmallScreen,
+                  "trackLocateMe",
+                  iconColor: _hasLocationPermission
+                      ? Colors.blueAccent
+                      : Colors.grey[600]!,
+                ),
                 const SizedBox(height: 10),
                 _miniFAB(
                     _isSatellite ? Icons.map : Icons.satellite_alt,
@@ -569,7 +655,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
                                         fontSize: 14 * scale,
                                         fontWeight: FontWeight.bold)),
                                 onPressed: () async {
-                                  await _usersRepo.updateAlarm(false); 
+                                  await _usersRepo.updateAlarm(false);
                                   isTrackingMode.value = false;
                                 },
                               ),
