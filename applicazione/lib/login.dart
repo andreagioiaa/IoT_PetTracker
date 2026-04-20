@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'home.dart';
 import 'scambio.dart' as scambio;
 import 'sign_in.dart'; // Import necessario per la navigazione verso la registrazione
+import "repositories/users_repo.dart";
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -28,25 +29,22 @@ class _AuthScreenState extends State<AuthScreen> {
     return null;
   }
 
+  // Aggiungi il repository come variabile di stato
+  final UsersRepository _usersRepo = UsersRepository();
+
   void _submitForm() async {
-    final error = _getValidationError();
-    if (error != null) {
-      _showSnackBar(error, Colors.orange.shade800);
-      return;
-    }
-
+    // ... validazione ...
     setState(() => _isLoading = true);
-
+    
     try {
-      final identity = _usernameController.text.trim();
-      final password = _passwordController.text.trim();
-
-      // Chiamata a PocketBase definita in scambio.dart
-      bool auth = await scambio.loginUtente(identity, password);
+      // CAMBIO QUI: Usiamo il repo
+      bool auth = await _usersRepo.login(
+        _usernameController.text.trim(), 
+        _passwordController.text.trim()
+      );
       
       if (auth) {
         if (!mounted) return;
-        // Navigazione alla Home in caso di successo
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const PetTrackerNavigation()),

@@ -1,0 +1,24 @@
+cartella applicazione
+	- cartella objects
+		- activities.dart
+		- battery_data.dart
+		- boards.dart
+		- data_sent_raw.dart
+		- geofences.dart
+		- positions.dart
+		- positions_duplicates.dart
+		- users.dart
+	- cartella repositories
+		- activities_repo.dart
+		
+	- battery.dart
+	- geofencing.dart
+	- home.dart
+	- login.dart
+	- main.dart
+	- polygon_editor.dart
+	- scambio.dart
+	- settings.dart
+	- sign_in.dart
+	- splash_screen.dart
+	- tracking_screen.dart

@@ -6,6 +6,8 @@ import 'tracking_screen.dart'; // <-- LA TUA NUOVA PAGINA
 import 'dart:async';
 import 'scambio.dart' as scambio;
 import 'settings.dart';
+import "repositories/positions_repo.dart";
+import "repositories/users_repo.dart";
 
 /**
  * DIFFERENZA TRA ValueNotifier e const (non cancellare, memo)
@@ -26,11 +28,6 @@ final ValueNotifier<String> mapFocusPreference = ValueNotifier('Animale');
 // --- VARIABILE GLOBALE PER GESTIONE PERMESSI ---
 final ValueNotifier<bool> hasLocationPermission = ValueNotifier(false);
 
-
-// --- VARIABILE GLOBALE DELLE TABELLE ---
-const String tableGeofences = "geofences";
-const String tabellaPositions = "positions";
-// const String tabellaNomeTabella = "nometabella"; (copiare e incollare)
 
 
 class PetTrackerApp extends StatelessWidget {
@@ -155,6 +152,9 @@ class PetTrackerDashboard extends StatefulWidget {
 }
 
 class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
+  final UsersRepository _usersRepo = UsersRepository();
+  final PositionsRepository _positionsRepo = PositionsRepository();
+
   late List<Map<String, String>> dates;
   late int selectedDateIndex;
   late String currentMonthName;
@@ -184,13 +184,14 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
       }
     });
 
-    _streamSubscription = scambio.posizioneStream.listen((nuovoRecord) async {
+    // Modifica il listener in initState
+    _streamSubscription = _positionsRepo.positionsStream.listen((nuovaPos) async {
       try {
-        String timeStr = nuovoRecord.getStringValue('timestamp');
-        DateTime nuovoTempo = DateTime.parse(timeStr).toLocal();
-
-        double petLat = nuovoRecord.getDoubleValue('lat');
-        double petLon = nuovoRecord.getDoubleValue('lon');
+        // Ora accediamo direttamente alle proprietà dell'oggetto Positions
+        DateTime nuovoTempo = nuovaPos.timestamp; 
+        double petLat = nuovaPos.lat;
+        double petLon = nuovaPos.lon;
+        
         String nuovaZona = await _calcolaZonaDalPunto(LatLng(petLat, petLon));
 
         if (mounted) {
@@ -201,9 +202,12 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
           });
         }
       } catch (e) {
-        debugPrint('❌ [HOME] Errore decodifica stream: $e');
+        debugPrint('❌ [HOME] Errore aggiornamento stream: $e');
       }
     });
+
+    // Avvia la sottoscrizione real-time
+    _positionsRepo.subscribeToPositions();
 
     _scaricaDatiIniziali();
 
@@ -222,22 +226,30 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
   String _displayUsername = "Caricamento..."; // Sostituisce il placeholder
 
   Future<void> _scaricaDatiIniziali() async {
-    // 1. Recuperiamo l'username
-    final usernameScaricato =
-        scambio.pb.authStore.model?.getStringValue('username') ?? 'Utente';
+    // 1. Recuperiamo l'utente tramite il repository
+    final user = await _usersRepo.getCurrentUser();
+    final usernameScaricato = user?.username ?? 'Utente';
 
-    // 2. Recuperiamo lo stato dell'allarme dal database
-    final statoAllarme = await scambio.getAllarme();
+    // 2. Recuperiamo lo stato dell'allarme
+    final statoAllarme = await _usersRepo.getAlarmStatus();
+
+    // 3. Recuperiamo l'ultimo timestamp
+    final tempoIniziale = await _positionsRepo.getLastTimestamp();
+    
+    final zonaIniziale = await _calculateCurrentZone();
 
     if (mounted) {
       setState(() {
         _displayUsername = usernameScaricato;
-        // Sincronizziamo il ValueNotifier globale con il database
         if (statoAllarme != null) {
           isTrackingMode.value = statoAllarme;
         }
+        _ultimoAggiornamento = tempoIniziale;
+        _nomeZona = zonaIniziale;
+        _isLoading = false;
       });
     }
+  }
 
     // Logica pre-esistente per timestamp e zona
     final tempoIniziale = await scambio.getUltimoTimestamp();
@@ -556,14 +568,12 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
             value: isActive,
             activeColor: Colors.red,
             onChanged: (val) async {
-              // 1. Aggiorniamo prima la UI locale per fluidità
               isTrackingMode.value = val;
 
-              // 2. Inviato il comando a PocketBase
-              bool successo = await scambio.setAllarme(val);
+              // Usa il repository per aggiornare lo stato sul database
+              bool successo = await _usersRepo.updateAlarm(val);
 
               if (!successo) {
-                // Se il server fallisce, torniamo indietro e avvisiamo
                 isTrackingMode.value = !val;
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(

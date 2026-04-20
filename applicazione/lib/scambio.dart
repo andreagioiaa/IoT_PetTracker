@@ -2,12 +2,21 @@ import 'dart:convert'; // Necessario per jsonEncode/Decode
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
-import 'package:pet_tracker/home.dart';
 import 'package:pet_tracker/login.dart';
 import 'package:pocketbase/pocketbase.dart';
 import 'dart:async';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'dart:typed_data';
+
+// --- VARIABILE GLOBALE DELLE TABELLE ---
+const String tabella_users = "users"; // fields: id, password, tokenKey, email, emailVisibility, username, verified, name, surname, alarma, created, updated
+const String tabella_activities = "activities"; // fields: id, board_id, total_steps, start_time, end_time, is_active
+const String tabella_batteryData= "battery_data"; // fields: id, board_id, timestamp, battery, battery_percent, charging
+const String tabella_boards = "boards"; // fields: id, user_id
+const String tabella_data_sent_raw = "data_sent_raw"; // fields: id, board_id, timestamp, lon, lat, geo, battery, battery_percent, charging, steps, sleep, gps_valid
+const String tabella_geofences = "geofences"; // fields: id, name, center_lon, center_lat, is_active, user_id, street, civic, city, cap, vertices (JSON), created, updated
+const String tabella_positions = "positions"; // fields: id, timestamp, lon, lat, geo, battery, battery_percent, charging, feet, sleep
+const String tabella_positions_duplicate = "positions_duplicate"; // fields: id, board_id, timestamp, lon, lat, geo, gps_valid, net_fail_count
+// const String tabella_nometabella = "nometabella"; (copiare e incollare)
 
 // --- NUOVA CLASSE PER LA PERSISTENZA SICURA ---
 class SecureAuthStore extends AuthStore {
@@ -73,14 +82,17 @@ bool isReady = false;
 // 📡 IL NOSTRO "CANALE RADIO" (STREAM)
 // ==========================================
 
+/*
 final StreamController<RecordModel> _streamController =
     StreamController<RecordModel>.broadcast();
 
 Stream<RecordModel> get posizioneStream => _streamController.stream;
 
+
+
 Future<void> avviaAscoltoInTempoReale() async {
   try {
-    pb.collection('positions').subscribe('*', (e) {
+    pb.collection(tabella_positions).subscribe('*', (e) {
       print('📡 [STREAM] È arrivato un nuovo pacchetto! Azione: ${e.action}');
 
       if (e.record != null) {
@@ -92,10 +104,12 @@ Future<void> avviaAscoltoInTempoReale() async {
     print('❌ Errore durante l\'avvio dello stream: $e');
   }
 }
+*/
 
 // ==========================================
 // 🔑 AUTENTICAZIONE E AVVIO
 // ==========================================
+
 
 Future<bool> autenticazione() async {
   try {
@@ -106,21 +120,25 @@ Future<bool> autenticazione() async {
     if (pb.authStore.isValid) {
       print('🔐 Sessione recuperata! Verifica validità in corso...');
       try {
-        // Opzionale: rinfresca il token per essere sicuri che sia ancora valido sul server
+        // Rinfresca il token per essere sicuri che sia ancora valido sul server
         await pb.collection('users').authRefresh();
         print('✅ Sessione valida per: ${pb.authStore.model?.id}');
-        isReady = true;
-        await avviaAscoltoInTempoReale();
+        
+        // Segnaliamo che il client è pronto
+        isReady = true; //
+        
+        // --- MODIFICA: Rimossa la chiamata a avviaAscoltoInTempoReale() ---
+        // La sottoscrizione agli stream viene ora gestita dai singoli repository 
+        // (es. BatteryRepository) all'interno delle schermate specifiche.
+        
         return true;
       } catch (e) {
         print('⚠️ Sessione scaduta o revocata, serve nuovo login.');
         pb.authStore.clear();
-        return true; // Ritorniamo true perché il server è raggiungibile, ma l'app andrà al login
+        return true; // Ritorna true per permettere all'app di mostrare la schermata di login
       }
     }
 
-    // 3. Se non c'è sessione, controlliamo solo se il server risponde (superuser check rimosso per sicurezza utente)
-    // Se vuoi mantenere il login automatico superuser (occhio ai rischi!), lascialo pure qui.
     print('👤 Nessuna sessione trovata. Reindirizzamento al login.');
     return true;
   } catch (e) {
@@ -129,10 +147,12 @@ Future<bool> autenticazione() async {
   }
 }
 
+
 // ==========================================
 // 📊 LETTURE STATICHE
 // ==========================================
 
+/*
 Future<int?> getUltimoLivelloBatteria() async {
   if (!isReady) {
     print('⏳ Attesa autenticazione prima di leggere la batteria...');
@@ -141,7 +161,7 @@ Future<int?> getUltimoLivelloBatteria() async {
   }
 
   try {
-    final result = await pb.collection('positions').getList(
+    final result = await pb.collection(tabella_positions).getList(
           page: 1,
           perPage: 1,
           sort: '-timestamp',
@@ -164,7 +184,7 @@ Future<bool?> isDeviceCharging() async {
   }
 
   try {
-    final result = await pb.collection(tabellaPositions).getList(
+    final result = await pb.collection(tabella_positions).getList(
           page: 1,
           perPage: 1,
           sort: '-timestamp', // Prende l'ultimo record basato sul tempo
@@ -181,7 +201,7 @@ Future<bool?> isDeviceCharging() async {
 
 Future<DateTime?> getUltimoTimestamp() async {
   try {
-    final result = await pb.collection('positions').getList(
+    final result = await pb.collection(tabella_positions).getList(
           page: 1,
           perPage: 1,
           sort: '-timestamp',
@@ -196,12 +216,14 @@ Future<DateTime?> getUltimoTimestamp() async {
     return null;
   }
 }
+*/
 
+/*
 /// Effettua il login utilizzando l'identità (Email o Username) e la Password.
 Future<bool> loginUtente(String identity, String password) async {
   try {
     // PocketBase gestisce automaticamente sia email che username nel primo parametro
-    final authData = await pb.collection('users').authWithPassword(
+    final authData = await pb.collection(tabella_users).authWithPassword(
           identity.trim(),
           password.trim(),
         );
@@ -300,7 +322,7 @@ Future<bool> registraUtente(String email, String password, String name,
       'alarm': false,
     };
 
-    await pb.collection('users').create(body: body);
+    await pb.collection(tabella_users).create(body: body);
     print('✅ Utente registrato: $email');
     return true;
   } catch (e) {
@@ -336,7 +358,7 @@ Future<bool> aggiornaProfilo(String nuovoNome, String nuovoCognome) async {
   try {
     if (pb.authStore.isValid && pb.authStore.model != null) {
       final userId = pb.authStore.model!.id;
-      await pb.collection('users').update(userId, body: {
+      await pb.collection(tabella_users).update(userId, body: {
         'name': nuovoNome,
         'surname': nuovoCognome,
       });
@@ -368,7 +390,7 @@ Future<bool> aggiornaPassword(
       }
 
       // 1. Aggiorniamo la password sul database (Questo fa "esplodere" il vecchio token)
-      await pb.collection('users').update(userId, body: {
+      await pb.collection(tabella_users).update(userId, body: {
         'oldPassword': vecchiaPassword,
         'password': nuovaPassword,
         'passwordConfirm': nuovaPassword,
@@ -390,3 +412,4 @@ Future<bool> aggiornaPassword(
     return false;
   }
 }
+*/

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:math';
 import 'dart:async';
 import 'scambio.dart' as scambio;
+import "repositories/battery_data_repo.dart";
 
 class BatteryScreen extends StatefulWidget {
   const BatteryScreen({super.key});
@@ -13,88 +14,78 @@ class BatteryScreen extends StatefulWidget {
 // 1. Aggiunto SingleTickerProviderStateMixin per le animazioni
 class _BatteryScreenState extends State<BatteryScreen>
     with SingleTickerProviderStateMixin {
-  int? _currentBattery;
-  bool _isCharging = false;
-  bool _isLoading = true;
-  StreamSubscription? _streamSubscription;
+  // Riferimento al Repository per la gestione dati
+  final BatteryRepository _batteryRepo = BatteryRepository(); //
 
-  // 2. Aggiunto l'AnimationController
-  late AnimationController _spinController;
+  int? _currentBattery; //
+  bool _isCharging = false; //
+  bool _isLoading = true; //
+  StreamSubscription? _streamSubscription; //
+
+  late AnimationController _spinController; //
 
   @override
   void initState() {
     super.initState();
 
-    // Inizializza il controller per la rotazione (impiega 2 secondi per fare un giro completo)
+    // 1. Inizializzazione del controller per la rotazione (2 secondi per giro)
     _spinController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
     );
 
-    _streamSubscription = scambio.posizioneStream.listen((nuovoRecord) {
-      debugPrint('🔊 [BATTERY SCREEN] Leggo il pacchetto...');
+    // 2. Avvio dell'ascolto in tempo reale tramite il Repository
+    _batteryRepo.subscribeToBatteryUpdates();
 
-      try {
-        final inCarica = nuovoRecord.getBoolValue('charging');
+    // 3. Sottoscrizione allo stream tipizzato di BatteryData
+    _streamSubscription = _batteryRepo.batteryStream.listen((data) {
+      debugPrint('🔋 [BATTERY SCREEN] Update ricevuto: ${data.batteryPercent}%');
 
-        if (mounted) {
-          setState(() {
-            _isCharging = inCarica;
+      if (mounted) {
+        setState(() {
+          _isCharging = data.charging; //
 
-            if (_isCharging) {
-              // Se è in carica, avvia l'animazione all'infinito
-              _spinController.repeat();
-              debugPrint(
-                  '⚡ [BATTERY SCREEN] Dispositivo in carica, ignoro la percentuale.');
-            } else {
-              // Se non è in carica, ferma l'animazione e torna alla posizione iniziale
-              _spinController.stop();
-              _spinController.reset();
+          if (_isCharging) {
+            _spinController.repeat(); //
+          } else {
+            _spinController.stop(); //
+            _spinController.reset(); //
+            _currentBattery = data.batteryPercent; //
+          }
 
-              _currentBattery = nuovoRecord.getIntValue('battery');
-              debugPrint(
-                  '🔋 [BATTERY SCREEN] Nuova batteria: $_currentBattery%');
-            }
-
-            _isLoading = false;
-          });
-        }
-      } catch (e) {
-        debugPrint('❌ [BATTERY SCREEN] Errore lettura pacchetto: $e');
+          _isLoading = false;
+        });
       }
     });
 
-    _scaricaDatoIniziale();
+    // 4. Caricamento del dato iniziale al boot della schermata
+    _caricaDatiIniziali();
   }
 
-  Future<void> _scaricaDatoIniziale() async {
-    final inCarica = await scambio.isDeviceCharging();
+  /// Recupera l'ultimo stato noto della batteria dal database
+  Future<void> _caricaDatiIniziali() async {
+    final data = await _batteryRepo.getLatestBattery(); //
 
-    if (mounted) {
-      if (inCarica == true) {
-        setState(() {
-          _isCharging = true;
-          _isLoading = false;
-        });
-        // Avvia l'animazione subito se parte già in carica
-        _spinController.repeat();
-      } else {
-        final batteriaIniziale = await scambio.getUltimoLivelloBatteria();
+    if (mounted && data != null) {
+      setState(() {
+        _isCharging = data.charging; //
+        _currentBattery = data.batteryPercent; //
+        _isLoading = false;
 
-        setState(() {
-          _isCharging = false;
-          _currentBattery = batteriaIniziale;
-          _isLoading = false;
-        });
-      }
+        if (_isCharging) {
+          _spinController.repeat(); //
+        }
+      });
+    } else if (mounted && data == null) {
+      // Gestione caso in cui il DB sia vuoto o irraggiungibile
+      setState(() => _isLoading = false);
     }
   }
 
   @override
   void dispose() {
-    _streamSubscription?.cancel();
-    _spinController
-        .dispose(); // 3. Importante: ricordarsi di distruggere il controller
+    _streamSubscription?.cancel(); //
+    _spinController.dispose(); //
     super.dispose();
   }
 

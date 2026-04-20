@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'scambio.dart' as scambio;
 import 'home.dart';
+import "repositories/users_repo.dart" as users;
 
 class SettingsScreen extends StatefulWidget {
   final VoidCallback onProfileUpdated;
@@ -240,14 +241,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _isLoading = true);
 
     // Salviamo SEMPRE il profilo anagrafico (se c'è una modifica o se ha passato i controlli)
-    bool successAnagrafica = await scambio.aggiornaProfilo(
+    bool successAnagrafica = await users.updateProfile(
       _nameController.text.trim(),
       _surnameController.text.trim(),
     );
 
     bool successPassword = true;
     if (_isChangingPassword) {
-      successPassword = await scambio.aggiornaPassword(
+      successPassword = await users.aggiornaPassword(
           _currentPassController.text.trim(), _newPassController.text.trim());
     }
 
