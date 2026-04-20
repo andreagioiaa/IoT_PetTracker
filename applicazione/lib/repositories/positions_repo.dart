@@ -4,22 +4,21 @@ import '../scambio.dart';
 import '../objects/positions.dart';
 
 class PositionsRepository {
-  // 1. Controller per gestire lo stream di posizioni tipizzato
+  final PocketBase _pb; // 1. Devi dichiarare questa variabile privata 
   final StreamController<Positions> _positionsController = StreamController<Positions>.broadcast();
 
-  // Getter per lo stream, da usare nelle UI per sostituire 'scambio.posizioneStream'
+  // 2. IL PUNTO CRITICO: Devi aggiungere questo costruttore 
+  PositionsRepository(this._pb); 
+
   Stream<Positions> get positionsStream => _positionsController.stream;
 
-  /// Sottoscrizione in tempo reale alla collezione delle posizioni
   void subscribeToPositions() {
-    // Usiamo la costante definita in scambio.dart per coerenza
-    pb.collection(tabella_positions).subscribe('*', (e) {
+    // Nota: ora usiamo _pb (quella passata al costruttore) 
+    _pb.collection(tabella_positions).subscribe('*', (e) {
       if (e.record != null) {
-        // Trasformiamo il RecordModel grezzo nel nostro oggetto Positions
         _positionsController.add(Positions.fromRecord(e.record!));
       }
     });
-    print('📡 [PositionsRepository] Sottoscrizione Real-time attiva su $tabella_positions');
   }
 
   /// Recupera l'ultimo record della posizione registrato

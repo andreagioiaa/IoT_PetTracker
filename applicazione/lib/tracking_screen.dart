@@ -8,6 +8,8 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'scambio.dart' as scambio;
 import 'home.dart';
+import 'repositories/users_repo.dart';
+import "repositories/positions_repo.dart";
 
 class TrackingScreen extends StatefulWidget {
   const TrackingScreen({super.key});
@@ -18,6 +20,9 @@ class TrackingScreen extends StatefulWidget {
 
 class _TrackingScreenState extends State<TrackingScreen> {
   final MapController _mapController = MapController();
+  final UsersRepository _usersRepo = UsersRepository();
+  // Istanziamo il repository (usando EXCHANGE.pb come abbiamo definito)
+  late final PositionsRepository _positionsRepo = PositionsRepository(scambio.pb);
 
   LatLng? _petLocation;
   LatLng? _userLocation;
@@ -163,23 +168,32 @@ class _TrackingScreenState extends State<TrackingScreen> {
       debugPrint("Errore ultima pos: $e");
     }
 
-    _petStreamSubscription = scambio.posizioneStream.listen((nuovoRecord) {
+    // 1. Attiviamo la sottoscrizione real-time nel repository
+    _positionsRepo.subscribeToPositions();
+
+    // 2. Ascoltiamo lo stream di oggetti 'Positions' (non più record grezzi)
+    _petStreamSubscription = _positionsRepo.positionsStream.listen((nuovaPosizione) {
       try {
-        final lat = nuovoRecord.getDoubleValue('lat');
-        final lon = nuovoRecord.getDoubleValue('lon');
-        final newPos = LatLng(lat, lon);
+        // Notazione corretta: nuovaPosizione è un oggetto, non un RecordModel
+        final newPos = LatLng(nuovaPosizione.lat, nuovaPosizione.lon);
 
         if (mounted) {
           setState(() {
             _petLocation = newPos;
+            
+            // Gestione cronologia
             if (_history.isEmpty || _history.last != newPos) {
               _history.add(newPos);
             }
+            
             _ricalcolaDirezione();
           });
-          _checkPetSafety(); // Controlla ogni volta che si muove!
+          
+          _checkPetSafety(); // Logica di sicurezza immutata
         }
-      } catch (e) {}
+      } catch (e) {
+        debugPrint("🛑 Errore durante l'aggiornamento posizione: $e");
+      }
     });
 
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
@@ -555,7 +569,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
                                         fontSize: 14 * scale,
                                         fontWeight: FontWeight.bold)),
                                 onPressed: () async {
-                                  await scambio.setAllarme(false);
+                                  await _usersRepo.updateAlarm(false); 
                                   isTrackingMode.value = false;
                                 },
                               ),
