@@ -26,15 +26,16 @@ class PetTrackerApp extends StatelessWidget {
     return MaterialApp(
       title: 'Pet Tracker',
       debugShowCheckedModeBanner: false,
-      // Configurazione obbligatoria per il calendario
+      // --- QUESTE RIGHE SONO FONDAMENTALI PER IL CALENDARIO ---
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
       supportedLocales: const [
-        Locale('it', 'IT'), // Lingua italiana
+        Locale('it', 'IT'), // Forza l'italiano come lingua
       ],
+      // -------------------------------------------------------
       theme: ThemeData(
         fontFamily: 'Roboto',
         scaffoldBackgroundColor: const Color(0xFFF7F8FA),
