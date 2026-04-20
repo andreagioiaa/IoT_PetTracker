@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'login.dart';
 import 'home.dart';
 import 'scambio.dart' as scambio;
+import "repositories/users_repo.dart";
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -85,7 +86,10 @@ class _SignInScreenState extends State<SignInScreen> {
     return null;
   }
 
+  final UsersRepository _usersRepo = UsersRepository();
+
   void _submitSignInForm() async {
+    // 1. Validazione sintattica locale dei campi
     final error = _getValidationError();
     if (error != null) {
       _showSnackBar(error, Colors.orange.shade800);
@@ -101,8 +105,9 @@ class _SignInScreenState extends State<SignInScreen> {
       final email = _emailController.text.trim();
       final password = _passwordController.text.trim();
 
-      // Registrazione su PocketBase
-      bool success = await scambio.registraUtente(
+      // 2. Chiamata al Repository per la registrazione
+      // Nota: Assicurati di aver aggiunto il metodo 'register' nel tuo UsersRepository
+      bool success = await _usersRepo.register(
         email,
         password,
         name,
@@ -111,22 +116,24 @@ class _SignInScreenState extends State<SignInScreen> {
       );
 
       if (success) {
-        // Login Automatico
-        bool loggedIn = await scambio.loginUtente(email, password);
+        // 3. Login Automatico dopo la registrazione tramite Repository
+        bool loggedIn = await _usersRepo.login(email, password);
 
         if (loggedIn) {
           if (!mounted) return;
           _showSnackBar('Account creato! Benvenuto.', const Color(0xFF00C6B8));
 
-          // Pulizia controller per sicurezza prima della navigazione
+          // Pulizia controller per sicurezza
           _clearControllers();
 
+          // Navigazione verso la Home
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
                 builder: (context) => const PetTrackerNavigation()),
           );
         } else {
+          // Caso limite: registrazione ok ma login fallito, rimanda all'AuthScreen
           if (!mounted) return;
           Navigator.pushReplacement(
             context,
@@ -134,9 +141,13 @@ class _SignInScreenState extends State<SignInScreen> {
           );
         }
       } else {
+        // Errore restituito dal server (es. duplicati)
         _showSnackBar('Errore: Email o Username potrebbero essere già in uso.',
             Colors.red);
       }
+    } catch (e) {
+      // Gestione di eventuali eccezioni non previste
+      _showSnackBar('Si è verificato un errore imprevisto: $e', Colors.red);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

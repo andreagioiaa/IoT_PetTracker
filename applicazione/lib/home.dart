@@ -6,12 +6,9 @@ import 'tracking_screen.dart';
 import 'dart:async';
 import 'scambio.dart' as scambio;
 import 'settings.dart';
-<<<<<<< Updated upstream
-=======
 import "repositories/positions_repo.dart";
 import "repositories/users_repo.dart"; // Aggiunto import
 import "objects/positions.dart"; // Aggiunto per il tipo Positions
->>>>>>> Stashed changes
 
 // --- VARIABILI GLOBALI DI STATO ---
 final ValueNotifier<bool> isTrackingMode = ValueNotifier(false);
@@ -19,16 +16,6 @@ final ValueNotifier<int> geofenceUpdateSignal = ValueNotifier(0);
 final ValueNotifier<String> mapFocusPreference = ValueNotifier('Animale');
 final ValueNotifier<bool> hasLocationPermission = ValueNotifier(false);
 
-<<<<<<< Updated upstream
-
-// --- VARIABILE GLOBALE DELLE TABELLE ---
-const String tableGeofences = "geofences";
-const String tabellaPositions = "positions";
-// const String tabellaNomeTabella = "nometabella"; (copiare e incollare)
-
-
-=======
->>>>>>> Stashed changes
 class PetTrackerApp extends StatelessWidget {
   const PetTrackerApp({super.key});
 
@@ -125,13 +112,10 @@ class PetTrackerDashboard extends StatefulWidget {
 }
 
 class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
-<<<<<<< Updated upstream
-=======
   // Repository
   final UsersRepository _usersRepo = UsersRepository();
   final PositionsRepository _positionsRepo = PositionsRepository(scambio.pb);
 
->>>>>>> Stashed changes
   late List<Map<String, String>> dates;
   late int selectedDateIndex;
   late String currentMonthName;
@@ -156,23 +140,11 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
       }
     });
 
-<<<<<<< Updated upstream
-    _streamSubscription = scambio.posizioneStream.listen((nuovoRecord) async {
-      try {
-        String timeStr = nuovoRecord.getStringValue('timestamp');
-        DateTime nuovoTempo = DateTime.parse(timeStr).toLocal();
-
-        double petLat = nuovoRecord.getDoubleValue('lat');
-        double petLon = nuovoRecord.getDoubleValue('lon');
-        String nuovaZona = await _calcolaZonaDalPunto(LatLng(petLat, petLon));
-
-=======
     // Sottoscrizione allo stream tipizzato
     _positionsRepo.subscribeToPositions();
     _streamSubscription = _positionsRepo.positionsStream.listen((nuovaPos) async {
       try {
         String nuovaZona = await _calcolaZonaDalPunto(LatLng(nuovaPos.lat, nuovaPos.lon));
->>>>>>> Stashed changes
         if (mounted) {
           setState(() {
             _ultimoAggiornamento = nuovaPos.timestamp;
@@ -181,11 +153,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
           });
         }
       } catch (e) {
-<<<<<<< Updated upstream
-        debugPrint('❌ [HOME] Errore decodifica stream: $e');
-=======
         debugPrint('❌ [HOME] Errore stream: $e');
->>>>>>> Stashed changes
       }
     });
 
@@ -204,22 +172,6 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
   }
 
   Future<void> _scaricaDatiIniziali() async {
-<<<<<<< Updated upstream
-    // 1. Recuperiamo l'username
-    final usernameScaricato =
-        scambio.pb.authStore.model?.getStringValue('username') ?? 'Utente';
-
-    // 2. Recuperiamo lo stato dell'allarme dal database
-    final statoAllarme = await scambio.getAllarme();
-
-    if (mounted) {
-      setState(() {
-        _displayUsername = usernameScaricato;
-        // Sincronizziamo il ValueNotifier globale con il database
-        if (statoAllarme != null) {
-          isTrackingMode.value = statoAllarme;
-        }
-=======
     // 1. Dati Utente
     final user = await _usersRepo.getCurrentUser();
     final statoAllarme = await _usersRepo.getAlarmStatus();
@@ -439,18 +391,9 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
             value: isActive,
             activeColor: Colors.red,
             onChanged: (val) async {
-              // 1. Aggiorniamo prima la UI locale per fluidità
               isTrackingMode.value = val;
-<<<<<<< Updated upstream
-
-              // 2. Inviato il comando a PocketBase
-              bool successo = await scambio.setAllarme(val);
-
-=======
               bool successo = await _usersRepo.updateAlarm(val); //
->>>>>>> Stashed changes
               if (!successo) {
-                // Se il server fallisce, torniamo indietro e avvisiamo
                 isTrackingMode.value = !val;
                 if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Errore sincronizzazione allarme")));
               }

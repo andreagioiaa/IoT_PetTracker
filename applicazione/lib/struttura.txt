@@ -10,7 +10,7 @@ cartella applicazione
 		- users.dart
 	- cartella repositories
 		- activities_repo.dart
-		- users_repo.dart		
+		
 	- battery.dart
 	- geofencing.dart
 	- home.dart
