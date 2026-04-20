@@ -29,7 +29,8 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
 
   StreamSubscription? _streamSubscription;
 
-  late final PositionsRepository _positionsRepo = PositionsRepository(scambio.pb);
+  late final PositionsRepository _positionsRepo =
+      PositionsRepository(scambio.pb);
   late final GeofenceRepository _geofenceRepo = GeofenceRepository(scambio.pb);
 
   final ValueNotifier<ActiveCard> _activeCard =
@@ -60,7 +61,8 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     _caricaZoneDalDatabase();
 
     _positionsRepo.subscribeToPositions(); // Attiva la sottoscrizione
-    _streamSubscription = _positionsRepo.positionsStream.listen((nuovaPosizione) {
+    _streamSubscription =
+        _positionsRepo.positionsStream.listen((nuovaPosizione) {
       if (mounted) {
         setState(() {
           // Usa le proprietà dell'oggetto Positions, non getDoubleValue!
@@ -89,7 +91,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
   void dispose() {
     hasLocationPermission.removeListener(_onPermissionChanged);
     _streamSubscription?.cancel(); // Fondamentale
-    _positionsRepo.dispose();      // Fondamentale
+    _positionsRepo.dispose(); // Fondamentale
     super.dispose();
   }
 
@@ -1441,48 +1443,34 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                         SizedBox(height: 10 * scale),
                         FloatingActionButton.small(
                           heroTag: "locateMe",
-
                           onPressed: () async {
                             if (!_hasLocationPermission) {
-                              // 1. Proviamo a richiederli se non sono stati negati permanentemente
-
-                              await _determinePosition();
-
-                              // 2. Se dopo il tentativo sono ancora negati, mostriamo l'avviso
-
-                              if (!_hasLocationPermission && mounted) {
+                              if (mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
                                     content: Text(
-                                        "Fornisci l'autorizzazione alla posizione nelle impostazioni per usare questa funzione."),
+                                        "Attiva la posizione nelle impostazioni."),
                                     backgroundColor: Colors.grey,
                                   ),
                                 );
                               }
                             } else {
                               // Logica normale se abbiamo i permessi
-
-                              if (_myLocation == null)
-                                await _determinePosition();
+                              if (_myLocation == null) {
+                                await _determinePosition(); // Recupera solo le coordinate, avendo già i permessi
+                              }
 
                               if (_myLocation != null) {
                                 setState(() => selectedPlaceIndex = null);
-
                                 _mapController.move(_myLocation!, 18.0);
-
                                 _activeCard.value = ActiveCard.user;
-
                                 _resolveAddress(_myLocation!, false);
                               }
                             }
                           },
-
-                          // ✨ CAMBIO COLORE DINAMICO
-
                           backgroundColor: _hasLocationPermission
                               ? Colors.white
                               : Colors.grey[300],
-
                           child: Icon(
                             Icons.smartphone,
                             color: _hasLocationPermission

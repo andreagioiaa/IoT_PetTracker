@@ -96,7 +96,9 @@ class _PetTrackerNavigationState extends State<PetTrackerNavigation> {
 
   List<Widget> get _currentScreens => [
         const PetTrackerDashboard(),
-        isTrackingMode.value ? const TrackingScreen() : const GeofencingScreen(),
+        isTrackingMode.value
+            ? const TrackingScreen()
+            : const GeofencingScreen(),
         const BatteryScreen(),
       ];
 
@@ -105,7 +107,8 @@ class _PetTrackerNavigationState extends State<PetTrackerNavigation> {
     return Scaffold(
       body: IndexedStack(index: _currentIndex, children: _currentScreens),
       bottomNavigationBar: Container(
-        decoration: const BoxDecoration(boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)]),
+        decoration: const BoxDecoration(
+            boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)]),
         child: BottomNavigationBar(
           currentIndex: _currentIndex,
           onTap: (index) => setState(() => _currentIndex = index),
@@ -114,9 +117,12 @@ class _PetTrackerNavigationState extends State<PetTrackerNavigation> {
           type: BottomNavigationBarType.fixed,
           backgroundColor: Colors.white,
           items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.home_filled), label: "Home"),
-            BottomNavigationBarItem(icon: Icon(Icons.map_rounded), label: "Mappa"),
-            BottomNavigationBarItem(icon: Icon(Icons.battery_charging_full), label: "Energia"),
+            BottomNavigationBarItem(
+                icon: Icon(Icons.home_filled), label: "Home"),
+            BottomNavigationBarItem(
+                icon: Icon(Icons.map_rounded), label: "Mappa"),
+            BottomNavigationBarItem(
+                icon: Icon(Icons.battery_charging_full), label: "Energia"),
           ],
         ),
       ),
@@ -172,9 +178,11 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
 
     // Sottoscrizione allo stream tipizzato
     _positionsRepo.subscribeToPositions();
-    _streamSubscription = _positionsRepo.positionsStream.listen((nuovaPos) async {
+    _streamSubscription =
+        _positionsRepo.positionsStream.listen((nuovaPos) async {
       try {
-        String nuovaZona = await _calcolaZonaDalPunto(LatLng(nuovaPos.lat, nuovaPos.lon));
+        String nuovaZona =
+            await _calcolaZonaDalPunto(LatLng(nuovaPos.lat, nuovaPos.lon));
         if (mounted) {
           setState(() {
             _ultimoAggiornamento = nuovaPos.timestamp;
@@ -207,20 +215,36 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
   // Metodo per inizializzare o aggiornare la riga dei giorni
   void _initializeDates({DateTime? riferimento}) {
     DateTime base = riferimento ?? DateTime.now();
-    List<String> monthNames = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
-    
+    List<String> monthNames = [
+      'Gennaio',
+      'Febbraio',
+      'Marzo',
+      'Aprile',
+      'Maggio',
+      'Giugno',
+      'Luglio',
+      'Agosto',
+      'Settembre',
+      'Ottobre',
+      'Novembre',
+      'Dicembre'
+    ];
+
     setState(() {
       currentMonthName = monthNames[base.month - 1];
-      
+
       // Calcoliamo il lunedì della settimana che contiene la data 'base'
       DateTime lunedi = base.subtract(Duration(days: base.weekday - 1));
-      
+
       List<String> weekDays = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
       dates = List.generate(7, (index) {
         DateTime date = lunedi.add(Duration(days: index));
-        return {'day': date.day.toString(), 'weekDay': weekDays[date.weekday - 1]};
+        return {
+          'day': date.day.toString(),
+          'weekDay': weekDays[date.weekday - 1]
+        };
       });
-      
+
       // Il focus (cerchietto colorato) va sul giorno scelto
       selectedDateIndex = base.weekday - 1;
     });
@@ -228,18 +252,19 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
 
   // Funzione per il calendario che aggiorna anche la riga dei giorni
   Future<void> _selezionaData(BuildContext context) async {
-      final DateTime? scelta = await showDatePicker(
-        context: context,
-        initialDate: _dataSelezionata,
-        firstDate: DateTime(2024),
-        lastDate: DateTime.now(),
-        locale: const Locale('it', 'IT'),
-      );
+    final DateTime? scelta = await showDatePicker(
+      context: context,
+      initialDate: _dataSelezionata,
+      firstDate: DateTime(2024),
+      lastDate: DateTime.now(),
+      locale: const Locale('it', 'IT'),
+    );
 
     if (scelta != null) {
       setState(() => _dataSelezionata = scelta);
       _initializeDates(riferimento: scelta); // RIGENERA la settimana
-      _scaricaDatiAttivita(scelta); // Scarica i dati (passi, km, min) per quel giorno
+      _scaricaDatiAttivita(
+          scelta); // Scarica i dati (passi, km, min) per quel giorno
     }
   }
 
@@ -257,12 +282,14 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     try {
       // Recuperiamo l'ID della board (puoi prenderlo dall'utente o da una variabile globale)
       // Per ora ipotizziamo di avere il boardId salvato o recuperabile
-      final String? boardId = scambio.pb.authStore.model?.id; // Verifica la tua logica di IDs
-      
+      final String? boardId =
+          scambio.pb.authStore.model?.id; // Verifica la tua logica di IDs
+
       if (boardId == null) return;
 
       // Chiamata al repository (metodo fetchActivitiesByDate aggiunto nel passaggio precedente)
-      final attivita = await _activitiesRepo.fetchActivitiesByDate(boardId, data);
+      final attivita =
+          await _activitiesRepo.fetchActivitiesByDate(boardId, data);
 
       int passiTotali = 0;
       Duration durataTotale = Duration.zero;
@@ -336,10 +363,12 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
           final rawList = record.getListValue<dynamic>('vertices');
           for (var pt in rawList) {
             if (pt is List && pt.length >= 2) {
-              polygonPts.add(LatLng(double.parse(pt[0].toString()), double.parse(pt[1].toString())));
+              polygonPts.add(LatLng(double.parse(pt[0].toString()),
+                  double.parse(pt[1].toString())));
             }
           }
-          if (polygonPts.length >= 3 && _isPointInsidePolygon(petPos, polygonPts)) {
+          if (polygonPts.length >= 3 &&
+              _isPointInsidePolygon(petPos, polygonPts)) {
             return record.getStringValue('name');
           }
         }
@@ -354,8 +383,13 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     bool isInside = false;
     int j = polygon.length - 1;
     for (int i = 0; i < polygon.length; i++) {
-      if (((polygon[i].latitude > point.latitude) != (polygon[j].latitude > point.latitude)) &&
-          (point.longitude < (polygon[j].longitude - polygon[i].longitude) * (point.latitude - polygon[i].latitude) / (polygon[j].latitude - polygon[i].latitude) + polygon[i].longitude)) {
+      if (((polygon[i].latitude > point.latitude) !=
+              (polygon[j].latitude > point.latitude)) &&
+          (point.longitude <
+              (polygon[j].longitude - polygon[i].longitude) *
+                      (point.latitude - polygon[i].latitude) /
+                      (polygon[j].latitude - polygon[i].latitude) +
+                  polygon[i].longitude)) {
         isInside = !isInside;
       }
       j = i;
@@ -378,20 +412,27 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
               width: MediaQuery.of(context).size.width * 0.5,
               height: screenHeight * 0.18,
               decoration: const BoxDecoration(
-                gradient: LinearGradient(colors: [Color(0xFF00E2C1), Color(0xFF00C6B8)]),
-                borderRadius: BorderRadius.only(bottomLeft: Radius.circular(100)),
+                gradient: LinearGradient(
+                    colors: [Color(0xFF00E2C1), Color(0xFF00C6B8)]),
+                borderRadius:
+                    BorderRadius.only(bottomLeft: Radius.circular(100)),
               ),
             ),
           ),
           SafeArea(
             child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20 * scale, vertical: 10 * scale),
+              padding: EdgeInsets.symmetric(
+                  horizontal: 20 * scale, vertical: 10 * scale),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Spacer(flex: 1),
-                  Text('Bentornato,', style: TextStyle(fontSize: 16 * scale, color: Colors.black54)),
-                  Text(_displayUsername, style: TextStyle(fontSize: 25 * scale, fontWeight: FontWeight.bold)),
+                  Text('Bentornato,',
+                      style: TextStyle(
+                          fontSize: 16 * scale, color: Colors.black54)),
+                  Text(_displayUsername,
+                      style: TextStyle(
+                          fontSize: 25 * scale, fontWeight: FontWeight.bold)),
                   const Spacer(flex: 2),
                   ValueListenableBuilder<bool>(
                     valueListenable: isTrackingMode,
@@ -412,7 +453,8 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
                       }
                       return Column(
                         children: [
-                          _buildDynamicPositionCard(scale, displayZone, zoneColor, locationIcon),
+                          _buildDynamicPositionCard(
+                              scale, displayZone, zoneColor, locationIcon),
                           SizedBox(height: 15 * scale),
                           _buildTrackingToggle(scale, isTracking),
                         ],
@@ -436,7 +478,9 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => SettingsScreen(onProfileUpdated: () => _scaricaDatiIniziali())),
+                  MaterialPageRoute(
+                      builder: (context) => SettingsScreen(
+                          onProfileUpdated: () => _scaricaDatiIniziali())),
                 );
               },
             ),
@@ -446,36 +490,56 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     );
   }
 
-  Widget _buildDynamicPositionCard(double scale, String displayZone, Color zoneColor, IconData icon) {
+  Widget _buildDynamicPositionCard(
+      double scale, String displayZone, Color zoneColor, IconData icon) {
     return GestureDetector(
       onTap: () {
-        final navState = context.findAncestorStateOfType<_PetTrackerNavigationState>();
-        if (navState != null) navState.setState(() => navState._currentIndex = 1);
+        final navState =
+            context.findAncestorStateOfType<_PetTrackerNavigationState>();
+        if (navState != null)
+          navState.setState(() => navState._currentIndex = 1);
       },
       child: Container(
         padding: EdgeInsets.all(15 * scale),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20 * scale),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)
+          ],
         ),
         child: Row(
           children: [
-            Icon(icon, color: zoneColor == Colors.black ? const Color(0xFF00C6B8) : zoneColor, size: 36 * scale),
+            Icon(icon,
+                color: zoneColor == Colors.black
+                    ? const Color(0xFF00C6B8)
+                    : zoneColor,
+                size: 36 * scale),
             SizedBox(width: 15 * scale),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("Posizione Attuale", style: TextStyle(color: Colors.black45, fontSize: 13 * scale)),
+                  Text("Posizione Attuale",
+                      style: TextStyle(
+                          color: Colors.black45, fontSize: 13 * scale)),
                   SizedBox(height: 4 * scale),
                   _isLoading
-                      ? Text("Caricamento...", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16 * scale, color: Colors.grey))
-                      : Text(displayZone, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16 * scale, color: zoneColor)),
+                      ? Text("Caricamento...",
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16 * scale,
+                              color: Colors.grey))
+                      : Text(displayZone,
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16 * scale,
+                              color: zoneColor)),
                 ],
               ),
             ),
-            Icon(Icons.arrow_forward_ios, color: Colors.black12, size: 16 * scale),
+            Icon(Icons.arrow_forward_ios,
+                color: Colors.black12, size: 16 * scale),
           ],
         ),
       ),
@@ -484,20 +548,34 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
 
   Widget _buildTrackingToggle(double scale, bool isActive) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 15 * scale, vertical: 5 * scale),
+      padding:
+          EdgeInsets.symmetric(horizontal: 15 * scale, vertical: 5 * scale),
       decoration: BoxDecoration(
-          color: isActive ? Colors.red.withOpacity(0.08) : const Color(0xFF00C6B8).withOpacity(0.08),
+          color: isActive
+              ? Colors.red.withOpacity(0.08)
+              : const Color(0xFF00C6B8).withOpacity(0.08),
           borderRadius: BorderRadius.circular(15 * scale),
-          border: Border.all(color: isActive ? Colors.red.withOpacity(0.3) : const Color(0xFF00C6B8).withOpacity(0.3))),
+          border: Border.all(
+              color: isActive
+                  ? Colors.red.withOpacity(0.3)
+                  : const Color(0xFF00C6B8).withOpacity(0.3))),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Row(
             children: [
-              Icon(isActive ? Icons.verified_user : Icons.remove_moderator, color: isActive ? Colors.red : const Color(0xFF00C6B8), size: 24 * scale),
+              Icon(isActive ? Icons.verified_user : Icons.remove_moderator,
+                  color: isActive ? Colors.red : const Color(0xFF00C6B8),
+                  size: 24 * scale),
               SizedBox(width: 10 * scale),
-              Text(isActive ? "Allarme Antifuga ATTIVO" : "Allarme Antifuga SPENTO",
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14 * scale, color: isActive ? Colors.red : const Color(0xFF00C6B8))),
+              Text(
+                  isActive
+                      ? "Allarme Antifuga ATTIVO"
+                      : "Allarme Antifuga SPENTO",
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14 * scale,
+                      color: isActive ? Colors.red : const Color(0xFF00C6B8))),
             ],
           ),
           Switch(
@@ -508,7 +586,9 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
               bool successo = await _usersRepo.updateAlarm(val); //
               if (!successo) {
                 isTrackingMode.value = !val;
-                if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Errore sincronizzazione allarme")));
+                if (mounted)
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text("Errore sincronizzazione allarme")));
               }
             },
           ),
@@ -523,7 +603,9 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24 * scale),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 15)],
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 15)
+        ],
       ),
       child: Column(
         children: [
@@ -531,11 +613,14 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text("Attività di $currentMonthName", 
-                  style: TextStyle(fontSize: 16 * scale, fontWeight: FontWeight.bold)),
+              Text("Attività di $currentMonthName",
+                  style: TextStyle(
+                      fontSize: 16 * scale, fontWeight: FontWeight.bold)),
               IconButton(
-                icon: const Icon(Icons.calendar_month, color: Color(0xFF00C6B8)),
-                onPressed: () => _selezionaData(context), // Apre il calendario senza crash
+                icon:
+                    const Icon(Icons.calendar_month, color: Color(0xFF00C6B8)),
+                onPressed: () =>
+                    _selezionaData(context), // Apre il calendario senza crash
               ),
             ],
           ),
@@ -548,9 +633,11 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
               return GestureDetector(
                 onTap: () {
                   // Se clicchi un giorno della settimana mostrata
-                  DateTime baseSettimana = _dataSelezionata.subtract(Duration(days: _dataSelezionata.weekday - 1));
-                  DateTime giornoCliccato = baseSettimana.add(Duration(days: index));
-                  
+                  DateTime baseSettimana = _dataSelezionata
+                      .subtract(Duration(days: _dataSelezionata.weekday - 1));
+                  DateTime giornoCliccato =
+                      baseSettimana.add(Duration(days: index));
+
                   setState(() {
                     selectedDateIndex = index;
                     _dataSelezionata = giornoCliccato;
@@ -561,15 +648,22 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
                   width: 40 * scale,
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   decoration: BoxDecoration(
-                    color: isSelected ? const Color(0xFF00C6B8) : Colors.transparent, 
-                    borderRadius: BorderRadius.circular(12)
-                  ),
+                      color: isSelected
+                          ? const Color(0xFF00C6B8)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(12)),
                   child: Column(
                     children: [
-                      Text(dates[index]['weekDay']![0], 
-                          style: TextStyle(color: isSelected ? Colors.white70 : Colors.black38)),
-                      Text(dates[index]['day']!, 
-                          style: TextStyle(fontWeight: FontWeight.bold, color: isSelected ? Colors.white : Colors.black87)),
+                      Text(dates[index]['weekDay']![0],
+                          style: TextStyle(
+                              color: isSelected
+                                  ? Colors.white70
+                                  : Colors.black38)),
+                      Text(dates[index]['day']!,
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color:
+                                  isSelected ? Colors.white : Colors.black87)),
                     ],
                   ),
                 ),
@@ -581,9 +675,12 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildCompactStat("Passi", "${_dailyStats['steps']}", Icons.pets, Colors.orange, scale),
-              _buildCompactStat("Km", "${_dailyStats['km']}", Icons.straighten, Colors.blue, scale),
-              _buildCompactStat("Minuti", "${_dailyStats['minutes']}", Icons.timer, Colors.purple, scale),
+              _buildCompactStat("Passi", "${_dailyStats['steps']}", Icons.pets,
+                  Colors.orange, scale),
+              _buildCompactStat("Km", "${_dailyStats['km']}", Icons.straighten,
+                  Colors.blue, scale),
+              _buildCompactStat("Minuti", "${_dailyStats['minutes']}",
+                  Icons.timer, Colors.purple, scale),
             ],
           ),
         ],
@@ -591,13 +688,18 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     );
   }
 
-  Widget _buildCompactStat(String label, String value, IconData icon, Color color, double scale) {
+  Widget _buildCompactStat(
+      String label, String value, IconData icon, Color color, double scale) {
     return Column(
       children: [
-        CircleAvatar(backgroundColor: color.withOpacity(0.1), radius: 18 * scale, child: Icon(icon, color: color, size: 20 * scale)),
+        CircleAvatar(
+            backgroundColor: color.withOpacity(0.1),
+            radius: 18 * scale,
+            child: Icon(icon, color: color, size: 20 * scale)),
         const SizedBox(height: 4),
         Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
-        Text(label, style: const TextStyle(color: Colors.black38, fontSize: 10)),
+        Text(label,
+            style: const TextStyle(color: Colors.black38, fontSize: 10)),
       ],
     );
   }
@@ -607,13 +709,21 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 12),
-      decoration: BoxDecoration(color: coloreStato.withOpacity(0.1), borderRadius: BorderRadius.circular(15), border: Border.all(color: coloreStato.withOpacity(0.3))),
+      decoration: BoxDecoration(
+          color: coloreStato.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: coloreStato.withOpacity(0.3))),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.sync, color: coloreStato, size: 18 * scale),
           const SizedBox(width: 8),
-          Text("Ultimo aggiornamento: ${formattaUltimoAggiornamento(ultimoInvio)}", style: TextStyle(color: coloreStato, fontWeight: FontWeight.bold, fontSize: 13 * scale)),
+          Text(
+              "Ultimo aggiornamento: ${formattaUltimoAggiornamento(ultimoInvio)}",
+              style: TextStyle(
+                  color: coloreStato,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13 * scale)),
         ],
       ),
     );

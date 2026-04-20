@@ -568,25 +568,20 @@ class _TrackingScreenState extends State<TrackingScreen> {
                 _miniFAB(
                   Icons.smartphone,
                   _hasLocationPermission ? Colors.white : Colors.grey[300]!,
-                  () async {
+                  () {
                     if (!_hasLocationPermission) {
-                      await _determinePosition(); // Chiede i permessi
-
-                      if (!_hasLocationPermission && mounted) {
-                        // Mostra errore se rifiuta
+                      // Non chiede i permessi, mostra direttamente l'errore se non li ha
+                      if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text(
-                                "Fornisci l'autorizzazione alla posizione nelle impostazioni per usare questa funzione."),
+                            content:
+                                Text("Attiva la posizione nelle impostazioni."),
                             backgroundColor: Colors.grey,
                           ),
                         );
-                      } else if (_hasLocationPermission &&
-                          _userLocation != null) {
-                        _mapController.move(_userLocation!, 18.0);
                       }
                     } else {
-                      // Se ha già i permessi, sposta solo la mappa
+                      // Se ha i permessi, sposta la mappa
                       if (_userLocation != null) {
                         _mapController.move(_userLocation!, 18.0);
                       }
