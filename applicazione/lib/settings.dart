@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'scambio.dart' as scambio;
 import 'home.dart';
+<<<<<<< Updated upstream
+=======
+import "repositories/users_repo.dart"; // Rimuovi 'as users' se preferisci usare la classe direttamente
+>>>>>>> Stashed changes
 
 class SettingsScreen extends StatefulWidget {
   final VoidCallback onProfileUpdated;
@@ -13,6 +17,9 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  // Istanzia il repository qui
+  final UsersRepository _usersRepo = UsersRepository();
+
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _surnameController = TextEditingController();
   final TextEditingController _usernameController = TextEditingController();
@@ -239,15 +246,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!_validateFields()) return;
     setState(() => _isLoading = true);
 
+<<<<<<< Updated upstream
     // Salviamo SEMPRE il profilo anagrafico (se c'è una modifica o se ha passato i controlli)
     bool successAnagrafica = await scambio.aggiornaProfilo(
+=======
+    // USARE _usersRepo invece di users. e il nome corretto del metodo
+    bool successAnagrafica = await _usersRepo.updateProfile(
+>>>>>>> Stashed changes
       _nameController.text.trim(),
       _surnameController.text.trim(),
     );
 
     bool successPassword = true;
     if (_isChangingPassword) {
+<<<<<<< Updated upstream
       successPassword = await scambio.aggiornaPassword(
+=======
+      // CORREZIONE: il metodo in repo si chiama updatePassword, non aggiornaPassword
+      successPassword = await _usersRepo.updatePassword(
+>>>>>>> Stashed changes
           _currentPassController.text.trim(), _newPassController.text.trim());
     }
 
@@ -667,22 +684,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _confirmLogout() {
     showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-              title: const Text("Logout"),
-              content: const Text("Sei sicuro di voler uscire?"),
-              actions: [
-                TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text("ANNULLA")),
-                TextButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      scambio.eseguiLogout(context);
-                    },
-                    child: const Text("ESCI",
-                        style: TextStyle(color: Colors.red))),
-              ],
-            ));
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Logout"),
+        content: const Text("Sei sicuro di voler uscire?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("ANNULLA"),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context); // Chiude il dialog
+              // CHIAMATA CORRETTA:
+              _usersRepo.eseguiLogout(context); 
+            },
+            child: const Text("ESCI", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
   }
 }

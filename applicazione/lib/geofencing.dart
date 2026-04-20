@@ -8,6 +8,8 @@ import 'dart:async';
 import 'scambio.dart' as scambio;
 import 'polygon_editor.dart';
 import 'home.dart';
+import "repositories/positions_repo.dart";
+import "repositories/geofences_repo.dart";
 
 enum ActiveCard { none, zone, user, pet }
 
@@ -26,6 +28,9 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
   LatLng? _petLocation;
 
   StreamSubscription? _streamSubscription;
+
+  late final PositionsRepository _positionsRepo = PositionsRepository(scambio.pb);
+  late final GeofenceRepository _geofenceRepo = GeofenceRepository(scambio.pb);
 
   final ValueNotifier<ActiveCard> _activeCard =
       ValueNotifier<ActiveCard>(ActiveCard.none);
@@ -54,22 +59,13 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
 
     _caricaZoneDalDatabase();
 
-    _streamSubscription = scambio.posizioneStream.listen((nuovoRecord) {
-      debugPrint(
-          '🗺️ [MAPPA] Il tubo ha vibrato! Aggiorno la posizone animale...');
-
-      try {
-        final lat = nuovoRecord.getDoubleValue('lat');
-
-        final lon = nuovoRecord.getDoubleValue('lon');
-
-        if (mounted) {
-          setState(() {
-            _petLocation = LatLng(lat, lon);
-          });
-        }
-      } catch (e) {
-        debugPrint('❌ [MAPPA] Errore lettura coordinate in diretta: $e');
+    _positionsRepo.subscribeToPositions(); // Attiva la sottoscrizione
+    _streamSubscription = _positionsRepo.positionsStream.listen((nuovaPosizione) {
+      if (mounted) {
+        setState(() {
+          // Usa le proprietà dell'oggetto Positions, non getDoubleValue!
+          _petLocation = LatLng(nuovaPosizione.lat, nuovaPosizione.lon);
+        });
       }
     });
 
@@ -91,10 +87,9 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
 
   @override
   void dispose() {
-    // Rimuovi sempre il listener quando chiudi la pagina per evitare memory leak
-
     hasLocationPermission.removeListener(_onPermissionChanged);
-
+    _streamSubscription?.cancel(); // Fondamentale
+    _positionsRepo.dispose();      // Fondamentale
     super.dispose();
   }
 
@@ -136,40 +131,19 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
   // In geofencing.dart
 
   Future<void> _scaricaPosizioneInizialeAnimale() async {
-    if (!scambio.isReady) await scambio.autenticazione();
+    // Nota: scambio.isReady e autenticazione() dovrebbero essere gestiti a monte (es. splash screen)
+    final posizione = await _positionsRepo.getLatestPosition();
 
-    try {
-      final result = await scambio.pb.collection('positions').getList(
-            page: 1,
-            perPage: 1,
-            sort: '-timestamp',
-          );
+    if (posizione != null && mounted) {
+      setState(() {
+        _petLocation = LatLng(posizione.lat, posizione.lon);
+      });
 
-      if (result.items.isNotEmpty && mounted) {
-        final lat = result.items.first.getDoubleValue('lat');
-
-        final lon = result.items.first.getDoubleValue('lon');
-
-        final nuovaPosPet = LatLng(lat, lon);
-
-        setState(() {
-          _petLocation = nuovaPosPet;
-        });
-
-        // ✨ NOVITÀ: Se la posizione dell'utente è ancora nulla,
-
-        // zoommiamo sull'animale non appena lo troviamo nel database
-
-        if (_myLocation == null) {
-          _mapController.move(nuovaPosPet, 18.0);
-
-          _activeCard.value = ActiveCard.pet;
-
-          _resolveAddress(nuovaPosPet, true);
-        }
+      if (_myLocation == null) {
+        _mapController.move(_petLocation!, 18.0);
+        _activeCard.value = ActiveCard.pet;
+        _resolveAddress(_petLocation!, true);
       }
-    } catch (e) {
-      debugPrint("Errore recupero posizione iniziale pet: $e");
     }
   }
 
