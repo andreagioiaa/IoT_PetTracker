@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:pet_tracker/repositories/activities_repo.dart';
 import 'battery.dart';
 import 'geofencing.dart';
 import 'tracking_screen.dart';
@@ -9,6 +10,7 @@ import 'settings.dart';
 import "repositories/positions_repo.dart";
 import "repositories/users_repo.dart"; // Aggiunto import
 import "objects/positions.dart"; // Aggiunto per il tipo Positions
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 // --- VARIABILI GLOBALI DI STATO ---
 final ValueNotifier<bool> isTrackingMode = ValueNotifier(false);
@@ -24,6 +26,15 @@ class PetTrackerApp extends StatelessWidget {
     return MaterialApp(
       title: 'Pet Tracker',
       debugShowCheckedModeBanner: false,
+      // Configurazione obbligatoria per il calendario
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('it', 'IT'), // Lingua italiana
+      ],
       theme: ThemeData(
         fontFamily: 'Roboto',
         scaffoldBackgroundColor: const Color(0xFFF7F8FA),
@@ -116,6 +127,16 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
   final UsersRepository _usersRepo = UsersRepository();
   final PositionsRepository _positionsRepo = PositionsRepository(scambio.pb);
 
+  // 1. Aggiungi il repository (assicurati di aver importato activities_repo.dart)
+  final ActivitiesRepository _activitiesRepo = ActivitiesRepository(scambio.pb);
+
+  // 2. Variabile per i dati aggregati da mostrare nella UI
+  Map<String, dynamic> _dailyStats = {
+    'steps': 0,
+    'km': "0.0",
+    'minutes': 0,
+  };
+
   late List<Map<String, String>> dates;
   late int selectedDateIndex;
   late String currentMonthName;
@@ -171,6 +192,95 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     super.dispose();
   }
 
+  // Variabile per la data attualmente visualizzata (inizialmente oggi)
+  DateTime _dataSelezionata = DateTime.now();
+
+  // Metodo per inizializzare o aggiornare la riga dei giorni
+  void _initializeDates({DateTime? riferimento}) {
+    DateTime base = riferimento ?? DateTime.now();
+    List<String> monthNames = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
+    
+    setState(() {
+      currentMonthName = monthNames[base.month - 1];
+      
+      // Calcoliamo il lunedì della settimana che contiene la data 'base'
+      DateTime lunedi = base.subtract(Duration(days: base.weekday - 1));
+      
+      List<String> weekDays = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
+      dates = List.generate(7, (index) {
+        DateTime date = lunedi.add(Duration(days: index));
+        return {'day': date.day.toString(), 'weekDay': weekDays[date.weekday - 1]};
+      });
+      
+      // Il focus (cerchietto colorato) va sul giorno scelto
+      selectedDateIndex = base.weekday - 1;
+    });
+  }
+
+  // Funzione per il calendario che aggiorna anche la riga dei giorni
+  Future<void> _selezionaData(BuildContext context) async {
+    final DateTime? scelta = await showDatePicker(
+      context: context,
+      initialDate: _dataSelezionata,
+      firstDate: DateTime(2024),
+      lastDate: DateTime.now(),
+      locale: const Locale('it', 'IT'),
+    );
+
+  if (scelta != null) {
+    setState(() => _dataSelezionata = scelta);
+    _initializeDates(riferimento: scelta); // RIGENERA la settimana
+    _scaricaDatiAttivita(scelta); // Scarica i dati (passi, km, min) per quel giorno
+  }
+}
+
+
+  Future<void> _scaricaDatiAttivita(DateTime data) async {
+    setState(() => _isLoading = true); // Mostra un caricamento se vuoi
+
+    try {
+      // Recuperiamo l'ID della board (puoi prenderlo dall'utente o da una variabile globale)
+      // Per ora ipotizziamo di avere il boardId salvato o recuperabile
+      final String? boardId = scambio.pb.authStore.model?.id; // Verifica la tua logica di IDs
+      
+      if (boardId == null) return;
+
+      // Chiamata al repository (metodo fetchActivitiesByDate aggiunto nel passaggio precedente)
+      final attivita = await _activitiesRepo.fetchActivitiesByDate(boardId, data);
+
+      int passiTotali = 0;
+      Duration durataTotale = Duration.zero;
+
+      for (var act in attivita) {
+        passiTotali += act.totalSteps;
+
+        if (act.startTime != null && act.endTime != null) {
+          durataTotale += act.endTime!.difference(act.startTime!);
+        } else if (act.isActive && act.startTime != null) {
+          // Se l'attività è ancora in corso, calcoliamo fino ad ora
+          durataTotale += DateTime.now().difference(act.startTime!);
+        }
+      }
+
+      // Calcolo KM (falcata media 0.7m)
+      double kmTotali = (passiTotali * 0.7) / 1000;
+
+      if (mounted) {
+        setState(() {
+          _dailyStats = {
+            'steps': passiTotali,
+            'km': kmTotali.toStringAsFixed(1),
+            'minutes': durataTotale.inMinutes,
+          };
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint("❌ Errore scaricamento attività: $e");
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   Future<void> _scaricaDatiIniziali() async {
     // 1. Dati Utente
     final user = await _usersRepo.getCurrentUser();
@@ -182,7 +292,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
 
     if (mounted) {
       setState(() {
-        _displayUsername = user?.name ?? 'username';
+        _displayUsername = user?.username ?? 'username';
         if (statoAllarme != null) isTrackingMode.value = statoAllarme;
         _ultimoAggiornamento = tempoIniziale;
         _nomeZona = zonaIniziale;
@@ -235,19 +345,6 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
       j = i;
     }
     return isInside;
-  }
-
-  void _initializeDates() {
-    DateTime today = DateTime.now();
-    List<String> monthNames = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
-    currentMonthName = monthNames[today.month - 1];
-    List<String> weekDays = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
-    DateTime monday = today.subtract(Duration(days: today.weekday - 1));
-    dates = List.generate(7, (index) {
-      DateTime date = monday.add(Duration(days: index));
-      return {'day': date.day.toString(), 'weekDay': weekDays[date.weekday - 1]};
-    });
-    selectedDateIndex = today.weekday - 1;
   }
 
   @override
@@ -414,28 +511,49 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
       ),
       child: Column(
         children: [
+          // HEADER UNICO: Titolo + Icona Calendario Cliccabile
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text("Attività di $currentMonthName", style: TextStyle(fontSize: 16 * scale, fontWeight: FontWeight.bold)),
-              const Icon(Icons.calendar_month, color: Color(0xFF00C6B8)),
+              Text("Attività di $currentMonthName", 
+                  style: TextStyle(fontSize: 16 * scale, fontWeight: FontWeight.bold)),
+              IconButton(
+                icon: const Icon(Icons.calendar_month, color: Color(0xFF00C6B8)),
+                onPressed: () => _selezionaData(context), // Apre il calendario senza crash
+              ),
             ],
           ),
           SizedBox(height: 16 * scale),
+          // RIGA DEI GIORNI (La settimana che era sparita)
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: List.generate(dates.length, (index) {
               bool isSelected = index == selectedDateIndex;
               return GestureDetector(
-                onTap: () => setState(() => selectedDateIndex = index),
+                onTap: () {
+                  // Se clicchi un giorno della settimana mostrata
+                  DateTime baseSettimana = _dataSelezionata.subtract(Duration(days: _dataSelezionata.weekday - 1));
+                  DateTime giornoCliccato = baseSettimana.add(Duration(days: index));
+                  
+                  setState(() {
+                    selectedDateIndex = index;
+                    _dataSelezionata = giornoCliccato;
+                  });
+                  _scaricaDatiAttivita(giornoCliccato);
+                },
                 child: Container(
                   width: 40 * scale,
                   padding: const EdgeInsets.symmetric(vertical: 8),
-                  decoration: BoxDecoration(color: isSelected ? const Color(0xFF00C6B8) : Colors.transparent, borderRadius: BorderRadius.circular(12)),
+                  decoration: BoxDecoration(
+                    color: isSelected ? const Color(0xFF00C6B8) : Colors.transparent, 
+                    borderRadius: BorderRadius.circular(12)
+                  ),
                   child: Column(
                     children: [
-                      Text(dates[index]['weekDay']![0], style: TextStyle(color: isSelected ? Colors.white70 : Colors.black38)),
-                      Text(dates[index]['day']!, style: TextStyle(fontWeight: FontWeight.bold, color: isSelected ? Colors.white : Colors.black87)),
+                      Text(dates[index]['weekDay']![0], 
+                          style: TextStyle(color: isSelected ? Colors.white70 : Colors.black38)),
+                      Text(dates[index]['day']!, 
+                          style: TextStyle(fontWeight: FontWeight.bold, color: isSelected ? Colors.white : Colors.black87)),
                     ],
                   ),
                 ),
@@ -443,12 +561,13 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
             }),
           ),
           const Divider(height: 24),
+          // STATISTICHE (Passi, Km, Minuti)
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildCompactStat("Passi", "1.240", Icons.pets, Colors.orange, scale),
-              _buildCompactStat("Km", "2.4", Icons.straighten, Colors.blue, scale),
-              _buildCompactStat("Minuti", "45", Icons.timer, Colors.purple, scale),
+              _buildCompactStat("Passi", "${_dailyStats['steps']}", Icons.pets, Colors.orange, scale),
+              _buildCompactStat("Km", "${_dailyStats['km']}", Icons.straighten, Colors.blue, scale),
+              _buildCompactStat("Minuti", "${_dailyStats['minutes']}", Icons.timer, Colors.purple, scale),
             ],
           ),
         ],

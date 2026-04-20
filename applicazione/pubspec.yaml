@@ -30,6 +30,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations: # <--- Aggiungi questa riga
+    sdk: flutter
   shared_preferences: ^2.2.0
   flutter_secure_storage: ^9.0.0 # O l'ultima versione disponibile
 
