@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'login.dart'; // Importa il tuo file login
 import 'home.dart';
-import 'main.dart';
 
 class SplashScreen extends StatefulWidget {
   // Aggiungiamo questa variabile
@@ -39,8 +38,8 @@ class _SplashScreenState extends State<SplashScreen>
     Timer(const Duration(seconds: 3), () {
       if (mounted) {
         // Se l'utente è autenticato va alla Home, altrimenti al Login
-        Widget destination = widget.isAlreadyAuthenticated 
-            ? const PetTrackerNavigation() 
+        Widget destination = widget.isAlreadyAuthenticated
+            ? const PetTrackerNavigation()
             : const AuthScreen();
 
         Navigator.pushReplacement(
@@ -50,6 +49,7 @@ class _SplashScreenState extends State<SplashScreen>
       }
     });
   }
+
   @override
   void dispose() {
     _controller.dispose();

@@ -39,7 +39,6 @@ class _TrackingScreenState extends State<TrackingScreen> {
   double? _directionToPet;
   double? _phoneHeading;
   bool _isSatellite = true;
-  bool _hasLocationPermission = false;
 
   // --- IL CUORE DEL CAMALEONTE: Il cane è al sicuro? ---
   bool _isPetSafe =
@@ -48,7 +47,12 @@ class _TrackingScreenState extends State<TrackingScreen> {
   @override
   void initState() {
     super.initState();
+    hasLocationPermission.addListener(_onPermissionChanged);
     _inizializzaDati();
+  }
+
+  void _onPermissionChanged() {
+    if (mounted) setState(() {});
   }
 
   void _inizializzaBussola() {
@@ -228,12 +232,13 @@ class _TrackingScreenState extends State<TrackingScreen> {
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.whileInUse ||
         permission == LocationPermission.always) {
-      if (mounted) setState(() => _hasLocationPermission = true);
+      hasLocationPermission.value = true;
+
       _avviaStreamPosizioneUtente();
 
       _inizializzaBussola();
     } else {
-      if (mounted) setState(() => _hasLocationPermission = false);
+      hasLocationPermission.value = false;
     }
   }
 
@@ -253,6 +258,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
 
   @override
   void dispose() {
+    hasLocationPermission.removeListener(_onPermissionChanged);
     _petStreamSubscription?.cancel();
     _userLocationStream?.cancel();
     _compassSubscription?.cancel();
@@ -471,7 +477,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  if (_hasLocationPermission)
+                  if (hasLocationPermission.value)
                     FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Container(
@@ -544,9 +550,11 @@ class _TrackingScreenState extends State<TrackingScreen> {
                 const SizedBox(height: 10),
                 _miniFAB(
                   Icons.smartphone,
-                  _hasLocationPermission ? Colors.white : Colors.grey[300]!,
+                  hasLocationPermission.value
+                      ? Colors.white
+                      : Colors.grey[300]!,
                   () {
-                    if (!_hasLocationPermission) {
+                    if (!hasLocationPermission.value) {
                       // Non chiede i permessi, mostra direttamente l'errore se non li ha
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -566,7 +574,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
                   },
                   isSmallScreen,
                   "trackLocateMe",
-                  iconColor: _hasLocationPermission
+                  iconColor: hasLocationPermission.value
                       ? Colors.blueAccent
                       : Colors.grey[600]!,
                 ),

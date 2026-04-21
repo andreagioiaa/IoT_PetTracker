@@ -44,8 +44,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
 
   String _indirizzoPrecompilatoGps = "";
 
-  bool _hasLocationPermission = false;
-
   @override
   void initState() {
     super.initState();
@@ -80,7 +78,8 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.always ||
         permission == LocationPermission.whileInUse) {
-      setState(() => _hasLocationPermission = true);
+      hasLocationPermission.value = true;
+
       // Se ha già i permessi, prendiamo la posizione
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.medium,
@@ -91,18 +90,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
             () => _myLocation = LatLng(position.latitude, position.longitude));
       }
     } else {
-      setState(() => _hasLocationPermission = false);
-    }
-  }
-
-  Future<void> _checkInitialPermission() async {
-    LocationPermission permission = await Geolocator.checkPermission();
-
-    if (mounted) {
-      setState(() {
-        _hasLocationPermission = (permission == LocationPermission.always ||
-            permission == LocationPermission.whileInUse);
-      });
+      hasLocationPermission.value = false;
     }
   }
 
@@ -399,7 +387,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
 
       if (permission == LocationPermission.always ||
           permission == LocationPermission.whileInUse) {
-        setState(() => _hasLocationPermission = true);
+        hasLocationPermission.value = true;
 
         Position position = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.medium,
@@ -415,7 +403,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
           _resolveAddress(_myLocation!, false);
         }
       } else {
-        setState(() => _hasLocationPermission = false);
+        hasLocationPermission.value = false;
         return;
       }
     } catch (e) {
@@ -1449,7 +1437,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                         FloatingActionButton.small(
                           heroTag: "locateMe",
                           onPressed: () async {
-                            if (!_hasLocationPermission) {
+                            if (!hasLocationPermission.value) {
                               if (mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
@@ -1473,12 +1461,12 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                               }
                             }
                           },
-                          backgroundColor: _hasLocationPermission
+                          backgroundColor: hasLocationPermission.value
                               ? Colors.white
                               : Colors.grey[300],
                           child: Icon(
                             Icons.smartphone,
-                            color: _hasLocationPermission
+                            color: hasLocationPermission.value
                                 ? Colors.blueAccent
                                 : Colors.grey[600],
                           ),
