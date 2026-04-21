@@ -433,7 +433,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionLabel("PREFERENZE MAPPA ALL'AVVIO", scale),
+        _buildSectionLabel("PREFERENZE MAPPA", scale),
         Container(
           padding: EdgeInsets.all(5 * scale),
           decoration: BoxDecoration(

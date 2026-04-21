@@ -80,7 +80,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
         permission == LocationPermission.whileInUse) {
       hasLocationPermission.value = true;
 
-      // Se ha già i permessi, prendiamo la posizione
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.medium,
         timeLimit: const Duration(seconds: 10),
@@ -88,6 +87,14 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
       if (mounted) {
         setState(
             () => _myLocation = LatLng(position.latitude, position.longitude));
+
+        // LOGICA DI FOCUS E CARD
+        // Se l'utente preferisce il Dispositivo, ora che abbiamo il GPS apriamo la sua card
+        if (mapFocusPreference.value == 'Dispositivo') {
+          _mapController.move(_myLocation!, 18.0);
+          _activeCard.value = ActiveCard.user;
+          _resolveAddress(_myLocation!, false);
+        }
       }
     } else {
       hasLocationPermission.value = false;
@@ -140,7 +147,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
   // In geofencing.dart
 
   Future<void> _scaricaPosizioneInizialeAnimale() async {
-    // Nota: scambio.isReady e autenticazione() dovrebbero essere gestiti a monte (es. splash screen)
     final posizione = await _positionsRepo.getLatestPosition();
 
     if (posizione != null && mounted) {
@@ -148,7 +154,9 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
         _petLocation = LatLng(posizione.lat, posizione.lon);
       });
 
-      if (_myLocation == null) {
+      // LOGICA DI FOCUS E CARD
+      // Applica il focus se la preferenza è "Animale", oppure come fallback temporaneo
+      if (mapFocusPreference.value == 'Animale' || _myLocation == null) {
         _mapController.move(_petLocation!, 18.0);
         _activeCard.value = ActiveCard.pet;
         _resolveAddress(_petLocation!, true);
@@ -1093,28 +1101,8 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     bool isCurrentPlaceActive = currentPlace?['is_active'] ?? false;
 
     // Calcolo dinamico del centro iniziale per evitare l'Italia intera
-
     LatLng initialCenter = const LatLng(41.8719, 12.5674);
-
     double initialZoom = 6.0;
-
-    // Logica di Focus basata sulle impostazioni
-
-    if (mapFocusPreference.value == 'Dispositivo' && _myLocation != null) {
-      initialCenter = _myLocation!;
-
-      initialZoom = 18.0;
-    } else if (mapFocusPreference.value == 'Animale' && _petLocation != null) {
-      initialCenter = _petLocation!;
-
-      initialZoom = 18.0;
-    } else if (_petLocation != null) {
-      // Fallback se il focus dispositivo è scelto ma il GPS non è pronto
-
-      initialCenter = _petLocation!;
-
-      initialZoom = 18.0;
-    }
 
     double screenWidth = MediaQuery.of(context).size.width;
 
