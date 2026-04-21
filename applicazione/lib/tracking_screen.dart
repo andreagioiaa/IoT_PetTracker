@@ -49,10 +49,11 @@ class _TrackingScreenState extends State<TrackingScreen> {
   void initState() {
     super.initState();
     _inizializzaDati();
-    _inizializzaBussola();
   }
 
   void _inizializzaBussola() {
+    if (_compassSubscription != null) return;
+
     _compassSubscription = FlutterCompass.events?.listen((event) {
       if (mounted && event.heading != null) {
         setState(() {
@@ -229,6 +230,8 @@ class _TrackingScreenState extends State<TrackingScreen> {
         permission == LocationPermission.always) {
       if (mounted) setState(() => _hasLocationPermission = true);
       _avviaStreamPosizioneUtente();
+
+      _inizializzaBussola();
     } else {
       if (mounted) setState(() => _hasLocationPermission = false);
     }
@@ -246,33 +249,6 @@ class _TrackingScreenState extends State<TrackingScreen> {
         });
       }
     });
-  }
-
-  Future<void> _determinePosition() async {
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-    }
-
-    if (permission == LocationPermission.always ||
-        permission == LocationPermission.whileInUse) {
-      if (mounted) setState(() => _hasLocationPermission = true);
-      _avviaStreamPosizioneUtente();
-
-      // Tenta di prendere subito la posizione per non far aspettare lo stream
-      try {
-        Position pos = await Geolocator.getCurrentPosition(
-            desiredAccuracy: LocationAccuracy.high);
-        if (mounted) {
-          setState(() {
-            _userLocation = LatLng(pos.latitude, pos.longitude);
-            _ricalcolaDirezione();
-          });
-        }
-      } catch (_) {}
-    } else {
-      if (mounted) setState(() => _hasLocationPermission = false);
-    }
   }
 
   @override
@@ -495,57 +471,58 @@ class _TrackingScreenState extends State<TrackingScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 15, vertical: 8),
-                      decoration: BoxDecoration(
-                          color: Colors.black54,
-                          borderRadius: BorderRadius.circular(25),
-                          border: Border.all(color: Colors.white24)),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(_calcolaTestoDistanza(),
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16 * scale,
-                                  fontWeight: FontWeight.bold)),
-                          if (_directionToPet != null &&
-                              _phoneHeading != null) ...[
-                            SizedBox(width: 15 * scale),
-                            Container(
-                              width: 30 * scale,
-                              height: 30 * scale,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Colors.white.withOpacity(0.1),
-                              ),
-                              child: Transform.rotate(
-                                angle: compassRotation,
-                                child: Icon(
-                                  Icons.navigation,
-                                  color: petColor, // Sempre arancione
-                                  size: 20 * scale,
+                  if (_hasLocationPermission)
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 15, vertical: 8),
+                        decoration: BoxDecoration(
+                            color: Colors.black54,
+                            borderRadius: BorderRadius.circular(25),
+                            border: Border.all(color: Colors.white24)),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(_calcolaTestoDistanza(),
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16 * scale,
+                                    fontWeight: FontWeight.bold)),
+                            if (_directionToPet != null &&
+                                _phoneHeading != null) ...[
+                              SizedBox(width: 15 * scale),
+                              Container(
+                                width: 30 * scale,
+                                height: 30 * scale,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.white.withOpacity(0.1),
                                 ),
-                              ),
-                            )
-                          ] else ...[
-                            SizedBox(width: 15 * scale),
-                            SizedBox(
-                              width: 15 * scale,
-                              height: 15 * scale,
-                              child: const CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white54,
-                              ),
-                            )
-                          ]
-                        ],
+                                child: Transform.rotate(
+                                  angle: compassRotation,
+                                  child: Icon(
+                                    Icons.navigation,
+                                    color: petColor, // Sempre arancione
+                                    size: 20 * scale,
+                                  ),
+                                ),
+                              )
+                            ] else ...[
+                              SizedBox(width: 15 * scale),
+                              SizedBox(
+                                width: 15 * scale,
+                                height: 15 * scale,
+                                child: const CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white54,
+                                ),
+                              )
+                            ]
+                          ],
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:pet_tracker/repositories/activities_repo.dart';
+import 'package:geolocator/geolocator.dart';
 import 'battery.dart';
 import 'geofencing.dart';
 import 'tracking_screen.dart';
@@ -8,8 +9,8 @@ import 'dart:async';
 import 'scambio.dart' as scambio;
 import 'settings.dart';
 import "repositories/positions_repo.dart";
-import "repositories/users_repo.dart"; // Aggiunto import
-import "objects/positions.dart"; // Aggiunto per il tipo Positions
+import "repositories/users_repo.dart";
+import "objects/positions.dart";
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -197,6 +198,8 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
 
     _scaricaDatiIniziali();
 
+    _richiediPermessiAlPrimoAvvio();
+
     _uiRefreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
       if (mounted) setState(() {});
     });
@@ -207,6 +210,25 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     _streamSubscription?.cancel();
     _uiRefreshTimer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _richiediPermessiAlPrimoAvvio() async {
+    final prefs = await SharedPreferences.getInstance();
+    bool giaChiesto = prefs.getBool('permesso_posizione_chiesto') ?? false;
+
+    LocationPermission permission = await Geolocator.checkPermission();
+
+    if (!giaChiesto && permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      await prefs.setBool('permesso_posizione_chiesto', true);
+    }
+
+    if (permission == LocationPermission.always ||
+        permission == LocationPermission.whileInUse) {
+      hasLocationPermission.value = true;
+    } else {
+      hasLocationPermission.value = false;
+    }
   }
 
   // Variabile per la data attualmente visualizzata (inizialmente oggi)

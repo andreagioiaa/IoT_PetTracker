@@ -73,7 +73,26 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
 
     _scaricaPosizioneInizialeAnimale();
 
-    _determinePosition();
+    _avviaGeolocalizzazioneSePermessa();
+  }
+
+  Future<void> _avviaGeolocalizzazioneSePermessa() async {
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.always ||
+        permission == LocationPermission.whileInUse) {
+      setState(() => _hasLocationPermission = true);
+      // Se ha già i permessi, prendiamo la posizione
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.medium,
+        timeLimit: const Duration(seconds: 10),
+      );
+      if (mounted) {
+        setState(
+            () => _myLocation = LatLng(position.latitude, position.longitude));
+      }
+    } else {
+      setState(() => _hasLocationPermission = false);
+    }
   }
 
   Future<void> _checkInitialPermission() async {
@@ -369,12 +388,11 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
 
   LatLng? _myLocation;
 
-  // In geofencing.dart
-
   Future<void> _determinePosition() async {
     try {
       LocationPermission permission = await Geolocator.checkPermission();
 
+      // Qui chiediamo il permesso! (Questa funzione ora la leghiamo solo al click dell'utente)
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
       }
@@ -382,42 +400,29 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
       if (permission == LocationPermission.always ||
           permission == LocationPermission.whileInUse) {
         setState(() => _hasLocationPermission = true);
+
+        Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.medium,
+          timeLimit: const Duration(seconds: 10),
+        );
+
+        if (mounted) {
+          setState(() {
+            _myLocation = LatLng(position.latitude, position.longitude);
+          });
+          _mapController.move(_myLocation!, 18.0);
+          _activeCard.value = ActiveCard.user;
+          _resolveAddress(_myLocation!, false);
+        }
       } else {
         setState(() => _hasLocationPermission = false);
-
-        // Se l'utente ha negato, non procediamo oltre
-
         return;
-      }
-
-      // Se arriviamo qui, i permessi ci sono
-
-      Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.medium,
-        timeLimit: const Duration(seconds: 10),
-      );
-
-      if (mounted) {
-        setState(() {
-          _myLocation = LatLng(position.latitude, position.longitude);
-        });
-
-        _mapController.move(_myLocation!, 18.0);
-
-        _activeCard.value = ActiveCard.user;
-
-        _resolveAddress(_myLocation!, false);
       }
     } catch (e) {
       debugPrint("Errore geolocalizzazione: $e");
-
-      // ✨ NOVITÀ: Se il GPS utente fallisce, proviamo a centrare sul PET
-
       if (_petLocation != null && mounted) {
         _mapController.move(_petLocation!, 18.0);
-
         _activeCard.value = ActiveCard.pet;
-
         _resolveAddress(_petLocation!, true);
       }
     }
