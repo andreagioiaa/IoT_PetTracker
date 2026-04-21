@@ -172,9 +172,7 @@ bool isTokenValid(unsigned long epochNow) {
   if (ts == 0) return false;
 
   unsigned long age = epochNow - ts;
-  unsigned long remaining = (age < TOKEN_VALIDITY_SECONDS)
-                             ? (TOKEN_VALIDITY_SECONDS - age)
-                             : 0;
+  unsigned long remaining = (age < TOKEN_VALIDITY_SECONDS) ? (TOKEN_VALIDITY_SECONDS - age) : 0;
 
   Serial.print("[AUTH] Token age: "); Serial.print(age);
   Serial.print("s  remaining: "); Serial.print(remaining); Serial.println("s");
@@ -495,8 +493,7 @@ void iniettaGps() {
   if (!hasGpsFix) return;
   String latDir = (lastLat >= 0) ? "N" : "S";
   String lonDir = (lastLon >= 0) ? "E" : "W";
-  String cmdPos = "AT+CGNSSPOS=" + formatCoordinate(lastLat, true) + "," + latDir + ","
-                + formatCoordinate(lastLon, false) + "," + lonDir + ",0,100";
+  String cmdPos = "AT+CGNSSPOS=" + formatCoordinate(lastLat, true) + "," + latDir + "," + formatCoordinate(lastLon, false) + "," + lonDir + ",0,100";
   sendAT(cmdPos.c_str(), 500);
   if (lastGpsDate[0] != '\0') {
     String cmdTime = "AT+CGNSSTIME=" + String(lastGpsDate) + "," + String(lastGpsTime) + ",1000";
@@ -588,8 +585,7 @@ void svuotaCoda() {
 // ═══════════════════════════════════════════════
 //  SEZIONE 6 — INVIO DATI PRINCIPALE
 // ═══════════════════════════════════════════════
-void inviaDati(float l_lat, float l_lon, const BatInfo& bat, const String& timestamp,
-               const StepData& step, bool isSleeping, bool gpsValid) {
+void inviaDati(float l_lat, float l_lon, const BatInfo& bat, const String& timestamp, const StepData& step, bool isSleeping, bool gpsValid) {
 
   sendAT("AT+HTTPTERM"); // Chiude sessioni precedenti
   delay(200);
@@ -611,7 +607,7 @@ void inviaDati(float l_lat, float l_lon, const BatInfo& bat, const String& times
   json += "\"sleep\":" + String(isSleeping ? "true" : "false") + ",";
   json += "\"gps_valid\":" + String(gpsValid ? "true" : "false") + ",";
   json += "\"gps_fail_count\":" + String(gpsFailCount) + ",";
-  json += "\"net_fail_count\":" + String(previousNetFails); // Niente virgola qui!
+  json += "\"net_fail_count\":" + String(previousNetFails);
   json += "}";
 
   Serial.println("[JSON DEBUG] " + json);
