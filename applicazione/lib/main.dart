@@ -1,10 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // <-- 1. IMPORT NECESSARIO PER PERSISTENZA
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'splash_screen.dart';
-import 'home.dart'; // Necessario per accedere a mapFocusPreference
+import 'home.dart';
 import 'scambio.dart' as scambio;
 import 'package:intl/date_symbol_data_local.dart';
+
+// --- GESTIONE BACKGROUND FIREBASE ---
+// Serve a Firebase per "svegliarsi" e gestire la notifica se l'app è completamente chiusa
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  print(
+      "📩 Ricevuto messaggio in background (Batteria scarica!): ${message.messageId}");
+}
+// ------------------------------------
 
 void main() async {
   // 1. 🏗️ Obbligatorio per eseguire codice asincrono prima di runApp
@@ -34,7 +46,7 @@ void main() async {
   try {
     final prefs = await SharedPreferences.getInstance();
     final String? savedFocus = prefs.getString('map_focus_priority');
-    
+
     if (savedFocus != null) {
       // Assicurati che mapFocusPreference sia accessibile (es. importata da home.dart)
       mapFocusPreference.value = savedFocus;
@@ -46,20 +58,40 @@ void main() async {
     print('⚠️ Errore nel caricamento delle preferenze locali: $e');
   }
 
-  // --- 🔑 LOGICA DI AUTENTICAZIONE (PocketBase + SecureStorage) ---
+  // --- LOGICA DI AUTENTICAZIONE (PocketBase + SecureStorage) ---
   print('🏁 Avvio sistema: inizializzazione PocketBase...');
-  
-  // Inizializziamo il client usando l'URL dal .env
+
   scambio.inizializzaClient();
 
-  /* Eseguiamo l'autenticazione UNA SOLA VOLTA.
-     Questa funzione carica il token JWT dal SecureStorage e prova il refresh.
-     Restituisce true se il server risponde (anche se l'utente non è loggato).
-  */
   bool canConnect = await scambio.autenticazione();
-  print(canConnect ? '✅ Connessione al server riuscita.' : '❌ Errore di connessione al server.');
+  print(canConnect
+      ? '✅ Connessione al server riuscita.'
+      : '❌ Errore di connessione al server.');
 
-  // 4. 🚀 Lanciamo l'app una sola volta passandogli lo stato della connessione
+  // --- SALVATAGGIO TOKEN SU POCKETBASE ---
+  // SOLO se l'utente è loggato con successo
+  if (canConnect && scambio.pb.authStore.isValid) {
+    try {
+      // Otteniamo di nuovo l'istanza di Firebase
+      String? currentToken = await FirebaseMessaging.instance.getToken();
+
+      if (currentToken != null) {
+        // Aggiorniamo il record dell'utente corrente su PocketBase
+        await scambio.pb.collection('users').update(
+          scambio.pb.authStore.model.id,
+          body: {
+            'tokenFCM': currentToken,
+          },
+        );
+        print('✅ FCM Token salvato con successo su PocketBase!');
+      }
+    } catch (e) {
+      print('⚠️ Errore durante il salvataggio del token su PocketBase: $e');
+    }
+  }
+  // -------------------------------------------
+
+  // Lanciamo l'app una sola volta passandogli lo stato della connessione
   runApp(PetTrackerApp(isAuthSuccessful: canConnect));
 }
 
@@ -77,7 +109,6 @@ class PetTrackerApp extends StatelessWidget {
         primarySwatch: Colors.blue,
         useMaterial3: true,
       ),
-      // Se il server non risponde, mostriamo l'errore. 
       home: !isAuthSuccessful
           ? _buildErrorScreen()
           : SplashScreen(isAlreadyAuthenticated: scambio.pb.authStore.isValid),

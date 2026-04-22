@@ -4,16 +4,17 @@ import '../scambio.dart';
 import '../objects/positions.dart';
 
 class PositionsRepository {
-  final PocketBase _pb; // 1. Devi dichiarare questa variabile privata 
-  final StreamController<Positions> _positionsController = StreamController<Positions>.broadcast();
+  final PocketBase _pb; // 1. Devi dichiarare questa variabile privata
+  final StreamController<Positions> _positionsController =
+      StreamController<Positions>.broadcast();
 
-  // 2. IL PUNTO CRITICO: Devi aggiungere questo costruttore 
-  PositionsRepository(this._pb); 
+  // 2. IL PUNTO CRITICO: Devi aggiungere questo costruttore
+  PositionsRepository(this._pb);
 
   Stream<Positions> get positionsStream => _positionsController.stream;
 
   void subscribeToPositions() {
-    // Nota: ora usiamo _pb (quella passata al costruttore) 
+    // Nota: ora usiamo _pb (quella passata al costruttore)
     _pb.collection(tabella_positions).subscribe('*', (e) {
       if (e.record != null) {
         _positionsController.add(Positions.fromRecord(e.record!));
@@ -25,11 +26,11 @@ class PositionsRepository {
   Future<Positions?> getLatestPosition() async {
     try {
       final result = await pb.collection(tabella_positions).getList(
-        page: 1,
-        perPage: 1,
-        sort: '-timestamp',
-      );
-      
+            page: 1,
+            perPage: 1,
+            sort: '-timestamp',
+          );
+
       if (result.items.isEmpty) return null;
       return Positions.fromRecord(result.items.first);
     } catch (e) {
@@ -41,11 +42,9 @@ class PositionsRepository {
   /// Recupera l'ultimo timestamp (sostituisce 'scambio.getUltimoTimestamp')
   Future<DateTime?> getLastTimestamp() async {
     try {
-      final result = await pb.collection(tabella_positions).getList(
-        page: 1,
-        perPage: 1, 
-        sort: '-timestamp'
-      );
+      final result = await pb
+          .collection(tabella_positions)
+          .getList(page: 1, perPage: 1, sort: '-timestamp');
 
       if (result.items.isEmpty) return null;
 
@@ -66,14 +65,17 @@ class PositionsRepository {
   Future<List<Positions>> fetchPositionsByDate(DateTime date) async {
     try {
       // Definiamo i limiti del giorno (00:00 - 23:59) in UTC
-      final start = DateTime(date.year, date.month, date.day).toUtc().toIso8601String();
-      final end = DateTime(date.year, date.month, date.day, 23, 59, 59).toUtc().toIso8601String();
+      final start =
+          DateTime(date.year, date.month, date.day).toUtc().toIso8601String();
+      final end = DateTime(date.year, date.month, date.day, 23, 59, 59)
+          .toUtc()
+          .toIso8601String();
 
       // Query alla collezione 'positions'
       final result = await _pb.collection('positions').getFullList(
-        filter: 'timestamp >= "$start" && timestamp <= "$end"',
-        sort: 'timestamp', 
-      );
+            filter: 'timestamp >= "$start" && timestamp <= "$end"',
+            sort: 'timestamp',
+          );
 
       return result.map((record) => Positions.fromRecord(record)).toList();
     } catch (e) {

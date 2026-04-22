@@ -50,6 +50,8 @@ dependencies:
   http: ^1.6.0
   latlong2: ^0.9.1
   image_picker: ^1.2.1
+  firebase_core: ^4.7.0
+  firebase_messaging: ^16.2.0
 
 dev_dependencies:
   flutter_test:

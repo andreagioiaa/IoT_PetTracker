@@ -16,10 +16,10 @@ class BatteryRepository {
       // Nota: Ho usato 'positions' perché nel tuo scambio.dart i dati sembrano essere lì.
       // Se invece usi la tabella specifica, cambia in 'battery_data'.
       final result = await pb.collection('positions').getList(
-        page: 1,
-        perPage: 1,
-        sort: '-timestamp',
-      );
+            page: 1,
+            perPage: 1,
+            sort: '-timestamp',
+          );
 
       if (result.items.isEmpty) return null;
       return BatteryData.fromRecord(result.items.first);

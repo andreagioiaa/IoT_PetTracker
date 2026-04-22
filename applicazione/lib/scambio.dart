@@ -8,14 +8,21 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'login.dart';
 
 // --- COSTANTI TABELLE ---
-const String tabella_users = "users"; // fields: id, password, tokenKey, email, emailVisibility, username, verified, name, surname, alarma, created, updated
-const String tabella_activities = "activities"; // fields: id, board_id, total_steps, start_time, end_time, is_active
-const String tabella_batteryData= "battery_data"; // fields: id, board_id, timestamp, battery, battery_percent, charging
+const String tabella_users =
+    "users"; // fields: id, password, tokenKey, email, emailVisibility, username, verified, name, surname, alarma, created, updated
+const String tabella_activities =
+    "activities"; // fields: id, board_id, total_steps, start_time, end_time, is_active
+const String tabella_batteryData =
+    "battery_data"; // fields: id, board_id, timestamp, battery, battery_percent, charging
 const String tabella_boards = "boards"; // fields: id, user_id
-const String tabella_data_sent_raw = "data_sent_raw"; // fields: id, board_id, timestamp, lon, lat, geo, battery, battery_percent, charging, steps, sleep, gps_valid
-const String tabella_geofences = "geofences"; // fields: id, name, center_lon, center_lat, is_active, user_id, street, civic, city, cap, vertices (JSON), created, updated
-const String tabella_positions = "positions"; // fields: id, timestamp, lon, lat, geo, battery, battery_percent, charging, feet, sleep
-const String tabella_positions_duplicate = "positions_duplicate"; // fields: id, board_id, timestamp, lon, lat, geo, gps_valid, net_fail_count
+const String tabella_data_sent_raw =
+    "data_sent_raw"; // fields: id, board_id, timestamp, lon, lat, geo, battery, battery_percent, charging, steps, sleep, gps_valid
+const String tabella_geofences =
+    "geofences"; // fields: id, name, center_lon, center_lat, is_active, user_id, street, civic, city, cap, vertices (JSON), created, updated
+const String tabella_positions =
+    "positions"; // fields: id, timestamp, lon, lat, geo, battery, battery_percent, charging, feet, sleep
+const String tabella_positions_duplicate =
+    "positions_duplicate"; // fields: id, board_id, timestamp, lon, lat, geo, gps_valid, net_fail_count
 // const String tabella_nometabella = "nometabella"; (copiare e incollare)
 
 // --- PERSISTENZA SICURA DEL TOKEN ---
@@ -125,7 +132,8 @@ void eseguiLogout(BuildContext context) {
   pb.authStore.clear();
   isReady = false;
 
-  print("✅ Logout effettuato alle ${DateTime.now().hour}:${DateTime.now().minute}");
+  print(
+      "✅ Logout effettuato alle ${DateTime.now().hour}:${DateTime.now().minute}");
 
   Navigator.pushAndRemoveUntil(
     context,

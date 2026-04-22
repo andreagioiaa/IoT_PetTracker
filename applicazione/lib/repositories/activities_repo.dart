@@ -10,8 +10,8 @@ class ActivitiesRepository {
   Future<Activities?> fetchCurrentActiveActivities(String boardId) async {
     try {
       final result = await _pb.collection('activities').getFirstListItem(
-        'board_id = "$boardId" && is_active = true',
-      );
+            'board_id = "$boardId" && is_active = true',
+          );
       return Activities.fromRecord(result);
     } catch (e) {
       return null; // 404 gestito silenziosamente
@@ -38,7 +38,6 @@ class ActivitiesRepository {
     }
   }
 
-
   /// Crea una nuova attività (es. all'inizio di una camminata)
   Future<Activities?> startActivities(String boardId) async {
     try {
@@ -55,17 +54,22 @@ class ActivitiesRepository {
     }
   }
 
-
-  Future<List<Activities>> fetchActivitiesByDate(String boardId, DateTime date) async {
+  Future<List<Activities>> fetchActivitiesByDate(
+      String boardId, DateTime date) async {
     try {
       // Definiamo l'inizio e la fine del giorno in UTC per la query
-      final startOfDay = DateTime(date.year, date.month, date.day, 0, 0, 0).toUtc().toIso8601String();
-      final endOfDay = DateTime(date.year, date.month, date.day, 23, 59, 59).toUtc().toIso8601String();
+      final startOfDay = DateTime(date.year, date.month, date.day, 0, 0, 0)
+          .toUtc()
+          .toIso8601String();
+      final endOfDay = DateTime(date.year, date.month, date.day, 23, 59, 59)
+          .toUtc()
+          .toIso8601String();
 
       final result = await _pb.collection('activities').getFullList(
-        filter: 'board_id = "$boardId" && start_time >= "$startOfDay" && start_time <= "$endOfDay"',
-        sort: '-start_time',
-      );
+            filter:
+                'board_id = "$boardId" && start_time >= "$startOfDay" && start_time <= "$endOfDay"',
+            sort: '-start_time',
+          );
 
       return result.map((record) => Activities.fromRecord(record)).toList();
     } catch (e) {
@@ -77,13 +81,17 @@ class ActivitiesRepository {
   Future<List<dynamic>> fetchDailyStats(String boardId, DateTime date) async {
     try {
       // Definisci i limiti temporali del giorno scelto (00:00 - 23:59)
-      final start = DateTime(date.year, date.month, date.day).toUtc().toIso8601String();
-      final end = DateTime(date.year, date.month, date.day, 23, 59, 59).toUtc().toIso8601String();
+      final start =
+          DateTime(date.year, date.month, date.day).toUtc().toIso8601String();
+      final end = DateTime(date.year, date.month, date.day, 23, 59, 59)
+          .toUtc()
+          .toIso8601String();
 
       final records = await _pb.collection('activities').getFullList(
-        filter: 'board_id = "$boardId" && start_time >= "$start" && start_time <= "$end"',
-      );
-      
+            filter:
+                'board_id = "$boardId" && start_time >= "$start" && start_time <= "$end"',
+          );
+
       return records;
     } catch (e) {
       print("Errore fetch storico: $e");

@@ -1,5 +1,5 @@
 import 'package:pocketbase/pocketbase.dart';
-import '../scambio.dart'; 
+import '../scambio.dart';
 import '../objects/users.dart';
 import 'package:flutter/material.dart';
 import "../login.dart";
@@ -44,7 +44,8 @@ class UsersRepository {
     if (!pb.authStore.isValid || pb.authStore.model == null) return null;
     try {
       // Recuperiamo il record aggiornato dal server per evitare dati obsoleti
-      final record = await pb.collection('users').getOne(pb.authStore.model!.id);
+      final record =
+          await pb.collection('users').getOne(pb.authStore.model!.id);
       return User.fromRecord(record);
     } catch (e) {
       print('🛑 Errore recupero utente: $e');
@@ -92,7 +93,7 @@ class UsersRepository {
   Future<bool> updatePassword(String oldPassword, String newPassword) async {
     try {
       if (!pb.authStore.isValid) return false;
-      
+
       final userId = pb.authStore.model!.id;
       final email = pb.authStore.model!.getStringValue('email');
 
@@ -112,8 +113,8 @@ class UsersRepository {
 
   /// Effettua il logout pulendo lo store e riportando l'utente al login
   void eseguiLogout(BuildContext context) {
-    // 1. Pulisce il PocketBase authStore 
-    logout(); 
+    // 1. Pulisce il PocketBase authStore
+    logout();
 
     // 2. Navigazione: rimuove tutte le rotte e torna al Login
     Navigator.pushAndRemoveUntil(
@@ -123,7 +124,7 @@ class UsersRepository {
     );
   }
 
-  /// Effettua il logout pulendo lo store 
+  /// Effettua il logout pulendo lo store
   void logout() {
     pb.authStore.clear();
   }
@@ -131,10 +132,12 @@ class UsersRepository {
   // In users_repo.dart
   Future<bool> login(String identity, String password) async {
     try {
-      // PocketBase gestisce il token internamente: dopo questa chiamata, 
+      // PocketBase gestisce il token internamente: dopo questa chiamata,
       // il token viene salvato nel secureStore configurato in scambio.dart
-      await pb.collection('users').authWithPassword(identity.trim(), password.trim());
-      
+      await pb
+          .collection('users')
+          .authWithPassword(identity.trim(), password.trim());
+
       if (pb.authStore.isValid) {
         isReady = true; // Impostiamo la variabile globale in scambio.dart
         return true;
