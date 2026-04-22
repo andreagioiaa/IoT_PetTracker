@@ -3,9 +3,9 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'splash_screen.dart';
-import 'home.dart';
-import 'scambio.dart' as scambio;
+import 'screens/splash_view.dart';
+import 'screens/home.dart';
+import 'services/scambio.dart' as scambio;
 import 'package:intl/date_symbol_data_local.dart';
 
 // --- GESTIONE BACKGROUND FIREBASE ---
@@ -21,6 +21,30 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 void main() async {
   // 1. 🏗️ Obbligatorio per eseguire codice asincrono prima di runApp
   WidgetsFlutterBinding.ensureInitialized();
+
+  print('🔥 Inizializzazione Firebase e Notifiche...');
+  try {
+    await Firebase.initializeApp();
+
+    // Diciamo a Firebase quale funzione usare in background
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+    FirebaseMessaging messaging = FirebaseMessaging.instance;
+
+    // Richiediamo i permessi all'utente
+    NotificationSettings settings = await messaging.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+    print('🔔 Permessi notifiche concessi: ${settings.authorizationStatus}');
+
+    // Recuperiamo l'indirizzo univoco del telefono (Token)
+    String? token = await messaging.getToken();
+    print("📲 IL TOKEN DI QUESTO TELEFONO È: $token");
+  } catch (e) {
+    print('⚠️ Errore inizializzazione Firebase: $e');
+  }
 
   // 2. 🌍 INIZIALIZZAZIONE LOCALIZZAZIONE (Risolve il crash LocaleDataException)
   // Questo "accende il motore" per i nomi dei mesi e giorni in italiano

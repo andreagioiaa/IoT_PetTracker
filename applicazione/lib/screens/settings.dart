@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'scambio.dart' as scambio;
+import '../services/scambio.dart' as scambio;
 import 'home.dart';
-import "repositories/users_repo.dart"; // Rimuovi 'as users' se preferisci usare la classe direttamente
+import "../repositories/users_repo.dart"; // Rimuovi 'as users' se preferisci usare la classe direttamente
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SettingsScreen extends StatefulWidget {

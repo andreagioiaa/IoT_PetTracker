@@ -4,16 +4,16 @@ import 'package:pet_tracker/repositories/activities_repo.dart';
 import 'package:geolocator/geolocator.dart';
 import 'battery.dart';
 import 'geofencing.dart';
-import 'tracking_screen.dart';
+import 'tracking.dart';
 import 'dart:async';
-import 'scambio.dart' as scambio;
+import '../services/scambio.dart' as scambio;
 import 'settings.dart';
-import "repositories/positions_repo.dart";
-import "repositories/users_repo.dart";
-import "objects/positions.dart";
+import "../repositories/positions_repo.dart";
+import "../repositories/users_repo.dart";
+import "../models/positions.dart";
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import "recap_screen.dart";
+import "daily_recap.dart";
 
 // --- VARIABILI GLOBALI DI STATO ---
 final ValueNotifier<bool> isTrackingMode = ValueNotifier(false);

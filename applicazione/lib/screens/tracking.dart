@@ -6,10 +6,10 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_compass/flutter_compass.dart';
 import 'dart:async';
 import 'dart:math' as math;
-import 'scambio.dart' as scambio;
+import '../services/scambio.dart' as scambio;
 import 'home.dart';
-import 'repositories/users_repo.dart';
-import "repositories/positions_repo.dart";
+import '../repositories/users_repo.dart';
+import "../repositories/positions_repo.dart";
 
 class TrackingScreen extends StatefulWidget {
   const TrackingScreen({super.key});

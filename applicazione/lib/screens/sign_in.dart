@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'login.dart';
 import 'home.dart';
-import 'scambio.dart' as scambio;
-import "repositories/users_repo.dart";
+import '../services/scambio.dart' as scambio;
+import "../repositories/users_repo.dart";
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});

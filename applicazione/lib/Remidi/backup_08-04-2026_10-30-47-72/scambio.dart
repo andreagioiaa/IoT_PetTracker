@@ -2,7 +2,7 @@ import 'dart:convert'; // Necessario per jsonEncode/Decode
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
-import 'package:pet_tracker/login.dart';
+import 'package:pet_tracker/screens/login.dart';
 import 'package:pocketbase/pocketbase.dart';
 import 'dart:async';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -25,7 +25,7 @@ class SecureAuthStore extends AuthStore {
       if (modelMap != null) {
         model = RecordModel.fromJson(modelMap);
       }
-      
+
       // Ora super.save riceve (String, RecordModel?) invece di (String, Map)
       super.save(token, model);
     }
@@ -34,7 +34,7 @@ class SecureAuthStore extends AuthStore {
   @override
   void save(String token, dynamic model) {
     super.save(token, model);
-    // Quando salviamo, PocketBase passa già un RecordModel, 
+    // Quando salviamo, PocketBase passa già un RecordModel,
     // jsonEncode userà automaticamente il suo metodo .toJson()
     final encoded = jsonEncode({"token": token, "model": model});
     _storage.write(key: _storageKey, value: encoded);
@@ -121,7 +121,7 @@ Future<bool> autenticazione() async {
     // 3. Se non c'è sessione, controlliamo solo se il server risponde (superuser check rimosso per sicurezza utente)
     // Se vuoi mantenere il login automatico superuser (occhio ai rischi!), lascialo pure qui.
     print('👤 Nessuna sessione trovata. Reindirizzamento al login.');
-    return true; 
+    return true;
   } catch (e) {
     print('❌ Errore connessione Server: $e');
     return false;
@@ -180,14 +180,14 @@ Future<bool> loginUtente(String identity, String password) async {
   try {
     // PocketBase gestisce automaticamente sia email che username nel primo parametro
     final authData = await pb.collection('user').authWithPassword(
-      identity.trim(), 
-      password.trim(),
-    );
+          identity.trim(),
+          password.trim(),
+        );
 
     if (pb.authStore.isValid) {
       print('✅ Utente autenticato: ${pb.authStore.model.id}');
-      isReady = true; 
-      
+      isReady = true;
+
       // Avviamo lo stream per le posizioni una volta loggati
       await avviaAscoltoInTempoReale();
       return true;
@@ -198,7 +198,6 @@ Future<bool> loginUtente(String identity, String password) async {
     return false;
   }
 }
-
 
 /// Se non è loggato, restituisce una stringa di default.
 Future<String> getNomeUtente() async {
@@ -236,23 +235,22 @@ Future<String> getNomeCompleto() async {
   final nome = await getNomeUtente();
   final cognome = await getCognomeUtente();
 
-  // Usiamo l'interpolazione di stringhe e .trim() 
+  // Usiamo l'interpolazione di stringhe e .trim()
   // per evitare spazi doppi se il cognome è vuoto
   return '$nome $cognome'.trim();
 }
-
 
 /// Aggiorna lo stato dell'allarme su PocketBase per l'utente corrente.
 Future<bool> setAllarme(bool nuovoStato) async {
   try {
     if (pb.authStore.isValid && pb.authStore.model != null) {
       final userId = pb.authStore.model!.id;
-      
+
       // Aggiorniamo il record nella collezione 'user'
       await pb.collection('user').update(userId, body: {
         'alarm': nuovoStato,
       });
-      
+
       print('✅ Allarme aggiornato su PB: $nuovoStato');
       return true;
     }
@@ -263,37 +261,36 @@ Future<bool> setAllarme(bool nuovoStato) async {
   }
 }
 
-/// Restituisce lo stato dell'allarme. 
+/// Restituisce lo stato dell'allarme.
 /// Ritorna [true/false] se il dato è letto correttamente.
 /// Ritorna [null] se c'è un errore o l'utente non è autenticato.
 Future<bool?> getAllarme() async {
   try {
     // Verifichiamo l'autenticazione tramite l'authStore
     if (pb.authStore.isValid && pb.authStore.model != null) {
-      
       // 1. Recuperiamo il valore come booleano direttamente
       // Nota: Assicurati che il campo si chiami 'alarm' su PocketBase
       final record = pb.authStore.model!;
-      
+
       // Verifichiamo se il campo esiste effettivamente nel modello caricato
       if (!record.data.containsKey('alarm')) {
         print('⚠️ Campo "alarm" non trovato nella collezione user');
-        return null; 
+        return null;
       }
 
       return record.getBoolValue('alarm');
     }
-    
+
     print('⚠️ Tentativo di lettura allarme senza sessione valida.');
-    return null; 
+    return null;
   } catch (e) {
     print('❌ Errore critico getAllarme: $e');
     return null; // Qui capisci che è un errore di sistema
   }
 }
 
-
-Future<bool> registraUtente(String email, String password, String name, String surname, String username) async {
+Future<bool> registraUtente(String email, String password, String name,
+    String surname, String username) async {
   try {
     final body = {
       'email': email,
@@ -315,16 +312,16 @@ Future<bool> registraUtente(String email, String password, String name, String s
   }
 }
 
-
 /// Esegue il logout completo, pulendo memoria e archivio sicuro.
 void eseguiLogout(BuildContext context) {
   // 1. Pulizia fisica del token e del modello (RAM + SecureStorage)
-  pb.authStore.clear(); 
-  
+  pb.authStore.clear();
+
   // 2. Reset dello stato di prontezza dell'app
-  isReady = false; 
-  
-  print("✅ Sessione terminata correttamente alle ore ${DateTime.now().hour}:${DateTime.now().minute}");
+  isReady = false;
+
+  print(
+      "✅ Sessione terminata correttamente alle ore ${DateTime.now().hour}:${DateTime.now().minute}");
 
   // 3. Navigazione: "Svuota" lo stack delle pagine e torna al Login
   // Questo impedisce all'utente di tornare indietro con il tasto 'back'
@@ -357,17 +354,18 @@ Future<bool> aggiornaProfilo(String nuovoNome, String nuovoCognome) async {
 }
 
 /// Aggiorna la password dell'utente
-Future<bool> aggiornaPassword(String vecchiaPassword, String nuovaPassword) async {
+Future<bool> aggiornaPassword(
+    String vecchiaPassword, String nuovaPassword) async {
   try {
     if (pb.authStore.isValid && pb.authStore.model != null) {
       final userId = pb.authStore.model!.id;
-      
+
       await pb.collection('user').update(userId, body: {
         'oldPassword': vecchiaPassword, // <--- RICHIESTO DA POCKETBASE
         'password': nuovaPassword,
         'passwordConfirm': nuovaPassword,
       });
-      
+
       print('✅ Password aggiornata con successo');
       return true;
     }
@@ -379,18 +377,16 @@ Future<bool> aggiornaPassword(String vecchiaPassword, String nuovaPassword) asyn
   }
 }
 
-
-
 /// Restituisce l'URL completo dell'avatar dell'utente loggato.
 String getAvatarUrl() {
   if (pb.authStore.isValid && pb.authStore.model != null) {
     final record = pb.authStore.model!;
     final avatarName = record.getStringValue('avatar');
-    
+
     if (avatarName.isEmpty) return "";
 
     final baseUrl = pb.files.getUrl(record, avatarName).toString();
-    
+
     // Aggiungiamo un timestamp per evitare che la cache di Flutter ci mostri dati vecchi
     return "$baseUrl?t=${DateTime.now().millisecondsSinceEpoch}";
   }
@@ -402,14 +398,15 @@ Future<bool> aggiornaAvatar(Uint8List imageBytes, String fileName) async {
   try {
     if (pb.authStore.isValid && pb.authStore.model != null) {
       final userId = pb.authStore.model!.id;
-      
+
       await pb.collection('user').update(
         userId,
         files: [
           http.MultipartFile.fromBytes(
             'avatar',
             imageBytes,
-            filename: fileName, // PocketBase ha bisogno di un nome file con estensione
+            filename:
+                fileName, // PocketBase ha bisogno di un nome file con estensione
           ),
         ],
       );
@@ -427,10 +424,10 @@ Future<bool> rimuoviAvatar() async {
   try {
     if (pb.authStore.isValid && pb.authStore.model != null) {
       final userId = pb.authStore.model!.id;
-      
+
       // Settando il campo avatar a null, PocketBase elimina il file fisico
       await pb.collection('user').update(userId, body: {'avatar': null});
-      
+
       print('🗑️ Avatar rimosso per l\'utente: $userId');
       return true;
     }

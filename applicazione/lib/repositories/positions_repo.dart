@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:pocketbase/pocketbase.dart';
-import '../scambio.dart';
-import '../objects/positions.dart';
+import '../services/scambio.dart';
+import '../models/positions.dart';
 
 class PositionsRepository {
   final PocketBase _pb; // 1. Devi dichiarare questa variabile privata

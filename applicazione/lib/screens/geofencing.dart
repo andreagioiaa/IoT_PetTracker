@@ -5,11 +5,11 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:geolocator/geolocator.dart';
 import 'dart:async';
-import 'scambio.dart' as scambio;
+import '../services/scambio.dart' as scambio;
 import 'polygon_editor.dart';
 import 'home.dart';
-import "repositories/positions_repo.dart";
-import "repositories/geofences_repo.dart";
+import "../repositories/positions_repo.dart";
+import "../repositories/geofences_repo.dart";
 
 enum ActiveCard { none, zone, user, pet }
 

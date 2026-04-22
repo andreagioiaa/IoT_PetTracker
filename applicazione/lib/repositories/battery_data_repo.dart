@@ -1,5 +1,5 @@
-import '../scambio.dart';
-import '../objects/battery_data.dart';
+import '../services/scambio.dart';
+import '../models/battery_data.dart';
 import 'package:pocketbase/pocketbase.dart';
 import 'dart:async';
 
@@ -15,7 +15,7 @@ class BatteryRepository {
     try {
       // Nota: Ho usato 'positions' perché nel tuo scambio.dart i dati sembrano essere lì.
       // Se invece usi la tabella specifica, cambia in 'battery_data'.
-      final result = await pb.collection('positions').getList(
+      final result = await pb.collection(tabella_batteryData).getList(
             page: 1,
             perPage: 1,
             sort: '-timestamp',
@@ -32,7 +32,7 @@ class BatteryRepository {
   /// Avvia l'ascolto in tempo reale e trasforma i RecordModel in BatteryData
   Future<void> subscribeToBatteryUpdates() async {
     try {
-      pb.collection('positions').subscribe('*', (e) {
+      pb.collection(tabella_batteryData).subscribe('*', (e) {
         if (e.record != null) {
           final data = BatteryData.fromRecord(e.record!);
           _batteryStreamController.add(data);

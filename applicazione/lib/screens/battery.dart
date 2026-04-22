@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
 import 'dart:async';
-import 'scambio.dart' as scambio;
-import "repositories/battery_data_repo.dart";
+import '../services/scambio.dart' as scambio;
+import "../repositories/battery_data_repo.dart";
 
 class BatteryScreen extends StatefulWidget {
   const BatteryScreen({super.key});
@@ -17,12 +17,12 @@ class _BatteryScreenState extends State<BatteryScreen>
   // Riferimento al Repository per la gestione dati
   final BatteryRepository _batteryRepo = BatteryRepository(); //
 
-  int? _currentBattery; //
-  bool _isCharging = false; //
-  bool _isLoading = true; //
-  StreamSubscription? _streamSubscription; //
+  int? _currentBattery;
+  bool _isCharging = false;
+  bool _isLoading = true;
+  StreamSubscription? _streamSubscription;
 
-  late AnimationController _spinController; //
+  late AnimationController _spinController;
 
   @override
   void initState() {
@@ -39,7 +39,8 @@ class _BatteryScreenState extends State<BatteryScreen>
 
     // 3. Sottoscrizione allo stream tipizzato di BatteryData
     _streamSubscription = _batteryRepo.batteryStream.listen((data) {
-      debugPrint('🔋 [BATTERY SCREEN] Update ricevuto: ${data.batteryPercent}%');
+      debugPrint(
+          '🔋 [BATTERY SCREEN] Update ricevuto: ${data.batteryPercent}%');
 
       if (mounted) {
         setState(() {

@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:pocketbase/pocketbase.dart';
 import 'dart:async';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'login.dart';
+import '../screens/login.dart';
 
 // --- COSTANTI TABELLE ---
 const String tabella_users =
@@ -84,7 +84,7 @@ final pb = PocketBase(
 bool isReady = false;
 
 // ==========================================
-// 🔑 LOGICA DI AUTENTICAZIONE (STATELESS)
+//        LOGICA DI AUTENTICAZIONE
 // ==========================================
 
 // Rendiamo pb 'late': verrà inizializzato solo quando lo decidiamo noi
@@ -125,7 +125,7 @@ Future<bool> autenticazione() async {
 }
 
 // ==========================================
-// 🛠️ UTILITY DI LOGOUT
+//          LOGICA DI LOGOUT
 // ==========================================
 
 void eseguiLogout(BuildContext context) {

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'home.dart';
-import 'scambio.dart' as scambio;
+import '../services/scambio.dart' as scambio;
 import 'sign_in.dart'; // Import necessario per la navigazione verso la registrazione
-import "repositories/users_repo.dart";
+import "../repositories/users_repo.dart";
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -22,7 +22,7 @@ class _AuthScreenState extends State<AuthScreen> {
   String? _getValidationError() {
     final username = _usernameController.text.trim();
     final password = _passwordController.text.trim();
-    
+
     if (username.isEmpty || password.isEmpty) {
       return "Inserisci credenziali";
     }
@@ -35,14 +35,12 @@ class _AuthScreenState extends State<AuthScreen> {
   void _submitForm() async {
     // ... validazione ...
     setState(() => _isLoading = true);
-    
+
     try {
       // CAMBIO QUI: Usiamo il repo
       bool auth = await _usersRepo.login(
-        _usernameController.text.trim(), 
-        _passwordController.text.trim()
-      );
-      
+          _usernameController.text.trim(), _passwordController.text.trim());
+
       if (auth) {
         if (!mounted) return;
         Navigator.pushReplacement(
@@ -60,10 +58,9 @@ class _AuthScreenState extends State<AuthScreen> {
   void _showSnackBar(String message, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message), 
-        backgroundColor: color, 
-        behavior: SnackBarBehavior.floating
-      ),
+          content: Text(message),
+          backgroundColor: color,
+          behavior: SnackBarBehavior.floating),
     );
   }
 
@@ -91,12 +88,14 @@ class _AuthScreenState extends State<AuthScreen> {
               width: MediaQuery.of(context).size.width * 0.45,
               height: screenHeight * 0.15,
               decoration: const BoxDecoration(
-                gradient: LinearGradient(colors: [Color(0xFF00E2C1), Color(0xFF00C6B8)]),
-                borderRadius: BorderRadius.only(bottomLeft: Radius.circular(80)),
+                gradient: LinearGradient(
+                    colors: [Color(0xFF00E2C1), Color(0xFF00C6B8)]),
+                borderRadius:
+                    BorderRadius.only(bottomLeft: Radius.circular(80)),
               ),
             ),
           ),
-          
+
           SafeArea(
             child: SingleChildScrollView(
               padding: EdgeInsets.symmetric(horizontal: 30.0 * scale),
@@ -107,35 +106,37 @@ class _AuthScreenState extends State<AuthScreen> {
                   // Logo
                   Row(
                     children: [
-                      const Icon(Icons.pets, size: 36, color: Color(0xFF00C6B8)),
+                      const Icon(Icons.pets,
+                          size: 36, color: Color(0xFF00C6B8)),
                       const SizedBox(width: 10),
-                      Text('PET TRACKER', 
-                        style: TextStyle(
-                          fontSize: 14 * scale, 
-                          fontWeight: FontWeight.bold, 
-                          color: const Color(0xFF00C6B8),
-                          letterSpacing: 1.5
-                        )),
+                      Text('PET TRACKER',
+                          style: TextStyle(
+                              fontSize: 14 * scale,
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFF00C6B8),
+                              letterSpacing: 1.5)),
                     ],
                   ),
                   SizedBox(height: 60 * scale),
-                  
+
                   // Titolo
                   Text('Accedi ora',
                       style: TextStyle(
-                        fontSize: 34 * scale, 
-                        fontWeight: FontWeight.bold, 
-                        color: const Color(0xFF2D3142),
-                        letterSpacing: -0.5
-                      )),
-                  
+                          fontSize: 34 * scale,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF2D3142),
+                          letterSpacing: -0.5)),
+
                   SizedBox(height: 40 * scale),
 
                   // Campi Form
-                  _buildTextField(_usernameController, 'Email o Username', Icons.person_outline, scale),
+                  _buildTextField(_usernameController, 'Email o Username',
+                      Icons.person_outline, scale),
                   SizedBox(height: 15 * scale),
-                  _buildTextField(_passwordController, 'Password', Icons.lock_outline, scale, obscure: true),
-                  
+                  _buildTextField(_passwordController, 'Password',
+                      Icons.lock_outline, scale,
+                      obscure: true),
+
                   SizedBox(height: 40 * scale),
 
                   // Bottone Login
@@ -147,18 +148,25 @@ class _AuthScreenState extends State<AuthScreen> {
                         backgroundColor: const Color(0xFF00C6B8),
                         foregroundColor: Colors.white,
                         padding: EdgeInsets.symmetric(vertical: 18 * scale),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(15)),
                         elevation: 4,
                         shadowColor: const Color(0xFF00C6B8).withOpacity(0.3),
                       ),
-                      child: _isLoading 
-                        ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : const Text('ACCEDI', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      child: _isLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                  color: Colors.white, strokeWidth: 2))
+                          : const Text('ACCEDI',
+                              style: TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.bold)),
                     ),
                   ),
 
                   SizedBox(height: 20 * scale),
-                  
+
                   // Link per andare alla registrazione
                   Center(
                     child: TextButton(
@@ -166,7 +174,8 @@ class _AuthScreenState extends State<AuthScreen> {
                         // Navigazione verso SignInScreen
                         Navigator.pushReplacement(
                           context,
-                          MaterialPageRoute(builder: (context) => const SignInScreen()),
+                          MaterialPageRoute(
+                              builder: (context) => const SignInScreen()),
                         );
                       },
                       child: RichText(
@@ -176,7 +185,9 @@ class _AuthScreenState extends State<AuthScreen> {
                             TextSpan(text: "Non hai un account? "),
                             TextSpan(
                               text: "Registrati",
-                              style: TextStyle(color: Color(0xFF00C6B8), fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                  color: Color(0xFF00C6B8),
+                                  fontWeight: FontWeight.bold),
                             ),
                           ],
                         ),
@@ -192,12 +203,19 @@ class _AuthScreenState extends State<AuthScreen> {
     );
   }
 
-  Widget _buildTextField(TextEditingController controller, String label, IconData icon, double scale, {bool obscure = false}) {
+  Widget _buildTextField(TextEditingController controller, String label,
+      IconData icon, double scale,
+      {bool obscure = false}) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 4))
+        ],
       ),
       child: TextField(
         controller: controller,
@@ -205,9 +223,11 @@ class _AuthScreenState extends State<AuthScreen> {
         decoration: InputDecoration(
           labelText: label,
           labelStyle: const TextStyle(color: Colors.black38, fontSize: 14),
-          prefixIcon: Icon(icon, color: const Color(0xFF00C6B8), size: 22 * scale),
+          prefixIcon:
+              Icon(icon, color: const Color(0xFF00C6B8), size: 22 * scale),
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
+          contentPadding:
+              const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
         ),
       ),
     );

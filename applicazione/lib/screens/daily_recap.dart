@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:intl/intl.dart';
-import 'repositories/activities_repo.dart';
-import 'repositories/positions_repo.dart';
-import 'scambio.dart' as scambio;
+import '../repositories/activities_repo.dart';
+import '../repositories/positions_repo.dart';
+import '../services/scambio.dart' as scambio;
 
 class RecapScreen extends StatefulWidget {
   final DateTime dataSelezionata;
@@ -49,7 +49,7 @@ class _RecapScreenState extends State<RecapScreen> {
         );
       }
     });
-}
+  }
 
   Future<void> _caricaDatiCompleti() async {
     if (!mounted) return;
@@ -57,11 +57,12 @@ class _RecapScreenState extends State<RecapScreen> {
 
     try {
       // ⚠️ NOTA CRITICA: ID Board forzato per i test. Ricordati di renderlo dinamico.
-      const String boardId = "864643061064939"; 
+      const String boardId = "864643061064939";
 
       // 1. Recupero Attività e calcolo statistiche
-      final attivita = await _activitiesRepo.fetchActivitiesByDate(boardId, widget.dataSelezionata);
-      
+      final attivita = await _activitiesRepo.fetchActivitiesByDate(
+          boardId, widget.dataSelezionata);
+
       int passiTotali = 0;
       Duration durataTotale = Duration.zero;
 
@@ -73,9 +74,16 @@ class _RecapScreenState extends State<RecapScreen> {
             if (!diff.isNegative) durataTotale += diff;
           } else if (act.isActive) {
             // Gestione attività aperte nel passato o oggi
-            DateTime fineRef = DateUtils.isSameDay(widget.dataSelezionata, DateTime.now())
-                ? DateTime.now()
-                : DateTime(widget.dataSelezionata.year, widget.dataSelezionata.month, widget.dataSelezionata.day, 23, 59, 59);
+            DateTime fineRef =
+                DateUtils.isSameDay(widget.dataSelezionata, DateTime.now())
+                    ? DateTime.now()
+                    : DateTime(
+                        widget.dataSelezionata.year,
+                        widget.dataSelezionata.month,
+                        widget.dataSelezionata.day,
+                        23,
+                        59,
+                        59);
             final diff = fineRef.difference(act.startTime!);
             if (!diff.isNegative) durataTotale += diff;
           }
@@ -83,9 +91,12 @@ class _RecapScreenState extends State<RecapScreen> {
       }
 
       // 2. Recupero Posizioni GPS
-      final posizioni = await _positionsRepo.fetchPositionsByDate(widget.dataSelezionata);
-      print("📍 Punti GPS recuperati per il ${widget.dataSelezionata}: ${posizioni.length}");
-      final List<LatLng> points = posizioni.map((p) => LatLng(p.lat, p.lon)).toList();
+      final posizioni =
+          await _positionsRepo.fetchPositionsByDate(widget.dataSelezionata);
+      print(
+          "📍 Punti GPS recuperati per il ${widget.dataSelezionata}: ${posizioni.length}");
+      final List<LatLng> points =
+          posizioni.map((p) => LatLng(p.lat, p.lon)).toList();
 
       if (mounted) {
         setState(() {
@@ -109,7 +120,8 @@ class _RecapScreenState extends State<RecapScreen> {
 
   @override
   Widget build(BuildContext context) {
-    String dataLabel = DateFormat('EEEE d MMMM', 'it_IT').format(widget.dataSelezionata);
+    String dataLabel =
+        DateFormat('EEEE d MMMM', 'it_IT').format(widget.dataSelezionata);
 
     return Scaffold(
       appBar: AppBar(
@@ -124,7 +136,8 @@ class _RecapScreenState extends State<RecapScreen> {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(30)),
                 child: _buildMap(),
               ),
             ),
@@ -142,16 +155,21 @@ class _RecapScreenState extends State<RecapScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(24),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 15)],
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 15)
+          ],
         ),
-        child: _isLoading 
+        child: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _buildStat("Passi", "${_stats['steps']}", Icons.pets, Colors.orange),
-                  _buildStat("Km", "${_stats['km']}", Icons.straighten, Colors.blue),
-                  _buildStat("Minuti", "${_stats['minutes']}", Icons.timer, Colors.purple),
+                  _buildStat(
+                      "Passi", "${_stats['steps']}", Icons.pets, Colors.orange),
+                  _buildStat(
+                      "Km", "${_stats['km']}", Icons.straighten, Colors.blue),
+                  _buildStat("Minuti", "${_stats['minutes']}", Icons.timer,
+                      Colors.purple),
                 ],
               ),
       ),
@@ -189,8 +207,10 @@ class _RecapScreenState extends State<RecapScreen> {
       children: [
         Icon(icon, color: color, size: 28),
         const SizedBox(height: 8),
-        Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        Text(label, style: const TextStyle(color: Colors.black38, fontSize: 12)),
+        Text(value,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        Text(label,
+            style: const TextStyle(color: Colors.black38, fontSize: 12)),
       ],
     );
   }

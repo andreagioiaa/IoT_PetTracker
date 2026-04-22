@@ -1,8 +1,8 @@
 import 'package:pocketbase/pocketbase.dart';
-import '../scambio.dart';
-import '../objects/users.dart';
+import '../services/scambio.dart';
+import '../models/users.dart';
 import 'package:flutter/material.dart';
-import "../login.dart";
+import "../screens/login.dart";
 
 class UsersRepository {
   /*

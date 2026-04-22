@@ -1,6 +1,6 @@
 import 'package:pocketbase/pocketbase.dart';
 import 'package:latlong2/latlong.dart';
-import '../scambio.dart';
+import '../services/scambio.dart';
 
 class GeofenceRepository {
   final PocketBase _pb;
@@ -10,7 +10,8 @@ class GeofenceRepository {
   /// Recupera tutte le zone e gestisce il parsing dei vertici
   Future<List<Map<String, dynamic>>> fetchGeofences() async {
     try {
-      final records = await _pb.collection('geofences').getFullList(sort: '-created');
+      final records =
+          await _pb.collection('geofences').getFullList(sort: '-created');
 
       return records.map((res) {
         List<LatLng> polygonPts = [];
@@ -18,10 +19,11 @@ class GeofenceRepository {
           final rawList = res.getListValue<dynamic>('vertices');
           for (var pt in rawList) {
             if (pt is List && pt.length >= 2) {
-              polygonPts.add(LatLng(double.parse(pt[0].toString()), double.parse(pt[1].toString())));
+              polygonPts.add(LatLng(double.parse(pt[0].toString()),
+                  double.parse(pt[1].toString())));
             }
           }
-        } catch (e) { /* Gestione silenziosa vertici mancanti */ }
+        } catch (e) {/* Gestione silenziosa vertici mancanti */}
 
         return {
           "id": res.id,
@@ -30,7 +32,8 @@ class GeofenceRepository {
           "civic": res.getStringValue('civic'),
           "city": res.getStringValue('city'),
           "cap": res.getStringValue('cap'),
-          "center": LatLng(res.getDoubleValue('center_lat'), res.getDoubleValue('center_lon')),
+          "center": LatLng(res.getDoubleValue('center_lat'),
+              res.getDoubleValue('center_lon')),
           "is_active": res.getBoolValue('is_active'),
           "vertices": polygonPts,
         };
@@ -43,7 +46,9 @@ class GeofenceRepository {
 
   Future<bool> updateActiveStatus(String id, bool isActive) async {
     try {
-      await _pb.collection('geofences').update(id, body: {"is_active": isActive});
+      await _pb
+          .collection('geofences')
+          .update(id, body: {"is_active": isActive});
       return true;
     } catch (e) {
       return false;

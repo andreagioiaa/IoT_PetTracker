@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'scambio.dart' as scambio;
+import '../services/scambio.dart' as scambio;
 import 'home.dart';
 
 class PolygonEditorScreen extends StatefulWidget {
