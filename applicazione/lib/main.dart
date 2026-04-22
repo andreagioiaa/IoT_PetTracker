@@ -7,39 +7,48 @@ import 'home.dart'; // Necessario per accedere a mapFocusPreference
 import 'scambio.dart' as scambio;
 
 void main() async {
-  // 1. Necessario per eseguire codice asincrono prima di runApp
+  // 1. Obbligatorio per eseguire codice asincrono prima di runApp
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 2. CARICHIAMO IL FILE SEGRETO
+  // 2. Carichiamo le variabili d'ambiente
   print('🔐 Caricamento variabili d\'ambiente dal file .env...');
-  await dotenv.load(fileName: ".env");
+  try {
+    await dotenv.load(fileName: ".env");
+  } catch (e) {
+    print('⚠️ Errore caricamento .env: $e');
+  }
 
-  // --- 💾 INIZIO LOGICA DI PERSISTENZA ---
+  // --- 💾 LOGICA DI PERSISTENZA PREFERENZE (SharedPreferences) ---
+  // Qui recuperiamo i dati locali "non sensibili" come il focus della mappa
   print('💾 Recupero preferenze locali dal dispositivo...');
   try {
     final prefs = await SharedPreferences.getInstance();
-    // Cerchiamo la chiave 'map_focus_priority' (la stessa che userai in settings.dart)
     final String? savedFocus = prefs.getString('map_focus_priority');
     
     if (savedFocus != null) {
-      // Sovrascriviamo il valore di default ('Animale') con quello salvato dall'utente
       mapFocusPreference.value = savedFocus;
       print('✅ Focus mappa impostato su: $savedFocus');
     } else {
       print('ℹ️ Nessuna preferenza salvata, utilizzo default: Animale');
     }
   } catch (e) {
-    print('⚠️ Errore nel caricamento delle preferenze: $e');
+    print('⚠️ Errore nel caricamento delle preferenze locali: $e');
   }
-  // --- FINE LOGICA DI PERSISTENZA ---
 
+  // --- 🔑 LOGICA DI AUTENTICAZIONE (PocketBase + SecureStorage) ---
   print('🏁 Avvio sistema: inizializzazione PocketBase...');
+  
+  // Inizializziamo il client usando l'URL dal .env
+  scambio.inizializzaClient();
 
-  // 3. Eseguiamo l'autenticazione
-  bool isAuthenticated = await scambio.autenticazione();
+  /* Eseguiamo l'autenticazione UNA SOLA VOLTA.
+     Questa funzione carica il token JWT dal SecureStorage e prova il refresh.
+     Restituisce true se il server risponde (anche se l'utente non è loggato).
+  */
+  bool canConnect = await scambio.autenticazione();
 
-  // 4. Lanciamo l'app
-  runApp(PetTrackerApp(isAuthSuccessful: isAuthenticated));
+  // 4. Lanciamo l'app una sola volta passandogli lo stato della connessione
+  runApp(PetTrackerApp(isAuthSuccessful: canConnect));
 }
 
 class PetTrackerApp extends StatelessWidget {

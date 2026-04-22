@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import "../login.dart";
 
 class UsersRepository {
+  /*
   /// Effettua il login e restituisce l'esito.
   Future<bool> login(String identity, String password) async {
     try {
@@ -14,7 +15,7 @@ class UsersRepository {
       print('🛑 Errore Login: $e');
       return false;
     }
-  }
+  }*/
 
   /// Registra un nuovo utente su PocketBase.
   Future<bool> register(String email, String password, String name,
@@ -125,5 +126,23 @@ class UsersRepository {
   /// Effettua il logout pulendo lo store 
   void logout() {
     pb.authStore.clear();
+  }
+
+  // In users_repo.dart
+  Future<bool> login(String identity, String password) async {
+    try {
+      // PocketBase gestisce il token internamente: dopo questa chiamata, 
+      // il token viene salvato nel secureStore configurato in scambio.dart
+      await pb.collection('users').authWithPassword(identity.trim(), password.trim());
+      
+      if (pb.authStore.isValid) {
+        isReady = true; // Impostiamo la variabile globale in scambio.dart
+        return true;
+      }
+      return false;
+    } catch (e) {
+      print('🚨 Errore Login Utente: $e');
+      return false;
+    }
   }
 }
