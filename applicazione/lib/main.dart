@@ -1,31 +1,42 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart'; // <-- 1. IMPORT NECESSARIO PER PERSISTENZA
 import 'splash_screen.dart';
 import 'home.dart'; // Necessario per accedere a mapFocusPreference
 import 'scambio.dart' as scambio;
+import 'package:intl/date_symbol_data_local.dart';
 
 void main() async {
-  // 1. Obbligatorio per eseguire codice asincrono prima di runApp
+  // 1. 🏗️ Obbligatorio per eseguire codice asincrono prima di runApp
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 2. Carichiamo le variabili d'ambiente
+  // 2. 🌍 INIZIALIZZAZIONE LOCALIZZAZIONE (Risolve il crash LocaleDataException)
+  // Questo "accende il motore" per i nomi dei mesi e giorni in italiano
+  print('🌍 Inizializzazione dati di localizzazione per it_IT...');
+  try {
+    await initializeDateFormatting('it_IT', null);
+    print('✅ Localizzazione inizializzata correttamente.');
+  } catch (e) {
+    print('⚠️ Errore durante l\'inizializzazione della localizzazione: $e');
+  }
+
+  // 3. 🔐 Caricamento variabili d'ambiente dal file .env
   print('🔐 Caricamento variabili d\'ambiente dal file .env...');
   try {
     await dotenv.load(fileName: ".env");
+    print('✅ File .env caricato.');
   } catch (e) {
     print('⚠️ Errore caricamento .env: $e');
   }
 
   // --- 💾 LOGICA DI PERSISTENZA PREFERENZE (SharedPreferences) ---
-  // Qui recuperiamo i dati locali "non sensibili" come il focus della mappa
   print('💾 Recupero preferenze locali dal dispositivo...');
   try {
     final prefs = await SharedPreferences.getInstance();
     final String? savedFocus = prefs.getString('map_focus_priority');
     
     if (savedFocus != null) {
+      // Assicurati che mapFocusPreference sia accessibile (es. importata da home.dart)
       mapFocusPreference.value = savedFocus;
       print('✅ Focus mappa impostato su: $savedFocus');
     } else {
@@ -46,8 +57,9 @@ void main() async {
      Restituisce true se il server risponde (anche se l'utente non è loggato).
   */
   bool canConnect = await scambio.autenticazione();
+  print(canConnect ? '✅ Connessione al server riuscita.' : '❌ Errore di connessione al server.');
 
-  // 4. Lanciamo l'app una sola volta passandogli lo stato della connessione
+  // 4. 🚀 Lanciamo l'app una sola volta passandogli lo stato della connessione
   runApp(PetTrackerApp(isAuthSuccessful: canConnect));
 }
 

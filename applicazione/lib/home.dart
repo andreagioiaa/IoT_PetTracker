@@ -13,6 +13,7 @@ import "repositories/users_repo.dart";
 import "objects/positions.dart";
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import "recap_screen.dart";
 
 // --- VARIABILI GLOBALI DI STATO ---
 final ValueNotifier<bool> isTrackingMode = ValueNotifier(false);
@@ -272,22 +273,80 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     });
   }
 
-  // Funzione per il calendario che aggiorna anche la riga dei giorni
-  Future<void> _selezionaData(BuildContext context) async {
-    final DateTime? scelta = await showDatePicker(
+  void _selezionaData(BuildContext context) {
+    showModalBottomSheet(
       context: context,
-      initialDate: _dataSelezionata,
-      firstDate: DateTime(2024),
-      lastDate: DateTime.now(),
-      locale: const Locale('it', 'IT'),
-    );
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+      ),
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.all(20),
+          height: MediaQuery.of(context).size.height * 0.5,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "Seleziona una data",
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 15),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: 30, // Mostriamo gli ultimi 30 giorni
+                  itemBuilder: (context, index) {
+                    // Calcola la data a ritroso partendo da oggi
+                    DateTime data = DateTime.now().subtract(Duration(days: index));
+                    String giornoNome = _getGiornoSettimana(data);
+                    String dataFormattata = "${data.day} ${_getMese(data)}";
 
-    if (scelta != null) {
-      setState(() => _dataSelezionata = scelta);
-      _initializeDates(riferimento: scelta); // RIGENERA la settimana
-      _scaricaDatiAttivita(
-          scelta); // Scarica i dati (passi, km, min) per quel giorno
-    }
+                    return ListTile(
+                      leading: const Icon(Icons.calendar_today, color: Color(0xFF00C6B8)),
+                      title: Text("$giornoNome $dataFormattata"),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                      onTap: () {
+                        Navigator.pop(context); // Chiude il selettore
+                        _gestisciCambioData(data); // Decide se andare in Recap o restare in Home
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _gestisciCambioData(DateTime scelta) {
+    // Rimuoviamo il blocco sulla settimana attuale.
+    // Se l'utente usa il calendario, vuole vedere il dettaglio profondo (Recap).
+    
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => RecapScreen(dataSelezionata: scelta)
+      ),
+    ).then((_) {
+      // Quando torni indietro dal recap, potresti voler aggiornare la dashboard 
+      // se la data scelta era proprio 'oggi'
+      if (DateUtils.isSameDay(scelta, DateTime.now())) {
+        _scaricaDatiIniziali(); 
+      }
+    });
+  }
+
+  // Funzioni helper per evitare problemi di localizzazione
+  String _getGiornoSettimana(DateTime d) {
+    const giorni = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
+    return giorni[d.weekday - 1];
+  }
+
+  String _getMese(DateTime d) {
+    const mesi = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"];
+    return mesi[d.month - 1];
   }
 
   Future<void> caricaPreferenzeMappa() async {
@@ -304,14 +363,14 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     try {
       // Recuperiamo l'ID della board (puoi prenderlo dall'utente o da una variabile globale)
       // Per ora ipotizziamo di avere il boardId salvato o recuperabile
-      final String? boardId =
-          scambio.pb.authStore.model?.id; // Verifica la tua logica di IDs
+      final String boardId = "864643061064939"; 
+  
+      
 
-      if (boardId == null) return;
+      // if (boardId == null) return; (momentaneamente inutile, non ha senso questo controllo)
 
       // Chiamata al repository (metodo fetchActivitiesByDate aggiunto nel passaggio precedente)
-      final attivita =
-          await _activitiesRepo.fetchActivitiesByDate(boardId, data);
+      final attivita = await _activitiesRepo.fetchActivitiesByDate(boardId, data);
 
       int passiTotali = 0;
       Duration durataTotale = Duration.zero;

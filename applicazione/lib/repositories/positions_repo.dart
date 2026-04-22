@@ -62,4 +62,23 @@ class PositionsRepository {
   void dispose() {
     _positionsController.close();
   }
+
+  Future<List<Positions>> fetchPositionsByDate(DateTime date) async {
+    try {
+      // Definiamo i limiti del giorno (00:00 - 23:59) in UTC
+      final start = DateTime(date.year, date.month, date.day).toUtc().toIso8601String();
+      final end = DateTime(date.year, date.month, date.day, 23, 59, 59).toUtc().toIso8601String();
+
+      // Query alla collezione 'positions'
+      final result = await _pb.collection('positions').getFullList(
+        filter: 'timestamp >= "$start" && timestamp <= "$end"',
+        sort: 'timestamp', 
+      );
+
+      return result.map((record) => Positions.fromRecord(record)).toList();
+    } catch (e) {
+      print('🛑 [PositionsRepository] Errore fetchPositionsByDate: $e');
+      return [];
+    }
+  }
 }

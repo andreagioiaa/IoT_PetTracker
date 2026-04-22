@@ -30,8 +30,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_localizations: # <--- Aggiungi questa riga
+  flutter_localizations: # <--- ASSICURATI CHE CI SIA QUESTA
     sdk: flutter
+  intl: 0.20.2 # Necessario per la formattazione delle date
   shared_preferences: ^2.2.0
   flutter_secure_storage: ^9.0.0 # O l'ultima versione disponibile
 
