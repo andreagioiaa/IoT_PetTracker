@@ -1,143 +1,257 @@
+// ═══════════════════════════════════════════════════════════════
+//  CONFIGURAZIONE
+// ═══════════════════════════════════════════════════════════════
+const WATCHDOG_TIMEOUT_MIN  = 10; // Minuti di silenzio prima che il watchdog intervenga
+const GPS_FAIL_ALERT_THRESH = 3;  // Pacchetti consecutivi senza GPS prima di loggare
+const SESSION_DEDUP_SEC     = 30; // Secondi: se esiste già una sessione attiva aperta
+                                  // da meno di questo valore, non ne crea una nuova
+
+// ───────────────────────────────────────────────────────────────
+//  UTILITY: salva un evento di anomalia in "device_events"
+//  Campi richiesti: board_id (text), type (text), detail (text), timestamp (text)
+// ───────────────────────────────────────────────────────────────
+function salvaEvento(app, boardId, type, detail) {
+    try {
+        const col = app.findCollectionByNameOrId("device_events");
+        const rec = new Record(col);
+        rec.set("board_id", boardId);
+        rec.set("type",     type);
+        rec.set("detail",   detail);
+        rec.set("timestamp", new Date().toISOString());
+        app.save(rec);
+        console.log("[EVENTI] '" + type + "' per board " + boardId + ": " + detail);
+    } catch (err) {
+        console.log("[EVENTI] Errore salvataggio evento '" + type + "': " + err);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  HOOK: onRecordAfterCreateSuccess → data_sent_raw
+// ═══════════════════════════════════════════════════════════════
 onRecordAfterCreateSuccess((e) => {
-    const raw = e.record;
-    const boardId = raw.getString("board_id");
-    const timestamp = raw.getString("timestamp");
-    const sleep = raw.getBool("sleep");
-    const steps = raw.getInt("steps");
 
-    console.log("--- SMISTAMENTO AVVIATO PER BOARD: " + boardId + " | sleep: " + sleep + " | steps: " + steps + " ---");
+    const raw          = e.record;
+    const boardId      = raw.getString("board_id");
+    const timestamp    = raw.getString("timestamp");
+    const sleep        = raw.getBool("sleep");
+    const steps        = raw.getInt("steps");
+    const gpsValid     = raw.getBool("gps_valid");
+    const gpsFailCount = raw.getInt("gps_fail_count");
+    const netFailCount = raw.getInt("net_fail_count");
+    const lat          = raw.getFloat("lat");
+    const lon          = raw.getFloat("lon");
 
-    // 1. SMISTAMENTO BATTERIA
+    console.log(
+        "--- SMISTAMENTO | board: " + boardId +
+        " | sleep: " + sleep +
+        " | steps: " + steps +
+        " | gps_valid: " + gpsValid +
+        " | gps_fail: " + gpsFailCount +
+        " | net_fail: " + netFailCount + " ---"
+    );
+
+    // Wrappa tutto in finally per garantire che e.next() venga sempre chiamato
+    // anche in caso di errori imprevisti non catturati dai singoli try/catch.
     try {
-        const batteryCollection = e.app.findCollectionByNameOrId("battery_data");
-        const batteryRecord = new Record(batteryCollection);
-        batteryRecord.set("board_id", boardId);
-        batteryRecord.set("timestamp", timestamp);
-        batteryRecord.set("battery", raw.getFloat("battery"));
-        batteryRecord.set("battery_percent", raw.getInt("battery_percent"));
-        batteryRecord.set("charging", raw.getBool("charging"));
-        e.app.save(batteryRecord);
-        console.log("-> battery_data: OK");
-    } catch (err) {
-        console.log("-> battery_data: ERRORE: " + err);
-    }
 
-    // 2. SMISTAMENTO POSIZIONI
-    try {
-        const positionsCollection = e.app.findCollectionByNameOrId("positions_duplicate");
-        const positionsRecord = new Record(positionsCollection);
-        positionsRecord.set("board_id", boardId);
-        positionsRecord.set("timestamp", timestamp);
-        positionsRecord.set("lon", raw.getFloat("lon"));
-        positionsRecord.set("lat", raw.getFloat("lat"));
-        positionsRecord.set("geo", raw.get("geo"));
-        e.app.save(positionsRecord);
-        console.log("-> positions_duplicate: OK");
-    } catch (err) {
-        console.log("-> positions_duplicate: ERRORE: " + err);
-    }
-
-    // 3. SMISTAMENTO ACTIVITIES
-    try {
-        let activeActivity = null;
+        // ── 1. BATTERIA ─────────────────────────────────────────────────────
         try {
-            activeActivity = e.app.findFirstRecordByFilter(
-                "activities",
-                "board_id = {:boardId} && is_active = true",
-                { "boardId": boardId }
-            );
-        } catch (_) {
-            // Nessuna activity attiva trovata, activeActivity resta null
+            const col = e.app.findCollectionByNameOrId("battery_data");
+            const rec = new Record(col);
+            rec.set("board_id",        boardId);
+            rec.set("timestamp",       timestamp);
+            rec.set("battery",         raw.getFloat("battery"));
+            rec.set("battery_percent", raw.getInt("battery_percent"));
+            rec.set("charging",        raw.getBool("charging"));
+            e.app.save(rec);
+            console.log("-> battery_data: OK");
+        } catch (err) {
+            console.log("-> battery_data: ERRORE: " + err);
         }
 
-        if (!sleep) {
-            // Dispositivo SVEGLIO → sessione attiva
-            if (activeActivity) {
-                const currentSteps = activeActivity.getInt("total_steps");
-                activeActivity.set("total_steps", currentSteps + steps);
-                activeActivity.set("end_time", null);
-                e.app.save(activeActivity);
-                console.log("-> activities UPDATE (steps: " + (currentSteps + steps) + "): OK");
-            } else {
-                const activitiesCollection = e.app.findCollectionByNameOrId("activities");
-                const activitiesRecord = new Record(activitiesCollection);
-                activitiesRecord.set("board_id", boardId);
-                activitiesRecord.set("total_steps", steps);
-                activitiesRecord.set("start_time", timestamp);
-                activitiesRecord.set("end_time", timestamp);
-                activitiesRecord.set("is_active", true);
-                e.app.save(activitiesRecord);
-                console.log("-> activities CREATE nuova sessione: OK");
+        // ── 2. POSIZIONI ─────────────────────────────────────────────────────
+        // Salta se non abbiamo mai avuto coordinate valide (lat=0, lon=0, gps_valid=false)
+        const hasCoords = !(lat === 0.0 && lon === 0.0 && !gpsValid);
+
+        if (hasCoords) {
+            try {
+                const col = e.app.findCollectionByNameOrId("positions_duplicate");
+                const rec = new Record(col);
+                rec.set("board_id",  boardId);
+                rec.set("timestamp", timestamp);
+                rec.set("lon",       lon);
+                rec.set("lat",       lat);
+                rec.set("geo",       raw.get("geo"));
+                rec.set("gps_valid", gpsValid);
+                e.app.save(rec);
+                console.log("-> positions_duplicate: OK (gps_valid=" + gpsValid + ")");
+            } catch (err) {
+                console.log("-> positions_duplicate: ERRORE: " + err);
             }
         } else {
-            // Dispositivo in SLEEP → chiudi sessione
-            if (activeActivity) {
-                activeActivity.set("end_time", timestamp);
-                activeActivity.set("is_active", false);
-                e.app.save(activeActivity);
-                console.log("-> activities CHIUSURA sessione: OK");
-            } else {
-                console.log("-> activities: sleep=true ma nessuna sessione attiva trovata, nulla da fare");
-            }
+            console.log("-> positions_duplicate: SKIP (nessuna coordinata disponibile)");
         }
-    } catch (err) {
-        console.log("-> activities: ERRORE: " + err);
-    }
 
-    e.next();
+        // ── 3. ACTIVITIES ────────────────────────────────────────────────────
+        try {
+            // Cerca sessione attiva per questa board
+            let activeActivity = null;
+            try {
+                const active = e.app.findRecordsByFilter(
+                    "activities",
+                    "board_id = {:boardId} && is_active = true",
+                    "-created", 1, 0,
+                    { "boardId": boardId }
+                );
+                if (active.length > 0) activeActivity = active[0];
+            } catch (_) {
+                // Nessuna sessione attiva — activeActivity resta null
+            }
+
+            if (!sleep) {
+                // ── Dispositivo SVEGLIO ──────────────────────────────────────
+                if (activeActivity) {
+                    // Sessione già aperta: aggiorna steps e end_time
+                    const currentSteps = activeActivity.getInt("total_steps");
+                    activeActivity.set("total_steps", currentSteps + steps);
+                    activeActivity.set("end_time", timestamp);
+                    e.app.save(activeActivity);
+                    console.log("-> activities UPDATE (steps tot: " + (currentSteps + steps) + "): OK");
+
+                } else {
+                    // Nessuna sessione attiva: anti-duplicazione
+                    // Controlla se ne esiste già una chiusa da meno di SESSION_DEDUP_SEC
+                    let tooRecent = false;
+                    try {
+                        const recentClosed = e.app.findRecordsByFilter(
+                            "activities",
+                            "board_id = {:boardId} && is_active = false",
+                            "-created", 1, 0,
+                            { "boardId": boardId }
+                        );
+                        if (recentClosed.length > 0) {
+                            const closedAt  = new Date(recentClosed[0].getString("end_time"));
+                            const nowTs     = new Date(timestamp);
+                            const diffSec   = (nowTs - closedAt) / 1000;
+                            tooRecent = diffSec < SESSION_DEDUP_SEC;
+                            if (tooRecent) {
+                                console.log("-> activities: sessione chiusa da " + Math.round(diffSec) + "s — deduplicazione, no nuova sessione.");
+                            }
+                        }
+                    } catch (_) {}
+
+                    if (!tooRecent) {
+                        const col = e.app.findCollectionByNameOrId("activities");
+                        const rec = new Record(col);
+                        rec.set("board_id",    boardId);
+                        rec.set("total_steps", steps);
+                        rec.set("start_time",  timestamp);
+                        rec.set("end_time",    null);
+                        rec.set("is_active",   true);
+                        rec.set("anomaly",     false);
+                        e.app.save(rec);
+                        console.log("-> activities CREATE nuova sessione: OK");
+                    }
+                }
+
+            } else {
+                // ── Dispositivo in SLEEP → chiudi sessione attiva ────────────
+                if (activeActivity) {
+                    activeActivity.set("end_time", timestamp);
+                    activeActivity.set("is_active", false);
+                    e.app.save(activeActivity);
+                    console.log("-> activities CHIUSURA sessione: OK");
+                } else {
+                    console.log("-> activities: sleep=true ma nessuna sessione attiva, nulla da fare.");
+                }
+            }
+
+        } catch (err) {
+            console.log("-> activities: ERRORE: " + err);
+        }
+
+        // ── 4. EVENTO: rete ripristinata ─────────────────────────────────────
+        if (netFailCount > 0) {
+            salvaEvento(e.app, boardId, "net_restored",
+                "Irraggiungibile per " + netFailCount + " boot consecutivi");
+        }
+
+        // ── 5. EVENTO: GPS perso (solo al raggiungimento esatto della soglia) ─
+        if (!gpsValid && gpsFailCount === GPS_FAIL_ALERT_THRESH) {
+            salvaEvento(e.app, boardId, "gps_lost",
+                "Nessun fix GPS per " + gpsFailCount + " pacchetti consecutivi");
+        }
+
+        // ── 6. EVENTO: GPS tornato disponibile ───────────────────────────────
+        // FIX: controlla esplicitamente che esista un pacchetto precedente con
+        // gps_valid=false, evitando falsi "gps_restored" al primo boot.
+        if (gpsValid && gpsFailCount === 0) {
+            try {
+                const prevWithoutGps = e.app.findRecordsByFilter(
+                    "data_sent_raw",
+                    "board_id = {:boardId} && id != {:id} && gps_valid = false",
+                    "-created", 1, 0,
+                    { "boardId": boardId, "id": raw.getId() }
+                );
+                if (prevWithoutGps.length > 0) {
+                    salvaEvento(e.app, boardId, "gps_restored", "Fix GPS tornato disponibile");
+                }
+            } catch (_) {}
+        }
+
+    } finally {
+        // Garantisce sempre la propagazione dell'evento nella chain di PocketBase
+        e.next();
+    }
 
 }, "data_sent_raw");
 
-/*
-routerAdd("POST", "/api/ttn-uplink", (e) => {
+
+// ═══════════════════════════════════════════════════════════════
+//  CRON: Watchdog silenzio dispositivo
+//  Ogni minuto controlla se una sessione attiva è ferma da troppo.
+//  Se sì: la chiude come anomalia e salva un evento in device_events.
+// ═══════════════════════════════════════════════════════════════
+cronAdd("watchdog_device_silence", "* * * * *", () => {
+
+    const TIMEOUT_MS = WATCHDOG_TIMEOUT_MIN * 60 * 1000;
+    const now        = new Date();
+
     try {
-        const body = e.requestInfo().body;
-        
-        // Log di debug: stampa nel terminale di PocketBase tutto quello che arriva
+        const activeActivities = $app.findRecordsByFilter(
+            "activities",
+            "is_active = true",
+            "", 0, 0
+        );
 
-        const uplink = body.uplink_message;
-        if (!uplink) return e.json(400, { error: "No uplink message" });
+        if (!activeActivities || activeActivities.length === 0) return;
 
-        const payload = uplink.decoded_payload;
-        if (!payload) return e.json(400, { error: "Payload non decodificato da TTN" });
+        activeActivities.forEach(activity => {
+            const boardId    = activity.getString("board_id");
+            const endTime    = new Date(activity.getString("end_time"));
+            const elapsed    = now - endTime;
+            const elapsedMin = Math.round(elapsed / 60000);
 
-        const collection = e.app.findCollectionByNameOrId("positions");
-        const record = new Record(collection);
+            if (elapsed < TIMEOUT_MS) return; // Dispositivo ancora attivo, nulla da fare
 
-        // Identificativo dispositivo
-        record.set("device_id", body.end_device_ids.device_id);
+            console.log("[WATCHDOG] " + boardId + " silenziosa da " + elapsedMin + " min. Chiusura sessione.");
 
-        // Coordinate (usiamo i nomi del tuo Formatted Code su TTN)
-        record.set("lat", payload.latitude);
-        record.set("lon", payload.longitude);
+            try {
+                activity.set("is_active", false);
+                activity.set("end_time",  now.toISOString());
+                activity.set("anomaly",   true);
+                $app.save(activity);
+                console.log("[WATCHDOG] Sessione chiusa come anomalia per board " + boardId);
+            } catch (saveErr) {
+                console.log("[WATCHDOG] Errore chiusura sessione per board " + boardId + ": " + saveErr);
+            }
 
-        // TIMESTAMP: Prende l'ora di ricezione da TTN
-        // Se non la trova, usa l'ora attuale del server
-        const ttnTime = body.received_at || new Date().toISOString();
-        record.set("timestamp", ttnTime);
+            salvaEvento($app, boardId, "watchdog",
+                "Nessun pacchetto da " + elapsedMin + " minuti");
+        });
 
-
-	    // GEO
-        const geoJSON = {
-            lon: parseFloat(payload.longitude),
-            lat: parseFloat(payload.latitude)
-        };
-        
-        // Passiamo l'oggetto direttamente
-        record.set("geo", geoJSON);
-
-	// BATTERIA
-	record.set("battery", payload.battery_percentage)
-
-        e.app.save(record);
-
-        console.log("SUCCESSO: Salvato " + payload.latitude + "," + payload.longitude + " ore " + ttnTime);
-
-        return e.json(200, { ok: true });
-
-    } catch(err) {
-        console.log("ERRORE SALVATAGGIO: " + err.message);
-        return e.json(500, { error: err.message });
+    } catch (err) {
+        console.log("[WATCHDOG] Errore generale: " + err);
     }
+
 });
-*/

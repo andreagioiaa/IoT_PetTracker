@@ -421,9 +421,9 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
         _ultimoAggiornamento = tempoIniziale;
         _nomeZona = zonaIniziale;
         _isLoading = false;
+>>>>>>> Stashed changes
       });
     }
-  }
 
   Future<String> _calculateCurrentZone() async {
     try {
