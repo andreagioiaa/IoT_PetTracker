@@ -297,17 +297,20 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
                   itemCount: 30, // Mostriamo gli ultimi 30 giorni
                   itemBuilder: (context, index) {
                     // Calcola la data a ritroso partendo da oggi
-                    DateTime data = DateTime.now().subtract(Duration(days: index));
+                    DateTime data =
+                        DateTime.now().subtract(Duration(days: index));
                     String giornoNome = _getGiornoSettimana(data);
                     String dataFormattata = "${data.day} ${_getMese(data)}";
 
                     return ListTile(
-                      leading: const Icon(Icons.calendar_today, color: Color(0xFF00C6B8)),
+                      leading: const Icon(Icons.calendar_today,
+                          color: Color(0xFF00C6B8)),
                       title: Text("$giornoNome $dataFormattata"),
                       trailing: const Icon(Icons.arrow_forward_ios, size: 14),
                       onTap: () {
                         Navigator.pop(context); // Chiude il selettore
-                        _gestisciCambioData(data); // Decide se andare in Recap o restare in Home
+                        _gestisciCambioData(
+                            data); // Decide se andare in Recap o restare in Home
                       },
                     );
                   },
@@ -323,17 +326,16 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
   void _gestisciCambioData(DateTime scelta) {
     // Rimuoviamo il blocco sulla settimana attuale.
     // Se l'utente usa il calendario, vuole vedere il dettaglio profondo (Recap).
-    
+
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => RecapScreen(dataSelezionata: scelta)
-      ),
+          builder: (context) => RecapScreen(dataSelezionata: scelta)),
     ).then((_) {
-      // Quando torni indietro dal recap, potresti voler aggiornare la dashboard 
+      // Quando torni indietro dal recap, potresti voler aggiornare la dashboard
       // se la data scelta era proprio 'oggi'
       if (DateUtils.isSameDay(scelta, DateTime.now())) {
-        _scaricaDatiIniziali(); 
+        _scaricaDatiIniziali();
       }
     });
   }
@@ -345,7 +347,20 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
   }
 
   String _getMese(DateTime d) {
-    const mesi = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"];
+    const mesi = [
+      "Gen",
+      "Feb",
+      "Mar",
+      "Apr",
+      "Mag",
+      "Giu",
+      "Lug",
+      "Ago",
+      "Set",
+      "Ott",
+      "Nov",
+      "Dic"
+    ];
     return mesi[d.month - 1];
   }
 
@@ -363,14 +378,13 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     try {
       // Recuperiamo l'ID della board (puoi prenderlo dall'utente o da una variabile globale)
       // Per ora ipotizziamo di avere il boardId salvato o recuperabile
-      final String boardId = "864643061064939"; 
-  
-      
+      final String boardId = "864643061064939";
 
       // if (boardId == null) return; (momentaneamente inutile, non ha senso questo controllo)
 
       // Chiamata al repository (metodo fetchActivitiesByDate aggiunto nel passaggio precedente)
-      final attivita = await _activitiesRepo.fetchActivitiesByDate(boardId, data);
+      final attivita =
+          await _activitiesRepo.fetchActivitiesByDate(boardId, data);
 
       int passiTotali = 0;
       Duration durataTotale = Duration.zero;
@@ -421,9 +435,9 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
         _ultimoAggiornamento = tempoIniziale;
         _nomeZona = zonaIniziale;
         _isLoading = false;
->>>>>>> Stashed changes
       });
     }
+  }
 
   Future<String> _calculateCurrentZone() async {
     try {
