@@ -14,6 +14,7 @@ import "../models/positions.dart";
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import "daily_recap.dart";
+import 'package:intl/intl.dart';
 
 // --- VARIABILI GLOBALI DI STATO ---
 final ValueNotifier<bool> isTrackingMode = ValueNotifier(false);
@@ -161,10 +162,14 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
   DateTime? _ultimoAggiornamento;
   String _nomeZona = "Ricerca in corso...";
   String _displayUsername = "Caricamento...";
-  bool _isLoading = true;
+  
+  bool _isLoading = true;          // Per il caricamento iniziale di tutta la pagina
+  bool _isActivityLoading = false; // NUOVO: Solo per il passaggio tra i giorni
 
   StreamSubscription? _streamSubscription;
   Timer? _uiRefreshTimer;
+
+  
 
   @override
   void initState() {
@@ -373,51 +378,42 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
   }
 
   Future<void> _scaricaDatiAttivita(DateTime data) async {
-    setState(() => _isLoading = true); // Mostra un caricamento se vuoi
+  // Usiamo la variabile specifica, non quella globale della pagina
+  setState(() => _isActivityLoading = true); 
 
-    try {
-      // Recuperiamo l'ID della board (puoi prenderlo dall'utente o da una variabile globale)
-      // Per ora ipotizziamo di avere il boardId salvato o recuperabile
-      final String boardId = "864643061064939";
+  try {
+    const String boardId = "864643061064939";
+    final attivita = await _activitiesRepo.fetchActivitiesByDate(boardId, data);
 
-      // if (boardId == null) return; (momentaneamente inutile, non ha senso questo controllo)
+    int passiTotali = 0;
+    Duration durataTotale = Duration.zero;
 
-      // Chiamata al repository (metodo fetchActivitiesByDate aggiunto nel passaggio precedente)
-      final attivita =
-          await _activitiesRepo.fetchActivitiesByDate(boardId, data);
-
-      int passiTotali = 0;
-      Duration durataTotale = Duration.zero;
-
-      for (var act in attivita) {
-        passiTotali += act.totalSteps;
-
-        if (act.startTime != null && act.endTime != null) {
-          durataTotale += act.endTime!.difference(act.startTime!);
-        } else if (act.isActive && act.startTime != null) {
-          // Se l'attività è ancora in corso, calcoliamo fino ad ora
-          durataTotale += DateTime.now().difference(act.startTime!);
-        }
+    for (var act in attivita) {
+      passiTotali += act.totalSteps;
+      if (act.startTime != null && act.endTime != null) {
+        durataTotale += act.endTime!.difference(act.startTime!);
+      } else if (act.isActive && act.startTime != null) {
+        durataTotale += DateTime.now().difference(act.startTime!);
       }
-
-      // Calcolo KM (falcata media 0.7m)
-      double kmTotali = (passiTotali * 0.7) / 1000;
-
-      if (mounted) {
-        setState(() {
-          _dailyStats = {
-            'steps': passiTotali,
-            'km': kmTotali.toStringAsFixed(1),
-            'minutes': durataTotale.inMinutes,
-          };
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      debugPrint("❌ Errore scaricamento attività: $e");
-      if (mounted) setState(() => _isLoading = false);
     }
+
+    double kmTotali = (passiTotali * 0.7) / 1000;
+
+    if (mounted) {
+      setState(() {
+        _dailyStats = {
+          'steps': passiTotali,
+          'km': kmTotali.toStringAsFixed(1),
+          'minutes': durataTotale.inMinutes,
+        };
+        _isActivityLoading = false; // Fine caricamento specifico
+      });
+    }
+  } catch (e) {
+    debugPrint("❌ Errore scaricamento attività: $e");
+    if (mounted) setState(() => _isActivityLoading = false);
   }
+}
 
   Future<void> _scaricaDatiIniziali() async {
     // 1. Dati Utente
@@ -693,6 +689,11 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
   }
 
   Widget _buildUnifiedActivityCard(double scale) {
+    // Formattazione data: GIORNO NUMERO MESE ANNO
+    String dataFormattata = DateFormat('EEEE d MMMM yyyy', 'it_IT')
+        .format(_dataSelezionata)
+        .toUpperCase();
+
     return Container(
       padding: EdgeInsets.all(16 * scale),
       decoration: BoxDecoration(
@@ -704,79 +705,105 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
       ),
       child: Column(
         children: [
-          // HEADER UNICO: Titolo + Icona Calendario Cliccabile
+          // --- HEADER CON FRECCE E DATA ---
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text("Attività di $currentMonthName",
-                  style: TextStyle(
-                      fontSize: 16 * scale, fontWeight: FontWeight.bold)),
               IconButton(
-                icon:
-                    const Icon(Icons.calendar_month, color: Color(0xFF00C6B8)),
-                onPressed: () =>
-                    _selezionaData(context), // Apre il calendario senza crash
+                icon: const Icon(Icons.chevron_left, color: Colors.black54),
+                onPressed: _isActivityLoading ? null : () {
+                  setState(() {
+                    _dataSelezionata = _dataSelezionata.subtract(const Duration(days: 1));
+                  });
+                  _scaricaDatiAttivita(_dataSelezionata);
+                },
+              ),
+              Expanded(
+                child: Text(
+                  "ATTIVITÀ $dataFormattata",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13 * scale,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.chevron_right, color: Colors.black54),
+                onPressed: _isActivityLoading ? null : () {
+                  setState(() {
+                    _dataSelezionata = _dataSelezionata.add(const Duration(days: 1));
+                  });
+                  _scaricaDatiAttivita(_dataSelezionata);
+                },
+              ),
+              IconButton(
+                icon: const Icon(Icons.calendar_month, color: Color(0xFF00C6B8)),
+                onPressed: () => _selezionaData(context),
               ),
             ],
           ),
+          
           SizedBox(height: 16 * scale),
-          // RIGA DEI GIORNI (La settimana che era sparita)
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: List.generate(dates.length, (index) {
-              bool isSelected = index == selectedDateIndex;
-              return GestureDetector(
-                onTap: () {
-                  // Se clicchi un giorno della settimana mostrata
-                  DateTime baseSettimana = _dataSelezionata
-                      .subtract(Duration(days: _dataSelezionata.weekday - 1));
-                  DateTime giornoCliccato =
-                      baseSettimana.add(Duration(days: index));
 
-                  setState(() {
-                    selectedDateIndex = index;
-                    _dataSelezionata = giornoCliccato;
-                  });
-                  _scaricaDatiAttivita(giornoCliccato);
-                },
-                child: Container(
-                  width: 40 * scale,
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  decoration: BoxDecoration(
-                      color: isSelected
-                          ? const Color(0xFF00C6B8)
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(12)),
-                  child: Column(
+          // --- SEZIONE STATISTICHE (CON CARICAMENTO ISOLATO) ---
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            child: _isActivityLoading
+                ? SizedBox(
+                    key: const ValueKey('loading'),
+                    height: 65 * scale, // Altezza coerente con le icone per evitare sbalzi
+                    child: const Center(
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00C6B8)),
+                      ),
+                    ),
+                  )
+                : Row(
+                    key: const ValueKey('data'),
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      Text(dates[index]['weekDay']![0],
-                          style: TextStyle(
-                              color: isSelected
-                                  ? Colors.white70
-                                  : Colors.black38)),
-                      Text(dates[index]['day']!,
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color:
-                                  isSelected ? Colors.white : Colors.black87)),
+                      _buildCompactStat("Passi", "${_dailyStats['steps']}", Icons.pets,
+                          Colors.orange, scale),
+                      _buildCompactStat("Km", "${_dailyStats['km']}", Icons.straighten,
+                          Colors.blue, scale),
+                      _buildCompactStat("Minuti", "${_dailyStats['minutes']}",
+                          Icons.timer, Colors.purple, scale),
                     ],
                   ),
-                ),
-              );
-            }),
           ),
-          const Divider(height: 24),
-          // STATISTICHE (Passi, Km, Minuti)
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildCompactStat("Passi", "${_dailyStats['steps']}", Icons.pets,
-                  Colors.orange, scale),
-              _buildCompactStat("Km", "${_dailyStats['km']}", Icons.straighten,
-                  Colors.blue, scale),
-              _buildCompactStat("Minuti", "${_dailyStats['minutes']}",
-                  Icons.timer, Colors.purple, scale),
-            ],
+          
+          SizedBox(height: 24 * scale),
+
+          // --- PULSANTE "VEDI RESOCONTO TOTALE" ---
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: () {
+                Navigator.push(
+                  context, 
+                  MaterialPageRoute(
+                    builder: (context) => RecapScreen(dataSelezionata: _dataSelezionata)
+                  )
+                );
+              },
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Colors.black87, width: 1.2),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: EdgeInsets.symmetric(vertical: 14 * scale),
+              ),
+              child: Text(
+                "VEDI RESOCONTO TOTALE", 
+                style: TextStyle(
+                  color: Colors.black87, 
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.0,
+                  fontSize: 13 * scale,
+                )
+              ),
+            ),
           ),
         ],
       ),
