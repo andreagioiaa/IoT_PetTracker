@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:pet_tracker/repositories/activities_repo.dart';
 import 'package:geolocator/geolocator.dart';
 import 'battery.dart';
@@ -37,7 +38,6 @@ class PetTrackerApp extends StatelessWidget {
     return MaterialApp(
       title: 'Pet Tracker',
       debugShowCheckedModeBanner: false,
-      // --- QUESTE RIGHE SONO FONDAMENTALI PER IL CALENDARIO ---
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
@@ -46,7 +46,6 @@ class PetTrackerApp extends StatelessWidget {
       supportedLocales: const [
         Locale('it', 'IT'), // Forza l'italiano come lingua
       ],
-      // -------------------------------------------------------
       theme: ThemeData(
         fontFamily: 'Roboto',
         scaffoldBackgroundColor: const Color(0xFFF7F8FA),
@@ -278,47 +277,95 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     });
   }
 
-  void _selezionaData(BuildContext context) {
+ void _selezionaData(BuildContext context, double scale) {
+    // Variabile temporanea per salvare la data mentre l'utente gira la ruota
+    DateTime tempPickedDate = _dataSelezionata;
+
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
-      ),
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (context) {
         return Container(
-          padding: const EdgeInsets.all(20),
-          height: MediaQuery.of(context).size.height * 0.5,
+          height: MediaQuery.of(context).size.height * 0.40, // Altezza ridotta per il picker
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+          ),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                "Seleziona una data",
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 15),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: 30, // Mostriamo gli ultimi 30 giorni
-                  itemBuilder: (context, index) {
-                    // Calcola la data a ritroso partendo da oggi
-                    DateTime data =
-                        DateTime.now().subtract(Duration(days: index));
-                    String giornoNome = _getGiornoSettimana(data);
-                    String dataFormattata = "${data.day} ${_getMese(data)}";
-
-                    return ListTile(
-                      leading: const Icon(Icons.calendar_today,
-                          color: Color(0xFF00C6B8)),
-                      title: Text("$giornoNome $dataFormattata"),
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+              // --- HEADER: Annulla | Modifica giorni | Salva ---
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20 * scale, vertical: 15 * scale),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Text(
+                        "Annulla",
+                        style: TextStyle(
+                          fontSize: 16 * scale,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ),
+                    Text(
+                      "Modifica giorni",
+                      style: TextStyle(
+                        fontSize: 18 * scale,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    GestureDetector(
                       onTap: () {
-                        Navigator.pop(context); // Chiude il selettore
-                        _gestisciCambioData(
-                            data); // Decide se andare in Recap o restare in Home
+                        Navigator.pop(context); // Chiude il modale
+                        // Applica la data scelta e aggiorna i dati nella Home
+                        if (mounted) {
+                          setState(() {
+                            _dataSelezionata = tempPickedDate;
+                          });
+                          _scaricaDatiAttivita(_dataSelezionata);
+                        }
                       },
-                    );
-                  },
+                      child: Text(
+                        "Salva",
+                        style: TextStyle(
+                          fontSize: 16 * scale,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF00C6B8), // Il teal della tua app
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              Divider(height: 1, color: Colors.grey[300]),
+
+              // --- PICKER A RUOTA STILE iOS ---
+              Expanded(
+                child: CupertinoTheme(
+                  data: const CupertinoThemeData(
+                    textTheme: CupertinoTextThemeData(
+                      dateTimePickerTextStyle: TextStyle(
+                        color: Colors.black87, 
+                        fontSize: 22,
+                      ),
+                    ),
+                  ),
+                  child: CupertinoDatePicker(
+                    mode: CupertinoDatePickerMode.date, 
+                    initialDateTime: _dataSelezionata,
+                    maximumDate: DateTime.now(),
+                    minimumDate: DateTime(2020),
+                    // AGGIUNGI QUESTA RIGA PER FORZARE L'ORDINE Giorno-Mese-Anno
+                    dateOrder: DatePickerDateOrder.dmy, 
+                    onDateTimeChanged: (DateTime newDate) {
+                      tempPickedDate = newDate;
+                    },
+                  ),
                 ),
               ),
             ],
@@ -326,47 +373,6 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
         );
       },
     );
-  }
-
-  void _gestisciCambioData(DateTime scelta) {
-    // Rimuoviamo il blocco sulla settimana attuale.
-    // Se l'utente usa il calendario, vuole vedere il dettaglio profondo (Recap).
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-          builder: (context) => RecapScreen(dataSelezionata: scelta)),
-    ).then((_) {
-      // Quando torni indietro dal recap, potresti voler aggiornare la dashboard
-      // se la data scelta era proprio 'oggi'
-      if (DateUtils.isSameDay(scelta, DateTime.now())) {
-        _scaricaDatiIniziali();
-      }
-    });
-  }
-
-  // Funzioni helper per evitare problemi di localizzazione
-  String _getGiornoSettimana(DateTime d) {
-    const giorni = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
-    return giorni[d.weekday - 1];
-  }
-
-  String _getMese(DateTime d) {
-    const mesi = [
-      "Gen",
-      "Feb",
-      "Mar",
-      "Apr",
-      "Mag",
-      "Giu",
-      "Lug",
-      "Ago",
-      "Set",
-      "Ott",
-      "Nov",
-      "Dic"
-    ];
-    return mesi[d.month - 1];
   }
 
   Future<void> caricaPreferenzeMappa() async {
@@ -689,10 +695,9 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
   }
 
   Widget _buildUnifiedActivityCard(double scale) {
-    // Formattazione data: GIORNO NUMERO MESE ANNO
-    String dataFormattata = DateFormat('EEEE d MMMM yyyy', 'it_IT')
-        .format(_dataSelezionata)
-        .toUpperCase();
+    // Formattazione data (iniziale maiuscola per un look più pulito)
+    String dataFormattata = DateFormat('EEEE d MMMM yyyy', 'it_IT').format(_dataSelezionata);
+    dataFormattata = dataFormattata[0].toUpperCase() + dataFormattata.substring(1);
 
     return Container(
       padding: EdgeInsets.all(16 * scale),
@@ -705,47 +710,86 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
       ),
       child: Column(
         children: [
-          // --- HEADER CON FRECCE E DATA ---
+          // --- HEADER CON FRECCE E PILLOLA DATA ---
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              IconButton(
-                icon: const Icon(Icons.chevron_left, color: Colors.black54),
-                onPressed: _isActivityLoading ? null : () {
-                  setState(() {
-                    _dataSelezionata = _dataSelezionata.subtract(const Duration(days: 1));
-                  });
-                  _scaricaDatiAttivita(_dataSelezionata);
-                },
-              ),
-              Expanded(
-                child: Text(
-                  "ATTIVITÀ $dataFormattata",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 13 * scale,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
+              // Freccia Sinistra (giorno precedente)
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(50),
+                  onTap: _isActivityLoading ? null : () {
+                    setState(() {
+                      _dataSelezionata = _dataSelezionata.subtract(const Duration(days: 1));
+                    });
+                    _scaricaDatiAttivita(_dataSelezionata);
+                  },
+                  child: Padding(
+                    padding: EdgeInsets.all(8.0 * scale),
+                    child: Icon(Icons.chevron_left, color: Colors.black54, size: 28 * scale),
                   ),
                 ),
               ),
-              IconButton(
-                icon: const Icon(Icons.chevron_right, color: Colors.black54),
-                onPressed: _isActivityLoading ? null : () {
-                  setState(() {
-                    _dataSelezionata = _dataSelezionata.add(const Duration(days: 1));
-                  });
-                  _scaricaDatiAttivita(_dataSelezionata);
-                },
+
+              // Pulsante "Pillola" centrale con la data
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => _selezionaData(context, scale), // Passiamo lo scale!
+                  child: Container(
+                    margin: EdgeInsets.symmetric(horizontal: 4 * scale),
+                    padding: EdgeInsets.symmetric(vertical: 8 * scale, horizontal: 12 * scale),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF00C6B8).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20 * scale),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.calendar_today, size: 14 * scale, color: const Color(0xFF009B90)),
+                        SizedBox(width: 8 * scale),
+                        Flexible(
+                          child: Text(
+                            dataFormattata,
+                            textAlign: TextAlign.center,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 13 * scale,
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFF009B90),
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: 4 * scale),
+                        Icon(Icons.arrow_drop_down, size: 18 * scale, color: const Color(0xFF009B90)),
+                      ],
+                    ),
+                  ),
+                ),
               ),
-              IconButton(
-                icon: const Icon(Icons.calendar_month, color: Color(0xFF00C6B8)),
-                onPressed: () => _selezionaData(context),
+
+              // Freccia Destra (giorno successivo)
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(50),
+                  onTap: _isActivityLoading ? null : () {
+                    setState(() {
+                      _dataSelezionata = _dataSelezionata.add(const Duration(days: 1));
+                    });
+                    _scaricaDatiAttivita(_dataSelezionata);
+                  },
+                  child: Padding(
+                    padding: EdgeInsets.all(8.0 * scale),
+                    child: Icon(Icons.chevron_right, color: Colors.black54, size: 28 * scale),
+                  ),
+                ),
               ),
             ],
           ),
           
-          SizedBox(height: 16 * scale),
+          SizedBox(height: 20 * scale),
 
           // --- SEZIONE STATISTICHE (CON CARICAMENTO ISOLATO) ---
           AnimatedSwitcher(
@@ -753,7 +797,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
             child: _isActivityLoading
                 ? SizedBox(
                     key: const ValueKey('loading'),
-                    height: 65 * scale, // Altezza coerente con le icone per evitare sbalzi
+                    height: 65 * scale,
                     child: const Center(
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
@@ -765,12 +809,9 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
                     key: const ValueKey('data'),
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _buildCompactStat("Passi", "${_dailyStats['steps']}", Icons.pets,
-                          Colors.orange, scale),
-                      _buildCompactStat("Km", "${_dailyStats['km']}", Icons.straighten,
-                          Colors.blue, scale),
-                      _buildCompactStat("Minuti", "${_dailyStats['minutes']}",
-                          Icons.timer, Colors.purple, scale),
+                      _buildCompactStat("Passi", "${_dailyStats['steps']}", Icons.pets, Colors.orange, scale),
+                      _buildCompactStat("Km", "${_dailyStats['km']}", Icons.straighten, Colors.blue, scale),
+                      _buildCompactStat("Minuti", "${_dailyStats['minutes']}", Icons.timer, Colors.purple, scale),
                     ],
                   ),
           ),
