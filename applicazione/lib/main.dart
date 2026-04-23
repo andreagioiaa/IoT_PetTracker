@@ -96,21 +96,33 @@ void main() async {
   // SOLO se l'utente è loggato con successo
   if (canConnect && scambio.pb.authStore.isValid) {
     try {
-      // Otteniamo di nuovo l'istanza di Firebase
-      String? currentToken = await FirebaseMessaging.instance.getToken();
+      final prefs = await SharedPreferences.getInstance();
+      final userId = scambio.pb.authStore.model!.id; // ID univoco dell'utente corrente
+      
+      // Creiamo una chiave specifica per questo utente
+      final String flagKey = 'fcm_token_sent_$userId';
+      bool tokenGiaInviato = prefs.getBool(flagKey) ?? false;
 
-      if (currentToken != null) {
-        // Aggiorniamo il record dell'utente corrente su PocketBase
-        await scambio.pb.collection('users').update(
-          scambio.pb.authStore.model.id,
-          body: {
-            'tokenFCM': currentToken,
-          },
-        );
-        print('✅ FCM Token salvato con successo su PocketBase!');
+      if (!tokenGiaInviato) {
+        print('🚀 Primo accesso per l\'utente $userId: invio token FCM...');
+        
+        String? currentToken = await FirebaseMessaging.instance.getToken();
+
+        if (currentToken != null) {
+          await scambio.pb.collection('users').update(
+            userId,
+            body: {'tokenFCM': currentToken},
+          );
+          
+          // Salviamo il flag per QUESTO specifico utente
+          await prefs.setBool(flagKey, true);
+          print('✅ Token salvato per l\'utente $userId');
+        }
+      } else {
+        print('ℹ️ Token già presente per questo account. Skip.');
       }
     } catch (e) {
-      print('⚠️ Errore durante il salvataggio del token su PocketBase: $e');
+      print('⚠️ Errore gestione token: $e');
     }
   }
   // -------------------------------------------

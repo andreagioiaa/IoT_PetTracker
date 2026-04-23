@@ -57,29 +57,40 @@ class PetTrackerApp extends StatelessWidget {
   }
 }
 
-// --- LOGICA DI FORMATTAZIONE ---
 String formattaUltimoAggiornamento(DateTime? ultimoInvio) {
   if (ultimoInvio == null) return "N.D.";
-  final oraAttuale = DateTime.now();
-  final differenza = oraAttuale.difference(ultimoInvio);
-  if (differenza.isNegative) return "Adesso";
+
+  final oraLocale = DateTime.now();
+  
+  // Se il dato è nel futuro (es. -69 min), sappiamo che Flutter ha aggiunto 2 ore di troppo.
+  // Sottraiamo 2 ore per tornare all'orario reale della board.
+  DateTime dataReale = ultimoInvio;
+  if (oraLocale.difference(ultimoInvio).inMinutes < -30) {
+    dataReale = ultimoInvio.subtract(const Duration(hours: 2));
+  }
+
+  final differenza = oraLocale.difference(dataReale);
+
+  if (differenza.isNegative) return "Adesso"; 
   if (differenza.inSeconds < 60) return "Adesso";
   if (differenza.inMinutes < 60) return "${differenza.inMinutes} min fa";
-  if (differenza.inHours < 24) return "${differenza.inHours} h fa";
-  if (differenza.inDays < 7) return "${differenza.inDays} g fa";
-  return "${ultimoInvio.day}/${ultimoInvio.month}/${ultimoInvio.year}";
+  
+  return "${dataReale.day}/${dataReale.month}/${dataReale.year}";
 }
 
 Color getColoreStato(DateTime? ultimoInvio) {
   if (ultimoInvio == null) return Colors.grey;
-  final differenza = DateTime.now().difference(ultimoInvio);
+  
+  // FIX: Anche qui serve la conversione locale per non avere colori errati
+  final differenza = DateTime.now().difference(ultimoInvio.toLocal());
+  
   if (differenza.inMinutes < 30) return const Color(0xFF00C6B8);
   if (differenza.inMinutes < 60) return Colors.orange;
   return Colors.red;
 }
-
 class PetTrackerNavigation extends StatefulWidget {
-  const PetTrackerNavigation({super.key});
+  final Map<String, dynamic>? preloadedData; // Aggiungi questo
+  const PetTrackerNavigation({super.key, this.preloadedData});
 
   @override
   State<PetTrackerNavigation> createState() => _PetTrackerNavigationState();
@@ -88,6 +99,12 @@ class PetTrackerNavigation extends StatefulWidget {
 class _PetTrackerNavigationState extends State<PetTrackerNavigation> {
   int _currentIndex = 0;
 
+  List<Widget> get _currentScreens => [
+        PetTrackerDashboard(preloadedData: widget.preloadedData), // Passa i dati
+        isTrackingMode.value ? const TrackingScreen() : const GeofencingScreen(),
+        const BatteryScreen(),
+      ];
+
   @override
   void initState() {
     super.initState();
@@ -95,14 +112,6 @@ class _PetTrackerNavigationState extends State<PetTrackerNavigation> {
       if (mounted) setState(() {});
     });
   }
-
-  List<Widget> get _currentScreens => [
-        const PetTrackerDashboard(),
-        isTrackingMode.value
-            ? const TrackingScreen()
-            : const GeofencingScreen(),
-        const BatteryScreen(),
-      ];
 
   @override
   Widget build(BuildContext context) {
@@ -133,7 +142,8 @@ class _PetTrackerNavigationState extends State<PetTrackerNavigation> {
 }
 
 class PetTrackerDashboard extends StatefulWidget {
-  const PetTrackerDashboard({super.key});
+  final Map<String, dynamic>? preloadedData;
+  const PetTrackerDashboard({super.key, this.preloadedData});
 
   @override
   State<PetTrackerDashboard> createState() => _PetTrackerDashboardState();
@@ -173,8 +183,36 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
   @override
   void initState() {
     super.initState();
+    
+    // 1. Inizializzazione UI (Date e Calendario)
     _initializeDates();
 
+    // 2. INIEZIONE DATI PRE-CARICATI (Dalla Splash)
+    // Questo elimina il testo "Caricamento..." istantaneamente se i dati ci sono
+    if (widget.preloadedData != null) {
+      _displayUsername = widget.preloadedData!['username'];
+      isTrackingMode.value = widget.preloadedData!['alarm'];
+      _nomeZona = widget.preloadedData!['zone'];
+      
+      final pos = widget.preloadedData!['lastPosition'];
+      if (pos != null) _ultimoAggiornamento = pos.timestamp;
+
+      if (widget.preloadedData!['activities'] != null) {
+        _elaboraAttivita(widget.preloadedData!['activities']);
+      }
+      
+      _isLoading = false; // Fermiamo il caricamento UI subito!
+    } else {
+      // Fallback: se la Splash fallisce, carichiamo i dati qui (vecchio metodo)
+      _scaricaDatiIniziali();
+    }
+
+    // 3. LOGICA DI SISTEMA (Permessi e Notifiche)
+    // Fondamentale: deve girare sempre, indipendentemente dai dati iniziali
+    _richiediPermessiAlPrimoAvvio();
+
+    // 4. ASCOLTATORI (Listeners)
+    // Reagisce quando cambi le impostazioni dei Geofence
     geofenceUpdateSignal.addListener(() async {
       if (_ultimoAggiornamento != null) {
         String nuovaZona = await _calculateCurrentZone();
@@ -182,13 +220,13 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
       }
     });
 
-    // Sottoscrizione allo stream tipizzato
+    // 5. STREAM REAL-TIME (Posizione Animale)
+    // Anche se abbiamo i dati della Splash, dobbiamo ascoltare i nuovi movimenti!
     _positionsRepo.subscribeToPositions();
-    _streamSubscription =
-        _positionsRepo.positionsStream.listen((nuovaPos) async {
+    _streamSubscription = _positionsRepo.positionsStream.listen((nuovaPos) async {
       try {
-        String nuovaZona =
-            await _calcolaZonaDalPunto(LatLng(nuovaPos.lat, nuovaPos.lon));
+        // Usiamo il metodo del repository per mantenere pulita la UI
+        String nuovaZona = await _calcolaZonaDalPunto(LatLng(nuovaPos.lat, nuovaPos.lon));
         if (mounted) {
           setState(() {
             _ultimoAggiornamento = nuovaPos.timestamp;
@@ -201,10 +239,8 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
       }
     });
 
-    _scaricaDatiIniziali();
-
-    _richiediPermessiAlPrimoAvvio();
-
+    // 6. TIMER DI AGGIORNAMENTO UI
+    // Aggiorna il testo "X min fa" ogni 30 secondi
     _uiRefreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
       if (mounted) setState(() {});
     });
@@ -215,6 +251,66 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     _streamSubscription?.cancel();
     _uiRefreshTimer?.cancel();
     super.dispose();
+  }
+
+  void _elaboraAttivita(List<dynamic> attivita) {
+    int passiTotali = 0;
+    Duration durataTotale = Duration.zero;
+
+    for (var act in attivita) {
+      passiTotali += (act.totalSteps as int);
+      if (act.startTime != null && act.endTime != null) {
+        durataTotale += act.endTime!.difference(act.startTime!);
+      }
+    }
+
+    double kmTotali = (passiTotali * 0.7) / 1000;
+
+    if (mounted) {
+      setState(() {
+        _dailyStats = {
+          'steps': passiTotali,
+          'km': kmTotali.toStringAsFixed(1),
+          'minutes': durataTotale.inMinutes,
+        };
+      });
+    }
+  }
+
+  void _processPreloadedData(Map<String, dynamic> data) async {
+    final lastPos = data['lastPosition'];
+    if (lastPos != null) {
+      _ultimoAggiornamento = lastPos.timestamp;
+      // Calcoliamo la zona in background
+      _nomeZona = await _calcolaZonaDalPunto(LatLng(lastPos.lat, lastPos.lon));
+    }
+    
+    // Processa attività
+    if (data['initialActivities'] != null) {
+      _elaboraDatiAttivita(data['initialActivities']);
+    }
+    
+    if (mounted) setState(() {});
+  }
+
+  // Refactoring: estraiamo la logica di calcolo attività per riutilizzarla
+  void _elaboraDatiAttivita(List<dynamic> attivita) {
+    int passiTotali = 0;
+    Duration durataTotale = Duration.zero;
+
+    for (var act in attivita) {
+      passiTotali += (act.totalSteps as int);
+      if (act.startTime != null && act.endTime != null) {
+        durataTotale += act.endTime!.difference(act.startTime!);
+      }
+    }
+    double kmTotali = (passiTotali * 0.7) / 1000;
+
+    _dailyStats = {
+      'steps': passiTotali,
+      'km': kmTotali.toStringAsFixed(1),
+      'minutes': durataTotale.inMinutes,
+    };
   }
 
   Future<void> _richiediPermessiAlPrimoAvvio() async {
@@ -384,42 +480,51 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
   }
 
   Future<void> _scaricaDatiAttivita(DateTime data) async {
-  // Usiamo la variabile specifica, non quella globale della pagina
-  setState(() => _isActivityLoading = true); 
+    // Usiamo la variabile specifica, non quella globale della pagina
+    setState(() => _isActivityLoading = true); 
 
-  try {
-    const String boardId = "864643061064939";
-    final attivita = await _activitiesRepo.fetchActivitiesByDate(boardId, data);
+    try {
+      // 1. Recuperiamo il boardId interrogando la collezione 'boards'
+      final String? boardId = await _usersRepo.getBoardIdFromBoards();
 
-    int passiTotali = 0;
-    Duration durataTotale = Duration.zero;
-
-    for (var act in attivita) {
-      passiTotali += act.totalSteps;
-      if (act.startTime != null && act.endTime != null) {
-        durataTotale += act.endTime!.difference(act.startTime!);
-      } else if (act.isActive && act.startTime != null) {
-        durataTotale += DateTime.now().difference(act.startTime!);
+      if (boardId == null || boardId.isEmpty) {
+        debugPrint("⚠️ Nessuna board trovata per questo account nella collezione 'boards'.");
+        if (mounted) setState(() => _isActivityLoading = false);
+        return;
       }
-    }
 
-    double kmTotali = (passiTotali * 0.7) / 1000;
+      // 2. Procediamo con il recupero delle attività usando l'ID trovato
+      final attivita = await _activitiesRepo.fetchActivitiesByDate(boardId, data);
 
-    if (mounted) {
-      setState(() {
-        _dailyStats = {
-          'steps': passiTotali,
-          'km': kmTotali.toStringAsFixed(1),
-          'minutes': durataTotale.inMinutes,
-        };
-        _isActivityLoading = false; // Fine caricamento specifico
-      });
+      int passiTotali = 0;
+      Duration durataTotale = Duration.zero;
+
+      for (var act in attivita) {
+        passiTotali += act.totalSteps;
+        if (act.startTime != null && act.endTime != null) {
+          durataTotale += act.endTime!.difference(act.startTime!);
+        } else if (act.isActive && act.startTime != null) {
+          durataTotale += DateTime.now().difference(act.startTime!);
+        }
+      }
+
+      double kmTotali = (passiTotali * 0.7) / 1000;
+
+      if (mounted) {
+        setState(() {
+          _dailyStats = {
+            'steps': passiTotali,
+            'km': kmTotali.toStringAsFixed(1),
+            'minutes': durataTotale.inMinutes,
+          };
+          _isActivityLoading = false; // Fine caricamento specifico
+        });
+      }
+    } catch (e) {
+      debugPrint("❌ Errore scaricamento attività: $e");
+      if (mounted) setState(() => _isActivityLoading = false);
     }
-  } catch (e) {
-    debugPrint("❌ Errore scaricamento attività: $e");
-    if (mounted) setState(() => _isActivityLoading = false);
   }
-}
 
   Future<void> _scaricaDatiIniziali() async {
     // 1. Dati Utente

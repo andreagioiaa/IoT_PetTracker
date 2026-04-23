@@ -63,4 +63,34 @@ class GeofenceRepository {
       return false;
     }
   }
+
+  Future<String> getZoneForPoint(LatLng point) async {
+    try {
+      final geofences = await fetchGeofences();
+      for (var zone in geofences) {
+        if (zone['is_active'] == true) {
+          final List<LatLng> vertices = zone['vertices'];
+          if (vertices.length >= 3 && _isPointInPolygon(point, vertices)) {
+            return zone['name'];
+          }
+        }
+      }
+      return "Fuori zona sicura";
+    } catch (e) {
+      return "Errore rilevamento";
+    }
+  }
+
+  bool _isPointInPolygon(LatLng point, List<LatLng> polygon) {
+    bool isInside = false;
+    int j = polygon.length - 1;
+    for (int i = 0; i < polygon.length; i++) {
+      if (((polygon[i].latitude > point.latitude) != (polygon[j].latitude > point.latitude)) &&
+          (point.longitude < (polygon[j].longitude - polygon[i].longitude) * (point.latitude - polygon[i].latitude) / (polygon[j].latitude - polygon[i].latitude) + polygon[i].longitude)) {
+        isInside = !isInside;
+      }
+      j = i;
+    }
+    return isInside;
+  }
 }

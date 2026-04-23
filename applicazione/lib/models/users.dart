@@ -1,6 +1,6 @@
 import 'package:pocketbase/pocketbase.dart';
 
-/// Rappresenta un utente registrato nella collezione "users" di PocketBase.
+
 class User {
   final String id;
   final String email;
@@ -10,6 +10,7 @@ class User {
   final String name;
   final String surname;
   final bool alarm;
+  final String boardId;
   final DateTime created;
   final DateTime updated;
 
@@ -22,11 +23,11 @@ class User {
     required this.name,
     required this.surname,
     required this.alarm,
+    required this.boardId,
     required this.created,
     required this.updated,
   });
 
-  /// Factory method per creare un oggetto User da un RecordModel di PocketBase.
   factory User.fromRecord(RecordModel record) {
     return User(
       id: record.id,
@@ -37,19 +38,20 @@ class User {
       name: record.getStringValue('name'),
       surname: record.getStringValue('surname'),
       alarm: record.getBoolValue('alarm'),
-      // Gestione delle date con conversione al fuso orario locale.
+      // Se il campo su PocketBase è vuoto, restituisce una stringa vuota
+      boardId: record.getStringValue('boardId'), 
       created: DateTime.parse(record.created).toLocal(),
       updated: DateTime.parse(record.updated).toLocal(),
     );
   }
 
-  /// Converte i dati modificabili in una mappa per le operazioni di update.
   Map<String, dynamic> toJson() {
     return {
       'name': name,
       'surname': surname,
       'alarm': alarm,
       'emailVisibility': emailVisibility,
+      'boardId': boardId, // <--- AGGIUNTO (se vuoi aggiornarlo via JSON)
     };
   }
 }

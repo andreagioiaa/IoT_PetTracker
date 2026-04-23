@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:pocketbase/pocketbase.dart';
 import 'dart:async';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../screens/login.dart';
 
 // --- COSTANTI TABELLE ---
@@ -20,7 +21,7 @@ const String tabella_data_sent_raw =
 const String tabella_geofences =
     "geofences"; // fields: id, name, center_lon, center_lat, is_active, user_id, street, civic, city, cap, vertices (JSON), created, updated
 const String tabella_positions =
-    "positions"; // fields: id, timestamp, lon, lat, geo, battery, battery_percent, charging, feet, sleep
+    "positions_duplicate"; // fields: id, timestamp, lon, lat, geo, battery, battery_percent, charging, feet, sleep
 const String tabella_positions_duplicate =
     "positions_duplicate"; // fields: id, board_id, timestamp, lon, lat, geo, gps_valid, net_fail_count
 // const String tabella_nometabella = "nometabella"; (copiare e incollare)
@@ -128,12 +129,16 @@ Future<bool> autenticazione() async {
 //          LOGICA DI LOGOUT
 // ==========================================
 
-void eseguiLogout(BuildContext context) {
+void eseguiLogout(BuildContext context) async {
+  final prefs = await SharedPreferences.getInstance();
+  if (pb.authStore.model != null) {
+    await prefs.remove('fcm_token_sent_${pb.authStore.model!.id}');
+  }
+
   pb.authStore.clear();
   isReady = false;
 
-  print(
-      "✅ Logout effettuato alle ${DateTime.now().hour}:${DateTime.now().minute}");
+  print("✅ Logout effettuato con pulizia flag alle ${DateTime.now().hour}:${DateTime.now().minute}");
 
   Navigator.pushAndRemoveUntil(
     context,

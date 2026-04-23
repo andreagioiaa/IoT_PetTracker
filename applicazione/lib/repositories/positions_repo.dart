@@ -40,6 +40,7 @@ class PositionsRepository {
   }
 
   /// Recupera l'ultimo timestamp (sostituisce 'scambio.getUltimoTimestamp')
+  // In positions_repo.dart
   Future<DateTime?> getLastTimestamp() async {
     try {
       final result = await pb
@@ -48,11 +49,23 @@ class PositionsRepository {
 
       if (result.items.isEmpty) return null;
 
-      // Restituiamo il timestamp convertito al fuso orario locale
       String timeStr = result.items.first.getStringValue('timestamp');
-      return DateTime.parse(timeStr).toLocal();
+      
+      // 🛑 RIMUOVI .toLocal() e usa DateTime.parse
+      // Se la stringa finisce con 'Z', la trattiamo come ora locale "pura" 
+      // creando un nuovo oggetto che ignora l'offset.
+      DateTime utcDate = DateTime.parse(timeStr);
+      
+      return DateTime(
+        utcDate.year,
+        utcDate.month,
+        utcDate.day,
+        utcDate.hour,
+        utcDate.minute,
+        utcDate.second,
+      );
     } catch (e) {
-      print('🛑 [PositionsRepository] Errore getLastTimestamp: $e');
+      print('🛑 Errore: $e');
       return null;
     }
   }

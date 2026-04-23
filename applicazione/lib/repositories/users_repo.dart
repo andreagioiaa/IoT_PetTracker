@@ -17,6 +17,26 @@ class UsersRepository {
     }
   }*/
 
+  // Recupera il boardId interrogando la collezione 'boards'.
+  /// Nota: Cerchiamo il record dove il campo 'user' (relazione) contiene l'ID dell'utente corrente.
+  Future<String?> getBoardIdFromBoards() async {
+    try {
+      if (!pb.authStore.isValid || pb.authStore.model == null) return null;
+
+      final userId = pb.authStore.model!.id;
+
+      // Usiamo l'operatore '~' (contiene) perché 'user' sembra una lista nello screenshot
+      final record = await pb.collection('boards').getFirstListItem(
+        'user ~ "$userId"',
+      );
+
+      return record.getStringValue('board');
+    } catch (e) {
+      debugPrint('🚨 Errore getBoardIdFromBoards: $e');
+      return null;
+    }
+  }
+
   /// Registra un nuovo utente su PocketBase.
   Future<bool> register(String email, String password, String name,
       String surname, String username) async {
