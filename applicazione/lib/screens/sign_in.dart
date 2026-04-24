@@ -13,6 +13,8 @@ class SignInScreen extends StatefulWidget {
 
 class _SignInScreenState extends State<SignInScreen> {
   bool _isLoading = false;
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
 
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _surnameController = TextEditingController();
@@ -250,15 +252,49 @@ class _SignInScreenState extends State<SignInScreen> {
                   _buildTextField(
                       _emailController, 'Email', Icons.email_outlined, scale),
                   SizedBox(height: 12 * scale),
-                  _buildTextField(_passwordController, 'Password',
-                      Icons.lock_outline, scale,
-                      obscure: true),
-
+                  _buildTextField(
+                    _passwordController,
+                    'Password',
+                    Icons.lock_outline,
+                    scale,
+                    obscure: _obscurePassword,
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePassword
+                            ? Icons.visibility_off_rounded
+                            : Icons.visibility_rounded,
+                        color: Colors.black26,
+                        size: 22 * scale,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _obscurePassword = !_obscurePassword;
+                        });
+                      },
+                    ),
+                  ),
                   SizedBox(height: 12 * scale),
-
-                  _buildTextField(_confirmPassController, 'Conferma Password',
-                      Icons.lock_reset_outlined, scale,
-                      obscure: true),
+                  _buildTextField(
+                    _confirmPassController,
+                    'Conferma Password',
+                    Icons.lock_reset_outlined,
+                    scale,
+                    obscure: _obscureConfirmPassword,
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscureConfirmPassword
+                            ? Icons.visibility_off_rounded
+                            : Icons.visibility_rounded,
+                        color: Colors.black26,
+                        size: 22 * scale,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _obscureConfirmPassword = !_obscureConfirmPassword;
+                        });
+                      },
+                    ),
+                  ),
 
                   Padding(
                     padding: const EdgeInsets.only(top: 8.0, left: 4.0),
@@ -335,7 +371,7 @@ class _SignInScreenState extends State<SignInScreen> {
 
   Widget _buildTextField(TextEditingController controller, String label,
       IconData icon, double scale,
-      {bool obscure = false}) {
+      {bool obscure = false, Widget? suffixIcon}) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -355,6 +391,7 @@ class _SignInScreenState extends State<SignInScreen> {
           labelStyle: const TextStyle(color: Colors.black38, fontSize: 14),
           prefixIcon:
               Icon(icon, color: const Color(0xFF00C6B8), size: 22 * scale),
+          suffixIcon: suffixIcon,
           border: InputBorder.none,
           contentPadding:
               const EdgeInsets.symmetric(vertical: 15, horizontal: 20),

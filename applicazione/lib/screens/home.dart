@@ -3,6 +3,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:pet_tracker/repositories/activities_repo.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'battery.dart';
 import 'geofencing.dart';
 import 'tracking.dart';
@@ -12,7 +13,6 @@ import 'settings.dart';
 import "../repositories/positions_repo.dart";
 import "../repositories/users_repo.dart";
 import "../models/positions.dart";
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import "daily_recap.dart";
 import 'package:intl/intl.dart';
@@ -46,6 +46,7 @@ class PetTrackerApp extends StatelessWidget {
       supportedLocales: const [
         Locale('it', 'IT'), // Forza l'italiano come lingua
       ],
+      locale: const Locale('it', 'IT'),
       theme: ThemeData(
         fontFamily: 'Roboto',
         scaffoldBackgroundColor: const Color(0xFFF7F8FA),
@@ -61,7 +62,7 @@ String formattaUltimoAggiornamento(DateTime? ultimoInvio) {
   if (ultimoInvio == null) return "N.D.";
 
   final oraLocale = DateTime.now();
-  
+
   // Se il dato è nel futuro (es. -69 min), sappiamo che Flutter ha aggiunto 2 ore di troppo.
   // Sottraiamo 2 ore per tornare all'orario reale della board.
   DateTime dataReale = ultimoInvio;
@@ -71,23 +72,25 @@ String formattaUltimoAggiornamento(DateTime? ultimoInvio) {
 
   final differenza = oraLocale.difference(dataReale);
 
-  if (differenza.isNegative) return "Adesso"; 
+  if (differenza.isNegative) return "Adesso";
   if (differenza.inSeconds < 60) return "Adesso";
   if (differenza.inMinutes < 60) return "${differenza.inMinutes} min fa";
-  
+  if (differenza.inHours < 24) return "${differenza.inHours} ore fa";
+
   return "${dataReale.day}/${dataReale.month}/${dataReale.year}";
 }
 
 Color getColoreStato(DateTime? ultimoInvio) {
   if (ultimoInvio == null) return Colors.grey;
-  
+
   // FIX: Anche qui serve la conversione locale per non avere colori errati
   final differenza = DateTime.now().difference(ultimoInvio.toLocal());
-  
+
   if (differenza.inMinutes < 30) return const Color(0xFF00C6B8);
   if (differenza.inMinutes < 60) return Colors.orange;
   return Colors.red;
 }
+
 class PetTrackerNavigation extends StatefulWidget {
   final Map<String, dynamic>? preloadedData; // Aggiungi questo
   const PetTrackerNavigation({super.key, this.preloadedData});
@@ -100,8 +103,11 @@ class _PetTrackerNavigationState extends State<PetTrackerNavigation> {
   int _currentIndex = 0;
 
   List<Widget> get _currentScreens => [
-        PetTrackerDashboard(preloadedData: widget.preloadedData), // Passa i dati
-        isTrackingMode.value ? const TrackingScreen() : const GeofencingScreen(),
+        PetTrackerDashboard(
+            preloadedData: widget.preloadedData), // Passa i dati
+        isTrackingMode.value
+            ? const TrackingScreen()
+            : const GeofencingScreen(),
         const BatteryScreen(),
       ];
 
@@ -171,19 +177,17 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
   DateTime? _ultimoAggiornamento;
   String _nomeZona = "Ricerca in corso...";
   String _displayUsername = "Caricamento...";
-  
-  bool _isLoading = true;          // Per il caricamento iniziale di tutta la pagina
+
+  bool _isLoading = true; // Per il caricamento iniziale di tutta la pagina
   bool _isActivityLoading = false; // NUOVO: Solo per il passaggio tra i giorni
 
   StreamSubscription? _streamSubscription;
   Timer? _uiRefreshTimer;
 
-  
-
   @override
   void initState() {
     super.initState();
-    
+
     // 1. Inizializzazione UI (Date e Calendario)
     _initializeDates();
 
@@ -193,14 +197,14 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
       _displayUsername = widget.preloadedData!['username'];
       isTrackingMode.value = widget.preloadedData!['alarm'];
       _nomeZona = widget.preloadedData!['zone'];
-      
+
       final pos = widget.preloadedData!['lastPosition'];
       if (pos != null) _ultimoAggiornamento = pos.timestamp;
 
       if (widget.preloadedData!['activities'] != null) {
         _elaboraAttivita(widget.preloadedData!['activities']);
       }
-      
+
       _isLoading = false; // Fermiamo il caricamento UI subito!
     } else {
       // Fallback: se la Splash fallisce, carichiamo i dati qui (vecchio metodo)
@@ -223,10 +227,12 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     // 5. STREAM REAL-TIME (Posizione Animale)
     // Anche se abbiamo i dati della Splash, dobbiamo ascoltare i nuovi movimenti!
     _positionsRepo.subscribeToPositions();
-    _streamSubscription = _positionsRepo.positionsStream.listen((nuovaPos) async {
+    _streamSubscription =
+        _positionsRepo.positionsStream.listen((nuovaPos) async {
       try {
         // Usiamo il metodo del repository per mantenere pulita la UI
-        String nuovaZona = await _calcolaZonaDalPunto(LatLng(nuovaPos.lat, nuovaPos.lon));
+        String nuovaZona =
+            await _calcolaZonaDalPunto(LatLng(nuovaPos.lat, nuovaPos.lon));
         if (mounted) {
           setState(() {
             _ultimoAggiornamento = nuovaPos.timestamp;
@@ -284,12 +290,12 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
       // Calcoliamo la zona in background
       _nomeZona = await _calcolaZonaDalPunto(LatLng(lastPos.lat, lastPos.lon));
     }
-    
+
     // Processa attività
     if (data['initialActivities'] != null) {
       _elaboraDatiAttivita(data['initialActivities']);
     }
-    
+
     if (mounted) setState(() {});
   }
 
@@ -373,7 +379,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     });
   }
 
- void _selezionaData(BuildContext context, double scale) {
+  void _selezionaData(BuildContext context, double scale) {
     // Variabile temporanea per salvare la data mentre l'utente gira la ruota
     DateTime tempPickedDate = _dataSelezionata;
 
@@ -383,7 +389,8 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
       isScrollControlled: true,
       builder: (context) {
         return Container(
-          height: MediaQuery.of(context).size.height * 0.40, // Altezza ridotta per il picker
+          height: MediaQuery.of(context).size.height *
+              0.40, // Altezza ridotta per il picker
           decoration: const BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
@@ -392,7 +399,8 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
             children: [
               // --- HEADER: Annulla | Modifica giorni | Salva ---
               Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20 * scale, vertical: 15 * scale),
+                padding: EdgeInsets.symmetric(
+                    horizontal: 20 * scale, vertical: 15 * scale),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -407,7 +415,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
                       ),
                     ),
                     Text(
-                      "Modifica giorni",
+                      "Seleziona Data",
                       style: TextStyle(
                         fontSize: 18 * scale,
                         fontWeight: FontWeight.bold,
@@ -430,37 +438,46 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
                         style: TextStyle(
                           fontSize: 16 * scale,
                           fontWeight: FontWeight.bold,
-                          color: const Color(0xFF00C6B8), // Il teal della tua app
+                          color:
+                              const Color(0xFF00C6B8), // Il teal della tua app
                         ),
                       ),
                     ),
                   ],
                 ),
               ),
-              
+
               Divider(height: 1, color: Colors.grey[300]),
 
               // --- PICKER A RUOTA STILE iOS ---
               Expanded(
-                child: CupertinoTheme(
-                  data: const CupertinoThemeData(
-                    textTheme: CupertinoTextThemeData(
-                      dateTimePickerTextStyle: TextStyle(
-                        color: Colors.black87, 
-                        fontSize: 22,
+                child: Localizations.override(
+                  context: context,
+                  locale: const Locale('it', 'IT'),
+                  delegates: const [
+                    GlobalMaterialLocalizations.delegate,
+                    GlobalWidgetsLocalizations.delegate,
+                    GlobalCupertinoLocalizations.delegate,
+                  ],
+                  child: CupertinoTheme(
+                    data: const CupertinoThemeData(
+                      textTheme: CupertinoTextThemeData(
+                        dateTimePickerTextStyle: TextStyle(
+                          color: Colors.black87,
+                          fontSize: 22,
+                        ),
                       ),
                     ),
-                  ),
-                  child: CupertinoDatePicker(
-                    mode: CupertinoDatePickerMode.date, 
-                    initialDateTime: _dataSelezionata,
-                    maximumDate: DateTime.now(),
-                    minimumDate: DateTime(2020),
-                    // AGGIUNGI QUESTA RIGA PER FORZARE L'ORDINE Giorno-Mese-Anno
-                    dateOrder: DatePickerDateOrder.dmy, 
-                    onDateTimeChanged: (DateTime newDate) {
-                      tempPickedDate = newDate;
-                    },
+                    child: CupertinoDatePicker(
+                      mode: CupertinoDatePickerMode.date,
+                      initialDateTime: _dataSelezionata,
+                      maximumDate: DateTime.now(),
+                      minimumDate: DateTime(2020),
+                      dateOrder: DatePickerDateOrder.dmy,
+                      onDateTimeChanged: (DateTime newDate) {
+                        tempPickedDate = newDate;
+                      },
+                    ),
                   ),
                 ),
               ),
@@ -481,20 +498,22 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
 
   Future<void> _scaricaDatiAttivita(DateTime data) async {
     // Usiamo la variabile specifica, non quella globale della pagina
-    setState(() => _isActivityLoading = true); 
+    setState(() => _isActivityLoading = true);
 
     try {
       // 1. Recuperiamo il boardId interrogando la collezione 'boards'
       final String? boardId = await _usersRepo.getBoardIdFromBoards();
 
       if (boardId == null || boardId.isEmpty) {
-        debugPrint("⚠️ Nessuna board trovata per questo account nella collezione 'boards'.");
+        debugPrint(
+            "⚠️ Nessuna board trovata per questo account nella collezione 'boards'.");
         if (mounted) setState(() => _isActivityLoading = false);
         return;
       }
 
       // 2. Procediamo con il recupero delle attività usando l'ID trovato
-      final attivita = await _activitiesRepo.fetchActivitiesByDate(boardId, data);
+      final attivita =
+          await _activitiesRepo.fetchActivitiesByDate(boardId, data);
 
       int passiTotali = 0;
       Duration durataTotale = Duration.zero;
@@ -523,6 +542,20 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     } catch (e) {
       debugPrint("❌ Errore scaricamento attività: $e");
       if (mounted) setState(() => _isActivityLoading = false);
+    }
+  }
+
+  String _formattaTempo(int minutiTotali) {
+    if (minutiTotali == 0) return "0 min";
+    if (minutiTotali < 60) return "$minutiTotali min";
+
+    final int ore = minutiTotali ~/ 60; // Divide e prende solo l'intero
+    final int minuti = minutiTotali % 60; // Prende il resto (i minuti)
+
+    if (minuti == 0) {
+      return "${ore}h"; // Es: "2h"
+    } else {
+      return "${ore}h ${minuti}m"; // Es: "1h 30m"
     }
   }
 
@@ -801,8 +834,10 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
 
   Widget _buildUnifiedActivityCard(double scale) {
     // Formattazione data (iniziale maiuscola per un look più pulito)
-    String dataFormattata = DateFormat('EEEE d MMMM yyyy', 'it_IT').format(_dataSelezionata);
-    dataFormattata = dataFormattata[0].toUpperCase() + dataFormattata.substring(1);
+    String dataFormattata =
+        DateFormat('EEEE d MMMM yyyy', 'it_IT').format(_dataSelezionata);
+    dataFormattata =
+        dataFormattata[0].toUpperCase() + dataFormattata.substring(1);
 
     return Container(
       padding: EdgeInsets.all(16 * scale),
@@ -824,15 +859,19 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
                 color: Colors.transparent,
                 child: InkWell(
                   borderRadius: BorderRadius.circular(50),
-                  onTap: _isActivityLoading ? null : () {
-                    setState(() {
-                      _dataSelezionata = _dataSelezionata.subtract(const Duration(days: 1));
-                    });
-                    _scaricaDatiAttivita(_dataSelezionata);
-                  },
+                  onTap: _isActivityLoading
+                      ? null
+                      : () {
+                          setState(() {
+                            _dataSelezionata = _dataSelezionata
+                                .subtract(const Duration(days: 1));
+                          });
+                          _scaricaDatiAttivita(_dataSelezionata);
+                        },
                   child: Padding(
                     padding: EdgeInsets.all(8.0 * scale),
-                    child: Icon(Icons.chevron_left, color: Colors.black54, size: 28 * scale),
+                    child: Icon(Icons.chevron_left,
+                        color: Colors.black54, size: 28 * scale),
                   ),
                 ),
               ),
@@ -840,10 +879,12 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
               // Pulsante "Pillola" centrale con la data
               Expanded(
                 child: GestureDetector(
-                  onTap: () => _selezionaData(context, scale), // Passiamo lo scale!
+                  onTap: () =>
+                      _selezionaData(context, scale), // Passiamo lo scale!
                   child: Container(
                     margin: EdgeInsets.symmetric(horizontal: 4 * scale),
-                    padding: EdgeInsets.symmetric(vertical: 8 * scale, horizontal: 12 * scale),
+                    padding: EdgeInsets.symmetric(
+                        vertical: 8 * scale, horizontal: 12 * scale),
                     decoration: BoxDecoration(
                       color: const Color(0xFF00C6B8).withOpacity(0.1),
                       borderRadius: BorderRadius.circular(20 * scale),
@@ -852,7 +893,8 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.calendar_today, size: 14 * scale, color: const Color(0xFF009B90)),
+                        Icon(Icons.calendar_today,
+                            size: 14 * scale, color: const Color(0xFF009B90)),
                         SizedBox(width: 8 * scale),
                         Flexible(
                           child: Text(
@@ -867,7 +909,8 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
                           ),
                         ),
                         SizedBox(width: 4 * scale),
-                        Icon(Icons.arrow_drop_down, size: 18 * scale, color: const Color(0xFF009B90)),
+                        Icon(Icons.arrow_drop_down,
+                            size: 18 * scale, color: const Color(0xFF009B90)),
                       ],
                     ),
                   ),
@@ -879,21 +922,25 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
                 color: Colors.transparent,
                 child: InkWell(
                   borderRadius: BorderRadius.circular(50),
-                  onTap: _isActivityLoading ? null : () {
-                    setState(() {
-                      _dataSelezionata = _dataSelezionata.add(const Duration(days: 1));
-                    });
-                    _scaricaDatiAttivita(_dataSelezionata);
-                  },
+                  onTap: _isActivityLoading
+                      ? null
+                      : () {
+                          setState(() {
+                            _dataSelezionata =
+                                _dataSelezionata.add(const Duration(days: 1));
+                          });
+                          _scaricaDatiAttivita(_dataSelezionata);
+                        },
                   child: Padding(
                     padding: EdgeInsets.all(8.0 * scale),
-                    child: Icon(Icons.chevron_right, color: Colors.black54, size: 28 * scale),
+                    child: Icon(Icons.chevron_right,
+                        color: Colors.black54, size: 28 * scale),
                   ),
                 ),
               ),
             ],
           ),
-          
+
           SizedBox(height: 20 * scale),
 
           // --- SEZIONE STATISTICHE (CON CARICAMENTO ISOLATO) ---
@@ -906,7 +953,8 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
                     child: const Center(
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00C6B8)),
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(Color(0xFF00C6B8)),
                       ),
                     ),
                   )
@@ -914,40 +962,59 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
                     key: const ValueKey('data'),
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _buildCompactStat("Passi", "${_dailyStats['steps']}", Icons.pets, Colors.orange, scale),
-                      _buildCompactStat("Km", "${_dailyStats['km']}", Icons.straighten, Colors.blue, scale),
-                      _buildCompactStat("Minuti", "${_dailyStats['minutes']}", Icons.timer, Colors.purple, scale),
+                      _buildCompactStat("Passi", "${_dailyStats['steps']}",
+                          Icons.pets, Colors.orange, scale),
+                      _buildCompactStat("Km", "${_dailyStats['km']}",
+                          Icons.straighten, Colors.blue, scale),
+                      _buildCompactStat(
+                          "Durata",
+                          _formattaTempo(_dailyStats['minutes']
+                              as int), // Usa la nuova funzione
+                          Icons.timer,
+                          Colors.purple,
+                          scale),
                     ],
                   ),
           ),
-          
+
           SizedBox(height: 24 * scale),
 
           // --- PULSANTE "VEDI RESOCONTO TOTALE" ---
           SizedBox(
             width: double.infinity,
-            child: OutlinedButton(
+            child: ElevatedButton.icon(
               onPressed: () {
                 Navigator.push(
-                  context, 
+                  context,
                   MaterialPageRoute(
-                    builder: (context) => RecapScreen(dataSelezionata: _dataSelezionata)
-                  )
+                    builder: (context) =>
+                        RecapScreen(dataSelezionata: _dataSelezionata),
+                  ),
                 );
               },
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Colors.black87, width: 1.2),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                padding: EdgeInsets.symmetric(vertical: 14 * scale),
+              icon: Icon(
+                Icons
+                    .format_list_bulleted_rounded, // Un'icona che richiama un elenco di attività
+                size: 20 * scale,
+                color: const Color(0xFF009B90), // Verde scuro per contrasto
               ),
-              child: Text(
-                "VEDI RESOCONTO TOTALE", 
+              label: Text(
+                "VEDI DETTAGLI ATTIVITÀ",
                 style: TextStyle(
-                  color: Colors.black87, 
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.0,
+                  color: const Color(0xFF009B90),
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.5,
                   fontSize: 13 * scale,
-                )
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                elevation: 0,
+                backgroundColor: const Color(0xFF00C6B8).withOpacity(0.1),
+                shadowColor: Colors.transparent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16 * scale),
+                ),
+                padding: EdgeInsets.symmetric(vertical: 14 * scale),
               ),
             ),
           ),

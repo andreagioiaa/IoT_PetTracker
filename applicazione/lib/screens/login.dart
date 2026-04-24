@@ -13,6 +13,7 @@ class AuthScreen extends StatefulWidget {
 
 class _AuthScreenState extends State<AuthScreen> {
   bool _isLoading = false;
+  bool _obscurePassword = true;
 
   // Controller essenziali per il login
   final TextEditingController _usernameController = TextEditingController();
@@ -133,9 +134,29 @@ class _AuthScreenState extends State<AuthScreen> {
                   _buildTextField(_usernameController, 'Email o Username',
                       Icons.person_outline, scale),
                   SizedBox(height: 15 * scale),
-                  _buildTextField(_passwordController, 'Password',
-                      Icons.lock_outline, scale,
-                      obscure: true),
+                  _buildTextField(
+                    _passwordController,
+                    'Password',
+                    Icons.lock_outline,
+                    scale,
+                    obscure: _obscurePassword, // <-- Usa la variabile di stato
+                    suffixIcon: IconButton(
+                      // <-- Aggiunge il pulsante cliccabile
+                      icon: Icon(
+                        _obscurePassword
+                            ? Icons.visibility_off_rounded
+                            : Icons.visibility_rounded,
+                        color: Colors.black26,
+                        size: 22 * scale,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _obscurePassword =
+                              !_obscurePassword; // <-- Inverte lo stato
+                        });
+                      },
+                    ),
+                  ),
 
                   SizedBox(height: 40 * scale),
 
@@ -205,7 +226,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
   Widget _buildTextField(TextEditingController controller, String label,
       IconData icon, double scale,
-      {bool obscure = false}) {
+      {bool obscure = false, Widget? suffixIcon}) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -225,6 +246,7 @@ class _AuthScreenState extends State<AuthScreen> {
           labelStyle: const TextStyle(color: Colors.black38, fontSize: 14),
           prefixIcon:
               Icon(icon, color: const Color(0xFF00C6B8), size: 22 * scale),
+          suffixIcon: suffixIcon,
           border: InputBorder.none,
           contentPadding:
               const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
