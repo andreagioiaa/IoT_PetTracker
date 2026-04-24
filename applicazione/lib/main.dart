@@ -4,136 +4,89 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'screens/splash_view.dart';
-import 'screens/home.dart';
+import 'screens/home.dart'; // Assicurati che mapFocusPreference sia definita qui
 import 'services/scambio.dart' as scambio;
 import 'package:intl/date_symbol_data_local.dart';
 
 // --- GESTIONE BACKGROUND FIREBASE ---
-// Serve a Firebase per "svegliarsi" e gestire la notifica se l'app è completamente chiusa
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
-  print(
-      "📩 Ricevuto messaggio in background (Batteria scarica!): ${message.messageId}");
+  print("📩 Messaggio background ricevuto: ${message.messageId}");
 }
-// ------------------------------------
 
 void main() async {
-  // 1. 🏗️ Obbligatorio per eseguire codice asincrono prima di runApp
   WidgetsFlutterBinding.ensureInitialized();
 
-  print('🔥 Inizializzazione Firebase e Notifiche...');
+  // 1. 🔥 Inizializzazione Firebase
   try {
     await Firebase.initializeApp();
-
-    // Diciamo a Firebase quale funzione usare in background
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-
+    
     FirebaseMessaging messaging = FirebaseMessaging.instance;
-
-    // Richiediamo i permessi all'utente
-    NotificationSettings settings = await messaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
-    print('🔔 Permessi notifiche concessi: ${settings.authorizationStatus}');
-
-    // Recuperiamo l'indirizzo univoco del telefono (Token)
+    await messaging.requestPermission(alert: true, badge: true, sound: true);
+    
     String? token = await messaging.getToken();
-    print("📲 IL TOKEN DI QUESTO TELEFONO È: $token");
+    print("📲 Token FCM attuale: $token");
   } catch (e) {
-    print('⚠️ Errore inizializzazione Firebase: $e');
+    print('⚠️ Errore Firebase: $e');
   }
 
-  // 2. 🌍 INIZIALIZZAZIONE LOCALIZZAZIONE (Risolve il crash LocaleDataException)
-  // Questo "accende il motore" per i nomi dei mesi e giorni in italiano
-  print('🌍 Inizializzazione dati di localizzazione per it_IT...');
+  // 2. 🌍 Localizzazione
   try {
     await initializeDateFormatting('it_IT', null);
-    print('✅ Localizzazione inizializzata correttamente.');
+    print('✅ Localizzazione it_IT pronta.');
   } catch (e) {
-    print('⚠️ Errore durante l\'inizializzazione della localizzazione: $e');
+    print('⚠️ Errore localizzazione: $e');
   }
 
-  // 3. 🔐 Caricamento variabili d'ambiente dal file .env
-  print('🔐 Caricamento variabili d\'ambiente dal file .env...');
+  // 3. 🔐 Variabili d'ambiente
   try {
     await dotenv.load(fileName: ".env");
     print('✅ File .env caricato.');
   } catch (e) {
-    print('⚠️ Errore caricamento .env: $e');
+    print('⚠️ Errore .env: $e');
   }
 
-  // --- 💾 LOGICA DI PERSISTENZA PREFERENZE (SharedPreferences) ---
-  print('💾 Recupero preferenze locali dal dispositivo...');
+  // 4. 💾 Preferenze Locali (Mappa)
   try {
     final prefs = await SharedPreferences.getInstance();
     final String? savedFocus = prefs.getString('map_focus_priority');
-
     if (savedFocus != null) {
-      // Assicurati che mapFocusPreference sia accessibile (es. importata da home.dart)
       mapFocusPreference.value = savedFocus;
-      print('✅ Focus mappa impostato su: $savedFocus');
-    } else {
-      print('ℹ️ Nessuna preferenza salvata, utilizzo default: Animale');
     }
   } catch (e) {
-    print('⚠️ Errore nel caricamento delle preferenze locali: $e');
+    print('⚠️ Errore SharedPreferences: $e');
   }
 
-  // --- LOGICA DI AUTENTICAZIONE (PocketBase + SecureStorage) ---
-  print('🏁 Avvio sistema: inizializzazione PocketBase...');
-
+  // 5. 🏁 PocketBase Auth & Sync Token
   scambio.inizializzaClient();
-
   bool canConnect = await scambio.autenticazione();
-  print(canConnect
-      ? '✅ Connessione al server riuscita.'
-      : '❌ Errore di connessione al server.');
 
-  // --- SALVATAGGIO TOKEN SU POCKETBASE ---
-  // SOLO se l'utente è loggato con successo
   if (canConnect && scambio.pb.authStore.isValid) {
+    print('✅ Autenticato come: ${scambio.pb.authStore.model.id}');
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final userId = scambio.pb.authStore.model!.id; // ID univoco dell'utente corrente
-      
-      // Creiamo una chiave specifica per questo utente
-      final String flagKey = 'fcm_token_sent_$userId';
-      bool tokenGiaInviato = prefs.getBool(flagKey) ?? false;
-
-      if (!tokenGiaInviato) {
-        print('🚀 Primo accesso per l\'utente $userId: invio token FCM...');
-        
-        String? currentToken = await FirebaseMessaging.instance.getToken();
-
-        if (currentToken != null) {
-          await scambio.pb.collection('users').update(
-            userId,
-            body: {'tokenFCM': currentToken},
-          );
-          
-          // Salviamo il flag per QUESTO specifico utente
-          await prefs.setBool(flagKey, true);
-          print('✅ Token salvato per l\'utente $userId');
-        }
-      } else {
-        print('ℹ️ Token già presente per questo account. Skip.');
+      String? currentToken = await FirebaseMessaging.instance.getToken();
+      if (currentToken != null) {
+        // Ripristino gestione semplice: aggiorna sempre il token all'avvio/login
+        await scambio.pb.collection('users').update(
+          scambio.pb.authStore.model.id,
+          body: {'tokenFCM': currentToken},
+        );
+        print('✅ FCM Token sincronizzato su PocketBase.');
       }
     } catch (e) {
-      print('⚠️ Errore gestione token: $e');
+      print('⚠️ Errore sincronizzazione token su PocketBase: $e');
     }
+  } else {
+    print('❌ Errore connessione o sessione non valida.');
   }
-  // -------------------------------------------
 
-  // Lanciamo l'app una sola volta passandogli lo stato della connessione
   runApp(PetTrackerApp(isAuthSuccessful: canConnect));
 }
 
 class PetTrackerApp extends StatelessWidget {
   final bool isAuthSuccessful;
-
   const PetTrackerApp({super.key, required this.isAuthSuccessful});
 
   @override
@@ -159,15 +112,10 @@ class PetTrackerApp extends StatelessWidget {
           children: [
             Icon(Icons.cloud_off, size: 60, color: Colors.red),
             SizedBox(height: 20),
-            Text('Impossibile connettersi al server.',
-                style: TextStyle(fontWeight: FontWeight.bold)),
+            Text('Errore di connessione', style: TextStyle(fontWeight: FontWeight.bold)),
             Padding(
-              padding: EdgeInsets.symmetric(horizontal: 40, vertical: 10),
-              child: Text(
-                'Controlla se il tunnel ngrok è attivo o i dati di accesso nel file .env.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.black54),
-              ),
+              padding: EdgeInsets.all(20),
+              child: Text('Verifica il tunnel ngrok o le credenziali nel file .env.', textAlign: TextAlign.center),
             ),
           ],
         ),
