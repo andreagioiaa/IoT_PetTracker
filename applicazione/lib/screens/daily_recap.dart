@@ -4,7 +4,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:intl/intl.dart';
 import '../repositories/activities_repo.dart';
 import '../repositories/positions_repo.dart';
-import '../services/scambio.dart' as scambio;
+import '../services/authentication.dart' as scambio;
 
 class RecapScreen extends StatefulWidget {
   final DateTime dataSelezionata;

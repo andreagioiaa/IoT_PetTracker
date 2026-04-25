@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import '../services/scambio.dart' as scambio;
+import '../services/authentication.dart' as scambio;
+import '../services/position_gps.dart';
 import 'home.dart';
 import "../repositories/users_repo.dart"; // Rimuovi 'as users' se preferisci usare la classe direttamente
 import 'package:shared_preferences/shared_preferences.dart';

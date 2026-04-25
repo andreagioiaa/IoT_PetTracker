@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'package:geolocator/geolocator.dart';
 import 'dart:async';
-import '../services/scambio.dart' as scambio;
+import '../services/authentication.dart' as scambio;
+import '../services/position_gps.dart';
+import '../services/geocoding.dart';
 import 'polygon_editor.dart';
 import 'home.dart';
 import "../repositories/positions_repo.dart";
-import "../repositories/geofences_repo.dart";
 
 enum ActiveCard { none, zone, user, pet }
 
@@ -31,7 +30,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
 
   late final PositionsRepository _positionsRepo =
       PositionsRepository(scambio.pb);
-  late final GeofenceRepository _geofenceRepo = GeofenceRepository(scambio.pb);
 
   final ValueNotifier<ActiveCard> _activeCard =
       ValueNotifier<ActiveCard>(ActiveCard.none);
@@ -80,11 +78,9 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
         permission == LocationPermission.whileInUse) {
       hasLocationPermission.value = true;
 
-      Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.medium,
-        timeLimit: const Duration(seconds: 10),
-      );
-      if (mounted) {
+      Position? position = await PositionGpsService.ottieniPosizioneUtente();
+
+      if (position != null && mounted) {
         setState(
             () => _myLocation = LatLng(position.latitude, position.longitude));
 
@@ -104,8 +100,15 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
   @override
   void dispose() {
     hasLocationPermission.removeListener(_onPermissionChanged);
-    _streamSubscription?.cancel(); // Fondamentale
-    _positionsRepo.dispose(); // Fondamentale
+    _streamSubscription?.cancel();
+    _positionsRepo.dispose();
+
+    _nameController.dispose();
+    _streetController.dispose();
+    _civicController.dispose();
+    _cityController.dispose();
+    _capController.dispose();
+
     super.dispose();
   }
 
@@ -119,32 +122,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     hasLocationPermission.value = (permission == LocationPermission.always ||
         permission == LocationPermission.whileInUse);
   }
-
-  // ALGORITMO PER RILEVARE IL TOCCO DENTRO UN POLIGONO
-
-  bool _isPointInPolygon(LatLng point, List<LatLng> polygon) {
-    bool isInside = false;
-
-    int i, j = polygon.length - 1;
-
-    for (i = 0; i < polygon.length; i++) {
-      if ((polygon[i].latitude > point.latitude) !=
-              (polygon[j].latitude > point.latitude) &&
-          point.longitude <
-              (polygon[j].longitude - polygon[i].longitude) *
-                      (point.latitude - polygon[i].latitude) /
-                      (polygon[j].latitude - polygon[i].latitude) +
-                  polygon[i].longitude) {
-        isInside = !isInside;
-      }
-
-      j = i;
-    }
-
-    return isInside;
-  }
-
-  // In geofencing.dart
 
   Future<void> _scaricaPosizioneInizialeAnimale() async {
     final posizione = await _positionsRepo.getLatestPosition();
@@ -283,62 +260,22 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
         _userAddress = "Ricerca indirizzo in corso...";
     });
 
-    final url = Uri.parse(
-        'https://nominatim.openstreetmap.org/reverse?lat=${loc.latitude}&lon=${loc.longitude}&format=json&addressdetails=1');
-
-    try {
-      final response = await http
-          .get(url, headers: {'User-Agent': 'PetTrackerApp_IoT_Project'});
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-
-        if (data['address'] != null) {
-          final address = data['address'];
-
-          String street = address['road'] ??
-              address['pedestrian'] ??
-              address['square'] ??
-              'Via Sconosciuta';
-
-          String civic = address['house_number'] ?? '';
-
-          String city = address['city'] ??
-              address['town'] ??
-              address['village'] ??
-              address['municipality'] ??
-              'Città Sconosciuta';
-
-          String cap = address['postcode'] ?? '00000';
-
-          String result = "$city ($cap) - $street";
-
-          if (civic.isNotEmpty) {
-            result += ", $civic";
-          }
-
-          setState(() {
-            if (isPet)
-              _petAddress = result;
-            else
-              _userAddress = result;
-          });
-
-          return;
-        }
-      }
-    } catch (e) {
-      debugPrint("Errore reverse geocoding on demand: $e");
-    }
+    final address = await Geocoding.getAddressFromCoordinates(loc);
 
     setState(() {
-      String coords =
-          "Coordinate: ${loc.latitude.toStringAsFixed(4)}, ${loc.longitude.toStringAsFixed(4)}";
-
-      if (isPet)
-        _petAddress = coords;
-      else
-        _userAddress = coords;
+      if (address != null) {
+        if (isPet)
+          _petAddress = address;
+        else
+          _userAddress = address;
+      } else {
+        String coords =
+            "Coordinate: ${loc.latitude.toStringAsFixed(4)}, ${loc.longitude.toStringAsFixed(4)}";
+        if (isPet)
+          _petAddress = coords;
+        else
+          _userAddress = coords;
+      }
     });
   }
 
@@ -386,23 +323,14 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
 
   Future<void> _determinePosition() async {
     try {
-      LocationPermission permission = await Geolocator.checkPermission();
+      // 1. Chiamiamo il nostro servizio che gestisce il pop-up e i permessi!
+      await PositionGpsService.richiediPermessi(context);
 
-      // Qui chiediamo il permesso! (Questa funzione ora la leghiamo solo al click dell'utente)
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
+      // 2. Se l'utente ha accettato, recuperiamo la posizione
+      if (hasLocationPermission.value) {
+        Position? position = await PositionGpsService.ottieniPosizioneUtente();
 
-      if (permission == LocationPermission.always ||
-          permission == LocationPermission.whileInUse) {
-        hasLocationPermission.value = true;
-
-        Position position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.medium,
-          timeLimit: const Duration(seconds: 10),
-        );
-
-        if (mounted) {
+        if (position != null && mounted) {
           setState(() {
             _myLocation = LatLng(position.latitude, position.longitude);
           });
@@ -410,9 +338,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
           _activeCard.value = ActiveCard.user;
           _resolveAddress(_myLocation!, false);
         }
-      } else {
-        hasLocationPermission.value = false;
-        return;
       }
     } catch (e) {
       debugPrint("Errore geolocalizzazione: $e");
@@ -472,60 +397,18 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
         content: Text("Rilevamento indirizzo in corso..."),
         duration: Duration(seconds: 1)));
 
-    final lat = _myLocation!.latitude;
+    final details =
+        await Geocoding.getAddressDetailsFromCoordinates(_myLocation!);
 
-    final lon = _myLocation!.longitude;
-
-    final url = Uri.parse(
-        'https://nominatim.openstreetmap.org/reverse?lat=$lat&lon=$lon&format=json&addressdetails=1');
-
-    String street = '';
-
-    String civic = '';
-
-    String city = '';
-
-    String cap = '';
-
-    try {
-      final response = await http
-          .get(url, headers: {'User-Agent': 'PetTrackerApp_IoT_Project'});
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-
-        if (data['address'] != null) {
-          final address = data['address'];
-
-          street = address['road'] ??
-              address['street'] ??
-              address['square'] ??
-              address['pedestrian'] ??
-              '';
-
-          civic = address['house_number'] ?? '';
-
-          city = address['city'] ??
-              address['town'] ??
-              address['village'] ??
-              address['municipality'] ??
-              '';
-
-          cap = address['postcode'] ?? '';
-        }
-      }
-    } catch (e) {
-      debugPrint("Errore reverse geocoding: $e");
-    }
+    String street = details['street'] ?? '';
+    String civic = details['civic'] ?? '';
+    String city = details['city'] ?? '';
+    String cap = details['cap'] ?? '';
 
     _nameController.text = "Posizione Attuale";
-
     _streetController.text = street;
-
     _civicController.text = civic;
-
     _cityController.text = city;
-
     _capController.text = cap;
 
     _indirizzoPrecompilatoGps =
@@ -537,173 +420,137 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
   Future<Map<String, dynamic>> _fetchCoordinatesAndSaveOrUpdate(
       {bool isUpdating = false, int? updateIndex}) async {
     final String rawName = _nameController.text.trim();
-
     final String rawStreet = _streetController.text.trim();
-
     final String rawCivic = _civicController.text.trim();
-
     final String rawCity = _cityController.text.trim();
-
     final String rawCap = _capController.text.trim();
 
-    final url = Uri.parse('https://nominatim.openstreetmap.org/search?'
-        'street=${Uri.encodeComponent("$rawCivic $rawStreet")}'
-        '&city=${Uri.encodeComponent(rawCity)}'
-        '&postalcode=${Uri.encodeComponent(rawCap)}'
-        '&format=json&addressdetails=1&limit=1');
+    final mapData = await Geocoding.getCoordinatesFromAddress(
+        rawStreet: rawStreet,
+        rawCivic: rawCivic,
+        rawCity: rawCity,
+        rawCap: rawCap);
+
+    if (mapData['success'] != true) {
+      return {'error': mapData['error']};
+    }
+
+    String finalStreet = mapData['street'];
+    String finalCivic = mapData['civic'];
+    String finalCity = mapData['city'];
+    String finalCap = mapData['cap'];
+    LatLng newCenter = mapData['center'];
+
+    bool isDuplicateLocation = savedPlaces.asMap().entries.any((e) {
+      if (isUpdating && e.key == updateIndex) return false;
+
+      final existingZone = e.value;
+
+      LatLng existingCenter = existingZone['center'];
+
+      String existingStreet =
+          (existingZone['street'] ?? '').toString().trim().toLowerCase();
+
+      String existingCivic =
+          (existingZone['civic'] ?? '').toString().trim().toLowerCase();
+
+      String existingCap =
+          (existingZone['cap'] ?? '').toString().trim().toLowerCase();
+
+      bool sameAddress = existingStreet == finalStreet.toLowerCase() &&
+          existingCivic == finalCivic.toLowerCase() &&
+          existingCap == finalCap.toLowerCase();
+
+      if (sameAddress) {
+        const Distance distance = Distance();
+
+        final double meterDistance = distance(existingCenter, newCenter);
+
+        if (meterDistance < 500) {
+          return true;
+        }
+      }
+
+      return false;
+    });
+
+    if (isDuplicateLocation) {
+      return {'error': "Esiste già un'Area in questo indirizzo!"};
+    }
+
+    final body = {
+      "name": rawName,
+      "center_lat": newCenter.latitude,
+      "center_lon": newCenter.longitude,
+      "street": finalStreet,
+      "civic": finalCivic,
+      "city": finalCity,
+      "cap": finalCap,
+      "is_active": true
+    };
 
     try {
-      final response = await http
-          .get(url, headers: {'User-Agent': 'PetTrackerApp_IoT_Project'});
+      if (isUpdating && updateIndex != null) {
+        final id = savedPlaces[updateIndex]['id'];
+        final oldCenter = savedPlaces[updateIndex]['center'] as LatLng;
+        const Distance distCalc = Distance();
+        final double dist = distCalc(oldCenter, newCenter);
 
-      if (response.statusCode == 200) {
-        List data = json.decode(response.body);
-
-        if (data.isNotEmpty) {
-          var addressDetails = data[0]['address'] ?? {};
-
-          String finalStreet = addressDetails['road'] ??
-              addressDetails['pedestrian'] ??
-              addressDetails['square'] ??
-              rawStreet;
-
-          String finalCivic = addressDetails['house_number'] ?? rawCivic;
-
-          String finalCity = addressDetails['city'] ??
-              addressDetails['town'] ??
-              addressDetails['village'] ??
-              addressDetails['municipality'] ??
-              rawCity;
-
-          String finalCap = addressDetails['postcode'] ?? rawCap;
-
-          double lat = double.parse(data[0]['lat']);
-
-          double lon = double.parse(data[0]['lon']);
-
-          LatLng newCenter = LatLng(lat, lon);
-
-          bool isDuplicateLocation = savedPlaces.asMap().entries.any((e) {
-            if (isUpdating && e.key == updateIndex) return false;
-
-            final existingZone = e.value;
-
-            LatLng existingCenter = existingZone['center'];
-
-            String existingStreet =
-                (existingZone['street'] ?? '').toString().trim().toLowerCase();
-
-            String existingCivic =
-                (existingZone['civic'] ?? '').toString().trim().toLowerCase();
-
-            String existingCap =
-                (existingZone['cap'] ?? '').toString().trim().toLowerCase();
-
-            bool sameAddress = existingStreet == finalStreet.toLowerCase() &&
-                existingCivic == finalCivic.toLowerCase() &&
-                existingCap == finalCap.toLowerCase();
-
-            if (sameAddress) {
-              const Distance distance = Distance();
-
-              final double meterDistance = distance(existingCenter, newCenter);
-
-              if (meterDistance < 500) {
-                return true;
-              }
-            }
-
-            return false;
-          });
-
-          if (isDuplicateLocation) {
-            return {'error': "Esiste già un'Area in questo indirizzo!"};
+        // Se l'indirizzo ha prodotto un centro diverso (più di 10 metri di scarto)
+        if (dist > 10) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                content: Text("Indirizzo modificato: ridisegna il perimetro!"),
+                backgroundColor: Colors.blueAccent));
           }
-
-          final body = {
-            "name": rawName,
-            "center_lat": newCenter.latitude,
-            "center_lon": newCenter.longitude,
-            "street": finalStreet,
-            "civic": finalCivic,
-            "city": finalCity,
-            "cap": finalCap,
-            "is_active": true
+          return {
+            'success': true,
+            'requiresDrawing':
+                true, // <-- Flag speciale per indicare il cambio di posizione
+            'id': id,
+            'newZoneData': body,
+            'name': rawName,
+            'center': newCenter
           };
-
-          try {
-            if (isUpdating && updateIndex != null) {
-              final id = savedPlaces[updateIndex]['id'];
-              final oldCenter = savedPlaces[updateIndex]['center'] as LatLng;
-              const Distance distCalc = Distance();
-              final double dist = distCalc(oldCenter, newCenter);
-
-              // Se l'indirizzo ha prodotto un centro diverso (più di 10 metri di scarto)
-              if (dist > 10) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                      content:
-                          Text("Indirizzo modificato: ridisegna il perimetro!"),
-                      backgroundColor: Colors.blueAccent));
-                }
-                return {
-                  'success': true,
-                  'requiresDrawing':
-                      true, // <-- Flag speciale per indicare il cambio di posizione
-                  'id': id,
-                  'newZoneData': body,
-                  'name': rawName,
-                  'center': newCenter
-                };
-              } else {
-                // Le coordinate sono uguali (o hai cambiato solo il nome): aggiorna e chiudi
-                final rec = await scambio.pb
-                    .collection('geofences')
-                    .update(id, body: body);
-
-                await _caricaZoneDalDatabase(forceSelectId: rec.id);
-
-                _activeCard.value = ActiveCard.zone;
-                _mapController.move(newCenter, 18.0);
-
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                      content: Text("Area aggiornata!"),
-                      backgroundColor: Colors.green));
-                }
-
-                return {
-                  'success': true,
-                  'id': rec.id,
-                  'name': rawName,
-                  'center': newCenter
-                };
-              }
-            } else {
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                    content: Text("Traccia il perimetro!"),
-                    backgroundColor: Colors.blueAccent));
-              }
-
-              return {
-                'success': true,
-                'newZoneData': body,
-                'name': rawName,
-                'center': newCenter
-              };
-            }
-          } catch (e) {
-            return {'error': "Errore durante il salvataggio nel database."};
-          }
         } else {
-          return {'error': "Indirizzo inesistente sulla mappa."};
+          // Le coordinate sono uguali (o hai cambiato solo il nome): aggiorna e chiudi
+          final rec =
+              await scambio.pb.collection('geofences').update(id, body: body);
+
+          await _caricaZoneDalDatabase(forceSelectId: rec.id);
+
+          _activeCard.value = ActiveCard.zone;
+          _mapController.move(newCenter, 18.0);
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                content: Text("Area aggiornata!"),
+                backgroundColor: Colors.green));
+          }
+
+          return {
+            'success': true,
+            'id': rec.id,
+            'name': rawName,
+            'center': newCenter
+          };
         }
       } else {
-        return {'error': "Errore di connessione al servizio mappe."};
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text("Traccia il perimetro!"),
+              backgroundColor: Colors.blueAccent));
+        }
+
+        return {
+          'success': true,
+          'newZoneData': body,
+          'name': rawName,
+          'center': newCenter
+        };
       }
     } catch (e) {
-      return {'error': "Errore di rete: $e"};
+      return {'error': "Errore durante il salvataggio nel database."};
     }
   }
 
@@ -1081,7 +928,17 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                   geofenceUpdateSignal.value++;
 
                   if (context.mounted) Navigator.of(context).pop();
-                } catch (e) {}
+                } catch (e) {
+                  debugPrint("Errore eliminazione: $e");
+                  if (context.mounted) {
+                    Navigator.of(context).pop();
+
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text("Errore durante l'eliminazione."),
+                      backgroundColor: Colors.red,
+                    ));
+                  }
+                }
               },
               child:
                   const Text("Elimina", style: TextStyle(color: Colors.white)),
@@ -1122,7 +979,8 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                       savedPlaces[i]['vertices'] as List<LatLng>? ?? [];
 
                   if (vertices.length >= 3 &&
-                      _isPointInPolygon(point, vertices)) {
+                      PositionGpsService.isPointInsidePolygon(
+                          point, vertices)) {
                     setState(() => selectedPlaceIndex = i);
 
                     _activeCard.value = ActiveCard.zone;

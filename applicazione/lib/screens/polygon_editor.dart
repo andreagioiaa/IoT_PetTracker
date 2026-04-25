@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import '../services/scambio.dart' as scambio;
+import '../services/authentication.dart' as scambio;
+import '../services/position_gps.dart';
 import 'home.dart';
 
 class PolygonEditorScreen extends StatefulWidget {
@@ -67,25 +68,6 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
     setState(() {
       _points.clear();
     });
-  }
-
-  // --- ALGORITMO GEOMETRICO (Usato per calcolare le sovrapposizioni) ---
-  bool _isPointInPolygon(LatLng point, List<LatLng> polygon) {
-    bool isInside = false;
-    int i, j = polygon.length - 1;
-    for (i = 0; i < polygon.length; i++) {
-      if ((polygon[i].latitude > point.latitude) !=
-              (polygon[j].latitude > point.latitude) &&
-          point.longitude <
-              (polygon[j].longitude - polygon[i].longitude) *
-                      (point.latitude - polygon[i].latitude) /
-                      (polygon[j].latitude - polygon[i].latitude) +
-                  polygon[i].longitude) {
-        isInside = !isInside;
-      }
-      j = i;
-    }
-    return isInside;
   }
 
   // --- DIALOG DI ERRORE PERSONALIZZATO ---
@@ -182,7 +164,7 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
 
         // Caso A: I punti della zona in creazione cadono in una vecchia zona?
         for (var p in _points) {
-          if (_isPointInPolygon(p, existingPoly)) {
+          if (PositionGpsService.isPointInsidePolygon(p, existingPoly)) {
             overlap = true;
             break;
           }
@@ -191,7 +173,7 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
         // Caso B: I punti di una vecchia zona cadono nel disegno attuale?
         if (!overlap) {
           for (var p in existingPoly) {
-            if (_isPointInPolygon(p, _points)) {
+            if (PositionGpsService.isPointInsidePolygon(p, _points)) {
               overlap = true;
               break;
             }

@@ -1,5 +1,5 @@
 import 'package:pocketbase/pocketbase.dart';
-import '../services/scambio.dart';
+import '../services/authentication.dart';
 import '../models/users.dart';
 import 'package:flutter/material.dart';
 import "../screens/login.dart";
@@ -27,8 +27,8 @@ class UsersRepository {
 
       // Usiamo l'operatore '~' (contiene) perché 'user' sembra una lista nello screenshot
       final record = await pb.collection('boards').getFirstListItem(
-        'user ~ "$userId"',
-      );
+            'user ~ "$userId"',
+          );
 
       return record.getStringValue('board');
     } catch (e) {

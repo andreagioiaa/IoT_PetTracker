@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'home.dart';
-import '../services/scambio.dart' as scambio;
+import '../services/authentication.dart' as scambio;
 import 'sign_in.dart'; // Import necessario per la navigazione verso la registrazione
 import "../repositories/users_repo.dart";
 

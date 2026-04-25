@@ -1,6 +1,6 @@
 import 'package:pocketbase/pocketbase.dart';
 import '../models/activities.dart';
-import '../services/scambio.dart';
+import '../services/authentication.dart';
 
 class ActivitiesRepository {
   final PocketBase _pb;

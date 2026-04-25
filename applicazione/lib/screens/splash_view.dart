@@ -9,7 +9,7 @@ import '../repositories/users_repo.dart';
 import '../repositories/positions_repo.dart';
 import '../repositories/activities_repo.dart';
 import '../repositories/geofences_repo.dart';
-import '../services/scambio.dart' as scambio;
+import '../services/authentication.dart' as scambio;
 
 class SplashScreen extends StatefulWidget {
   final bool isAlreadyAuthenticated;
@@ -19,14 +19,16 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(duration: const Duration(milliseconds: 1500), vsync: this);
+    _controller = AnimationController(
+        duration: const Duration(milliseconds: 1500), vsync: this);
     _animation = CurvedAnimation(parent: _controller, curve: Curves.easeInOut);
     _controller.forward();
 
@@ -40,10 +42,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     if (!widget.isAlreadyAuthenticated) {
       await Future.delayed(const Duration(seconds: 2));
       if (mounted) {
-        Navigator.pushReplacement(
-          context, 
-          MaterialPageRoute(builder: (context) => const AuthScreen())
-        );
+        Navigator.pushReplacement(context,
+            MaterialPageRoute(builder: (context) => const AuthScreen()));
       }
       return;
     }
@@ -58,29 +58,30 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       // --- FASE 1: RECUPERO IDENTITÀ E BOARD ---
       // Queste operazioni devono essere fatte prima delle altre perché il boardId è vitale
       final user = await usersRepo.getCurrentUser();
-      
+
       // Cerchiamo la board collegata all'utente nella collezione "boards"
       final String? boardId = await usersRepo.getBoardIdFromBoards();
 
       if (boardId == null || boardId.isEmpty) {
         debugPrint("⚠️ Errore: Nessuna board associata all'utente loggato.");
-        throw Exception("Board non trovata"); 
-      }else{
+        throw Exception("Board non trovata");
+      } else {
         debugPrint("✅ Board trovata: " + boardId + "!");
       }
 
       // --- FASE 2: CARICAMENTO DATI IN PARALLELO ---
       // Ora che abbiamo il boardId, carichiamo tutto il resto contemporaneamente per massimizzare la velocità ⚡
       final results = await Future.wait([
-        usersRepo.getAlarmStatus(),                                     // [0]
-        positionsRepo.getLatestPosition(),                              // [1]
-        activitiesRepo.fetchActivitiesByDate(boardId, DateTime.now()),   // [2] <- DINAMICO!
+        usersRepo.getAlarmStatus(), // [0]
+        positionsRepo.getLatestPosition(), // [1]
+        activitiesRepo.fetchActivitiesByDate(
+            boardId, DateTime.now()), // [2] <- DINAMICO!
       ]);
 
       // Estrazione e Casting dei risultati
       final bool? alarm = results[0] as bool?;
       final pos = results[1] as Positions?;
-      final activities = results[2]; 
+      final activities = results[2];
 
       // --- FASE 3: ELABORAZIONE FINALE (GEOFENCING) ---
       String zona = "Posizione sconosciuta";
@@ -107,7 +108,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                 'lastPosition': pos,
                 'activities': activities,
                 'zone': zona,
-                'boardId': boardId, // Passiamo il boardId per usi futuri nella Home
+                'boardId':
+                    boardId, // Passiamo il boardId per usi futuri nella Home
               },
             ),
           ),
@@ -117,10 +119,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       debugPrint("🛑 Errore critico nel caricamento Splash: $e");
       // In caso di errore, riportiamo l'utente a una navigazione sicura o al login
       if (mounted) {
-        Navigator.pushReplacement(
-          context, 
-          MaterialPageRoute(builder: (context) => const AuthScreen())
-        );
+        Navigator.pushReplacement(context,
+            MaterialPageRoute(builder: (context) => const AuthScreen()));
       }
     }
   }
@@ -143,7 +143,11 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
             children: [
               Icon(Icons.pets, size: 80, color: Colors.teal),
               SizedBox(height: 20),
-              Text('Pet Tracker', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.teal)),
+              Text('Pet Tracker',
+                  style: TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.teal)),
             ],
           ),
         ),

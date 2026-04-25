@@ -6,7 +6,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_compass/flutter_compass.dart';
 import 'dart:async';
 import 'dart:math' as math;
-import '../services/scambio.dart' as scambio;
+import '../services/authentication.dart' as scambio;
+import '../services/position_gps.dart';
 import 'home.dart';
 import '../repositories/users_repo.dart';
 import "../repositories/positions_repo.dart";
@@ -71,42 +72,12 @@ class _TrackingScreenState extends State<TrackingScreen> {
   void _ricalcolaDirezione() {
     if (_userLocation == null || _petLocation == null) return;
 
-    final lat1 = _userLocation!.latitude * math.pi / 180;
-    final lon1 = _userLocation!.longitude * math.pi / 180;
-    final lat2 = _petLocation!.latitude * math.pi / 180;
-    final lon2 = _petLocation!.longitude * math.pi / 180;
-
-    final dLon = lon2 - lon1;
-
-    final y = math.sin(dLon) * math.cos(lat2);
-    final x = math.cos(lat1) * math.sin(lat2) -
-        math.sin(lat1) * math.cos(lat2) * math.cos(dLon);
-
-    double brng = math.atan2(y, x) * 180 / math.pi;
-    brng = (brng + 360) % 360;
-
+    const Distance distance = Distance();
+    // Calcola direttamente l'angolo dal tuo punto a quello del cane
+    double brng = distance.bearing(_userLocation!, _petLocation!);
     setState(() {
       _directionToPet = brng;
     });
-  }
-
-  // --- ALGORITMO GEOMETRICO PER CAPIRE SE È DENTRO UNA ZONA ---
-  bool _isPointInPolygon(LatLng point, List<LatLng> polygon) {
-    bool isInside = false;
-    int i, j = polygon.length - 1;
-    for (i = 0; i < polygon.length; i++) {
-      if ((polygon[i].latitude > point.latitude) !=
-              (polygon[j].latitude > point.latitude) &&
-          point.longitude <
-              (polygon[j].longitude - polygon[i].longitude) *
-                      (point.latitude - polygon[i].latitude) /
-                      (polygon[j].latitude - polygon[i].latitude) +
-                  polygon[i].longitude) {
-        isInside = !isInside;
-      }
-      j = i;
-    }
-    return isInside;
   }
 
   // --- CONTROLLA LO STATO DI SICUREZZA ---
@@ -121,7 +92,8 @@ class _TrackingScreenState extends State<TrackingScreen> {
 
     bool safe = false;
     for (var zone in _savedZones) {
-      if (_isPointInPolygon(_petLocation!, zone['vertices'])) {
+      if (PositionGpsService.isPointInsidePolygon(
+          _petLocation!, zone['vertices'])) {
         safe = true;
         break;
       }
@@ -155,21 +127,15 @@ class _TrackingScreenState extends State<TrackingScreen> {
     }
 
     try {
-      final posResult = await scambio.pb
-          .collection('positions')
-          .getList(page: 1, perPage: 1, sort: '-timestamp');
-      if (posResult.items.isNotEmpty) {
-        final lat = posResult.items.first.getDoubleValue('lat');
-        final lon = posResult.items.first.getDoubleValue('lon');
-        if (mounted) {
-          setState(() {
-            _petLocation = LatLng(lat, lon);
-            _history.add(_petLocation!);
-            _ricalcolaDirezione();
-          });
-          _checkPetSafety(); // Controlla subito se è al sicuro
-          _mapController.move(_petLocation!, 17.0);
-        }
+      final ultimaPos = await _positionsRepo.getLatestPosition();
+      if (ultimaPos != null && mounted) {
+        setState(() {
+          _petLocation = LatLng(ultimaPos.lat, ultimaPos.lon);
+          _history.add(_petLocation!);
+          _ricalcolaDirezione();
+        });
+        _checkPetSafety();
+        _mapController.move(_petLocation!, 17.0);
       }
     } catch (e) {
       debugPrint("Errore ultima pos: $e");
@@ -192,6 +158,9 @@ class _TrackingScreenState extends State<TrackingScreen> {
             // Gestione cronologia
             if (_history.isEmpty || _history.last != newPos) {
               _history.add(newPos);
+
+              //Mantiene solo gli ultimi 100 punti per non far laggare l'app
+              if (_history.length > 100) _history.removeAt(0);
             }
 
             _ricalcolaDirezione();
@@ -204,24 +173,6 @@ class _TrackingScreenState extends State<TrackingScreen> {
       }
     });
 
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (serviceEnabled) {
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.whileInUse ||
-          permission == LocationPermission.always) {
-        _userLocationStream = Geolocator.getPositionStream(
-          locationSettings: const LocationSettings(
-              accuracy: LocationAccuracy.high, distanceFilter: 5),
-        ).listen((Position pos) {
-          if (mounted) {
-            setState(() {
-              _userLocation = LatLng(pos.latitude, pos.longitude);
-              _ricalcolaDirezione();
-            });
-          }
-        });
-      }
-    }
     await _checkAndStartLocation();
   }
 

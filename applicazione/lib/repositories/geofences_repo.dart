@@ -1,6 +1,7 @@
 import 'package:pocketbase/pocketbase.dart';
 import 'package:latlong2/latlong.dart';
-import '../services/scambio.dart';
+import '../services/authentication.dart';
+import '../services/position_gps.dart';
 
 class GeofenceRepository {
   final PocketBase _pb;
@@ -70,7 +71,8 @@ class GeofenceRepository {
       for (var zone in geofences) {
         if (zone['is_active'] == true) {
           final List<LatLng> vertices = zone['vertices'];
-          if (vertices.length >= 3 && _isPointInPolygon(point, vertices)) {
+          if (vertices.length >= 3 &&
+              PositionGpsService.isPointInsidePolygon(point, vertices)) {
             return zone['name'];
           }
         }
@@ -79,18 +81,5 @@ class GeofenceRepository {
     } catch (e) {
       return "Errore rilevamento";
     }
-  }
-
-  bool _isPointInPolygon(LatLng point, List<LatLng> polygon) {
-    bool isInside = false;
-    int j = polygon.length - 1;
-    for (int i = 0; i < polygon.length; i++) {
-      if (((polygon[i].latitude > point.latitude) != (polygon[j].latitude > point.latitude)) &&
-          (point.longitude < (polygon[j].longitude - polygon[i].longitude) * (point.latitude - polygon[i].latitude) / (polygon[j].latitude - polygon[i].latitude) + polygon[i].longitude)) {
-        isInside = !isInside;
-      }
-      j = i;
-    }
-    return isInside;
   }
 }

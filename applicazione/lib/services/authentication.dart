@@ -8,25 +8,23 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../screens/login.dart';
 
-// --- COSTANTI TABELLE ---
-const String tabella_users =
-    "users"; // fields: id, password, tokenKey, email, emailVisibility, username, verified, name, surname, alarma, created, updated
-const String tabella_activities =
-    "activities"; // fields: id, board_id, total_steps, start_time, end_time, is_active
-const String tabella_batteryData =
-    "battery_data"; // fields: id, board_id, timestamp, battery, battery_percent, charging
-const String tabella_boards = "boards"; // fields: id, user_id
-const String tabella_data_sent_raw =
-    "data_sent_raw"; // fields: id, board_id, timestamp, lon, lat, geo, battery, battery_percent, charging, steps, sleep, gps_valid
-const String tabella_geofences =
-    "geofences"; // fields: id, name, center_lon, center_lat, is_active, user_id, street, civic, city, cap, vertices (JSON), created, updated
-const String tabella_positions =
-    "positions_duplicate"; // fields: id, timestamp, lon, lat, geo, battery, battery_percent, charging, feet, sleep
-const String tabella_positions_duplicate =
-    "positions_duplicate"; // fields: id, board_id, timestamp, lon, lat, geo, gps_valid, net_fail_count
-// const String tabella_nometabella = "nometabella"; (copiare e incollare)
+// ==============================================
+//      COSTANTI E CONFIGURAZIONI COLLEZIONI
+// ==============================================
 
-// --- PERSISTENZA SICURA DEL TOKEN ---
+const String tabella_users = "users";
+const String tabella_activities = "activities";
+const String tabella_batteryData = "battery_data";
+const String tabella_boards = "boards";
+const String tabella_geofences = "geofences";
+const String tabella_positions = "positions_duplicate";
+const String tabella_positions_duplicate = "positions_duplicate";
+
+// ==============================================
+//   CONFIGURAZIONE DELLO STORE PERSONALIZZATO
+// ==============================================
+
+// Store personalizzato che salva i dati in modo sicuro
 class SecureAuthStore extends AuthStore {
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
   static const String _storageKey = "pb_auth";
@@ -47,6 +45,7 @@ class SecureAuthStore extends AuthStore {
     }
   }
 
+  // Salva i dati in modo sicuro
   @override
   void save(String token, dynamic model) {
     super.save(token, model);
@@ -54,6 +53,7 @@ class SecureAuthStore extends AuthStore {
     _storage.write(key: _storageKey, value: encoded);
   }
 
+  // Rimuove i dati dallo storage
   @override
   void clear() {
     super.clear();
@@ -73,20 +73,11 @@ class NgrokClient extends http.BaseClient {
   }
 }
 
-// 🔐 INIZIALIZZAZIONE POCKETBASE
-// Legge solo l'URL dal file .env. Le credenziali admin non servono più qui.
-/*
-final pb = PocketBase(
-  dotenv.env['PB_URL'] ?? 'http://127.0.0.1:8090',
-  httpClientFactory: () => NgrokClient(),
-  authStore: secureStore,
-);*/
-
 bool isReady = false;
 
-// ==========================================
-//        LOGICA DI AUTENTICAZIONE
-// ==========================================
+// ==============================================
+//  LOGICA DI INIZIALIZZAZIONE E AUTENTICAZIONE
+// ==============================================
 
 // Rendiamo pb 'late': verrà inizializzato solo quando lo decidiamo noi
 late PocketBase pb;
@@ -102,6 +93,7 @@ void inizializzaClient() {
   print('🚀 Client PocketBase inizializzato su: $url');
 }
 
+// Funzione di autenticazione che prova a ripristinare la sessione esistente
 Future<bool> autenticazione() async {
   try {
     // 1. Carica lo store
@@ -125,10 +117,7 @@ Future<bool> autenticazione() async {
   }
 }
 
-// ==========================================
-//          LOGICA DI LOGOUT
-// ==========================================
-
+// Funzione per eseguire il logout, pulendo lo store e navigando alla schermata di login
 void eseguiLogout(BuildContext context) async {
   final prefs = await SharedPreferences.getInstance();
   if (pb.authStore.model != null) {
@@ -138,7 +127,8 @@ void eseguiLogout(BuildContext context) async {
   pb.authStore.clear();
   isReady = false;
 
-  print("✅ Logout effettuato con pulizia flag alle ${DateTime.now().hour}:${DateTime.now().minute}");
+  print(
+      "✅ Logout effettuato con pulizia flag alle ${DateTime.now().hour}:${DateTime.now().minute}");
 
   Navigator.pushAndRemoveUntil(
     context,

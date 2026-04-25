@@ -2,17 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:pet_tracker/repositories/activities_repo.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'battery.dart';
 import 'geofencing.dart';
 import 'tracking.dart';
 import 'dart:async';
-import '../services/scambio.dart' as scambio;
+import '../services/authentication.dart' as scambio;
+import '../services/position_gps.dart';
 import 'settings.dart';
 import "../repositories/positions_repo.dart";
 import "../repositories/users_repo.dart";
-import "../models/positions.dart";
 import 'package:shared_preferences/shared_preferences.dart';
 import "daily_recap.dart";
 import 'package:intl/intl.dart';
@@ -21,7 +20,6 @@ import 'package:intl/intl.dart';
 final ValueNotifier<bool> isTrackingMode = ValueNotifier(false);
 final ValueNotifier<int> geofenceUpdateSignal = ValueNotifier(0);
 final ValueNotifier<String> mapFocusPreference = ValueNotifier('Animale');
-final ValueNotifier<bool> hasLocationPermission = ValueNotifier(false);
 
 // Funzione globale da chiamare all'avvio dell'app (es. nel main o in initState di PetTrackerApp)
 Future<void> loadMapPreferences() async {
@@ -103,8 +101,7 @@ class _PetTrackerNavigationState extends State<PetTrackerNavigation> {
   int _currentIndex = 0;
 
   List<Widget> get _currentScreens => [
-        PetTrackerDashboard(
-            preloadedData: widget.preloadedData), // Passa i dati
+        PetTrackerDashboard(preloadedData: widget.preloadedData),
         isTrackingMode.value
             ? const TrackingScreen()
             : const GeofencingScreen(),
@@ -179,7 +176,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
   String _displayUsername = "Caricamento...";
 
   bool _isLoading = true; // Per il caricamento iniziale di tutta la pagina
-  bool _isActivityLoading = false; // NUOVO: Solo per il passaggio tra i giorni
+  bool _isActivityLoading = false; // Per il passaggio tra i giorni
 
   StreamSubscription? _streamSubscription;
   Timer? _uiRefreshTimer;
@@ -212,8 +209,8 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     }
 
     // 3. LOGICA DI SISTEMA (Permessi e Notifiche)
-    // Fondamentale: deve girare sempre, indipendentemente dai dati iniziali
-    _richiediPermessiAlPrimoAvvio();
+    // Usiamo Future.microtask per assicurarci che il context sia pronto per l'eventuale pop-up
+    Future.microtask(() => PositionGpsService.richiediPermessi(context));
 
     // 4. ASCOLTATORI (Listeners)
     // Reagisce quando cambi le impostazioni dei Geofence
@@ -231,8 +228,8 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
         _positionsRepo.positionsStream.listen((nuovaPos) async {
       try {
         // Usiamo il metodo del repository per mantenere pulita la UI
-        String nuovaZona =
-            await _calcolaZonaDalPunto(LatLng(nuovaPos.lat, nuovaPos.lon));
+        String nuovaZona = await PositionGpsService.calcolaZonaDalPunto(
+            LatLng(nuovaPos.lat, nuovaPos.lon));
         if (mounted) {
           setState(() {
             _ultimoAggiornamento = nuovaPos.timestamp;
@@ -280,61 +277,6 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
           'minutes': durataTotale.inMinutes,
         };
       });
-    }
-  }
-
-  void _processPreloadedData(Map<String, dynamic> data) async {
-    final lastPos = data['lastPosition'];
-    if (lastPos != null) {
-      _ultimoAggiornamento = lastPos.timestamp;
-      // Calcoliamo la zona in background
-      _nomeZona = await _calcolaZonaDalPunto(LatLng(lastPos.lat, lastPos.lon));
-    }
-
-    // Processa attività
-    if (data['initialActivities'] != null) {
-      _elaboraDatiAttivita(data['initialActivities']);
-    }
-
-    if (mounted) setState(() {});
-  }
-
-  // Refactoring: estraiamo la logica di calcolo attività per riutilizzarla
-  void _elaboraDatiAttivita(List<dynamic> attivita) {
-    int passiTotali = 0;
-    Duration durataTotale = Duration.zero;
-
-    for (var act in attivita) {
-      passiTotali += (act.totalSteps as int);
-      if (act.startTime != null && act.endTime != null) {
-        durataTotale += act.endTime!.difference(act.startTime!);
-      }
-    }
-    double kmTotali = (passiTotali * 0.7) / 1000;
-
-    _dailyStats = {
-      'steps': passiTotali,
-      'km': kmTotali.toStringAsFixed(1),
-      'minutes': durataTotale.inMinutes,
-    };
-  }
-
-  Future<void> _richiediPermessiAlPrimoAvvio() async {
-    final prefs = await SharedPreferences.getInstance();
-    bool giaChiesto = prefs.getBool('permesso_posizione_chiesto') ?? false;
-
-    LocationPermission permission = await Geolocator.checkPermission();
-
-    if (!giaChiesto && permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      await prefs.setBool('permesso_posizione_chiesto', true);
-    }
-
-    if (permission == LocationPermission.always ||
-        permission == LocationPermission.whileInUse) {
-      hasLocationPermission.value = true;
-    } else {
-      hasLocationPermission.value = false;
     }
   }
 
@@ -581,55 +523,13 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
 
   Future<String> _calculateCurrentZone() async {
     try {
-      final pos = await _positionsRepo.getLatestPosition(); //
+      final pos = await _positionsRepo.getLatestPosition();
       if (pos == null) return "Posizione sconosciuta";
-      return await _calcolaZonaDalPunto(LatLng(pos.lat, pos.lon));
+      return await PositionGpsService.calcolaZonaDalPunto(
+          LatLng(pos.lat, pos.lon));
     } catch (e) {
       return "Errore rilevamento";
     }
-  }
-
-  Future<String> _calcolaZonaDalPunto(LatLng petPos) async {
-    try {
-      final geoResult = await scambio.pb.collection('geofences').getFullList();
-      for (var record in geoResult) {
-        if (record.getBoolValue('is_active') == true) {
-          List<LatLng> polygonPts = [];
-          final rawList = record.getListValue<dynamic>('vertices');
-          for (var pt in rawList) {
-            if (pt is List && pt.length >= 2) {
-              polygonPts.add(LatLng(double.parse(pt[0].toString()),
-                  double.parse(pt[1].toString())));
-            }
-          }
-          if (polygonPts.length >= 3 &&
-              _isPointInsidePolygon(petPos, polygonPts)) {
-            return record.getStringValue('name');
-          }
-        }
-      }
-      return "Fuori zona sicura";
-    } catch (e) {
-      return "Errore rilevamento";
-    }
-  }
-
-  bool _isPointInsidePolygon(LatLng point, List<LatLng> polygon) {
-    bool isInside = false;
-    int j = polygon.length - 1;
-    for (int i = 0; i < polygon.length; i++) {
-      if (((polygon[i].latitude > point.latitude) !=
-              (polygon[j].latitude > point.latitude)) &&
-          (point.longitude <
-              (polygon[j].longitude - polygon[i].longitude) *
-                      (point.latitude - polygon[i].latitude) /
-                      (polygon[j].latitude - polygon[i].latitude) +
-                  polygon[i].longitude)) {
-        isInside = !isInside;
-      }
-      j = i;
-    }
-    return isInside;
   }
 
   @override

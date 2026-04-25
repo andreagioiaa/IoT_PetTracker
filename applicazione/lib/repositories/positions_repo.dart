@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:pocketbase/pocketbase.dart';
-import '../services/scambio.dart';
+import '../services/authentication.dart';
 import '../models/positions.dart';
 
 class PositionsRepository {
@@ -42,25 +42,24 @@ class PositionsRepository {
   /// Recupera l'ultimo timestamp (sostituisce 'scambio.getUltimoTimestamp')
   // In positions_repo.dart
   Future<DateTime?> getLastTimestamp() async {
-  try {
-    final result = await pb
-        .collection(tabella_positions)
-        .getList(page: 1, perPage: 1, sort: '-timestamp');
+    try {
+      final result = await pb
+          .collection(tabella_positions)
+          .getList(page: 1, perPage: 1, sort: '-timestamp');
 
-    if (result.items.isEmpty) return null;
+      if (result.items.isEmpty) return null;
 
-    String timeStr = result.items.first.getStringValue('timestamp');
-    
-    // DateTime.parse riconosce automaticamente il formato ISO 8601 di PocketBase.
-    // Se la stringa termina con 'Z', l'oggetto creato sarà già in UTC.
-    // Usiamo .toUtc() per sicurezza assoluta e chiarezza d'intenti.
-    return DateTime.parse(timeStr).toUtc();
+      String timeStr = result.items.first.getStringValue('timestamp');
 
-  } catch (e) {
-    print('🛑 Errore durante il recupero del timestamp: $e');
-    return null;
+      // DateTime.parse riconosce automaticamente il formato ISO 8601 di PocketBase.
+      // Se la stringa termina con 'Z', l'oggetto creato sarà già in UTC.
+      // Usiamo .toUtc() per sicurezza assoluta e chiarezza d'intenti.
+      return DateTime.parse(timeStr).toUtc();
+    } catch (e) {
+      print('🛑 Errore durante il recupero del timestamp: $e');
+      return null;
+    }
   }
-}
 
   /// Chiude lo stream quando non più necessario (per evitare memory leak)
   void dispose() {

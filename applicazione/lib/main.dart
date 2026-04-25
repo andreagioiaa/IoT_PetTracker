@@ -4,35 +4,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'screens/splash_view.dart';
-import 'screens/home.dart'; // Assicurati che mapFocusPreference sia definita qui
-import 'services/scambio.dart' as scambio;
+import 'screens/home.dart';
+import 'services/authentication.dart' as scambio;
+import 'services/notification.dart';
 import 'package:intl/date_symbol_data_local.dart';
-
-// --- GESTIONE BACKGROUND FIREBASE ---
-@pragma('vm:entry-point')
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp();
-  print("📩 Messaggio background ricevuto: ${message.messageId}");
-}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 1. 🔥 Inizializzazione Firebase
-  try {
-    await Firebase.initializeApp();
-    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-    
-    FirebaseMessaging messaging = FirebaseMessaging.instance;
-    await messaging.requestPermission(alert: true, badge: true, sound: true);
-    
-    String? token = await messaging.getToken();
-    print("📲 Token FCM attuale: $token");
-  } catch (e) {
-    print('⚠️ Errore Firebase: $e');
-  }
+  // 0. 🔔 Inizializza Firebase Messaging e gestori
+  await NotificationService.init();
 
-  // 2. 🌍 Localizzazione
+  // 1. 🌍 Localizzazione
   try {
     await initializeDateFormatting('it_IT', null);
     print('✅ Localizzazione it_IT pronta.');
@@ -40,7 +23,7 @@ void main() async {
     print('⚠️ Errore localizzazione: $e');
   }
 
-  // 3. 🔐 Variabili d'ambiente
+  // 2. 🔐 Variabili d'ambiente
   try {
     await dotenv.load(fileName: ".env");
     print('✅ File .env caricato.');
@@ -48,7 +31,7 @@ void main() async {
     print('⚠️ Errore .env: $e');
   }
 
-  // 4. 💾 Preferenze Locali (Mappa)
+  // 3. 💾 Preferenze Locali (Mappa)
   try {
     final prefs = await SharedPreferences.getInstance();
     final String? savedFocus = prefs.getString('map_focus_priority');
@@ -59,25 +42,15 @@ void main() async {
     print('⚠️ Errore SharedPreferences: $e');
   }
 
-  // 5. 🏁 PocketBase Auth & Sync Token
+  // 4. 🏁 PocketBase Auth & Sync Token
   scambio.inizializzaClient();
   bool canConnect = await scambio.autenticazione();
 
   if (canConnect && scambio.pb.authStore.isValid) {
     print('✅ Autenticato come: ${scambio.pb.authStore.model.id}');
-    try {
-      String? currentToken = await FirebaseMessaging.instance.getToken();
-      if (currentToken != null) {
-        // Ripristino gestione semplice: aggiorna sempre il token all'avvio/login
-        await scambio.pb.collection('users').update(
-          scambio.pb.authStore.model.id,
-          body: {'tokenFCM': currentToken},
-        );
-        print('✅ FCM Token sincronizzato su PocketBase.');
-      }
-    } catch (e) {
-      print('⚠️ Errore sincronizzazione token su PocketBase: $e');
-    }
+
+    // Sincronizza il token FCM con PocketBase
+    await NotificationService.syncToken();
   } else {
     print('❌ Errore connessione o sessione non valida.');
   }
@@ -112,10 +85,13 @@ class PetTrackerApp extends StatelessWidget {
           children: [
             Icon(Icons.cloud_off, size: 60, color: Colors.red),
             SizedBox(height: 20),
-            Text('Errore di connessione', style: TextStyle(fontWeight: FontWeight.bold)),
+            Text('Errore di connessione',
+                style: TextStyle(fontWeight: FontWeight.bold)),
             Padding(
               padding: EdgeInsets.all(20),
-              child: Text('Verifica il tunnel ngrok o le credenziali nel file .env.', textAlign: TextAlign.center),
+              child: Text(
+                  'Verifica il tunnel ngrok o le credenziali nel file .env.',
+                  textAlign: TextAlign.center),
             ),
           ],
         ),
