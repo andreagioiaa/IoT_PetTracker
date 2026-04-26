@@ -3,7 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../services/authentication.dart' as scambio;
 import '../services/position_gps.dart';
-import 'home.dart';
+import './globals/app_state.dart';
 
 class PolygonEditorScreen extends StatefulWidget {
   final String? placeId;

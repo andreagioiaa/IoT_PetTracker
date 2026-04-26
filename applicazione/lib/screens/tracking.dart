@@ -8,7 +8,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import '../services/authentication.dart' as scambio;
 import '../services/position_gps.dart';
-import 'home.dart';
+import './globals/app_state.dart';
 import '../repositories/users_repo.dart';
 import "../repositories/positions_repo.dart";
 

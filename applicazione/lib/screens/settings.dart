@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import '../services/authentication.dart' as scambio;
-import '../services/position_gps.dart';
-import 'home.dart';
-import "../repositories/users_repo.dart"; // Rimuovi 'as users' se preferisci usare la classe direttamente
+import './globals/app_state.dart';
+import "../repositories/users_repo.dart";
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 class SettingsScreen extends StatefulWidget {
   final VoidCallback onProfileUpdated;
@@ -149,14 +149,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  // --- GESTIONE PERMESSI GPS ---
+  // --- GESTIONE PERMESSI ---
   Future<void> _checkPermissionStatus() async {
+    // 1. Controllo GPS
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     LocationPermission permission = await Geolocator.checkPermission();
 
-    bool hasGrant = (permission == LocationPermission.always ||
+    bool hasGPS = (permission == LocationPermission.always ||
         permission == LocationPermission.whileInUse);
-    hasLocationPermission.value = serviceEnabled && hasGrant;
+    hasLocationPermission.value = serviceEnabled && hasGPS;
+
+    // 2. Controllo NOTIFICHE
+    NotificationSettings settings =
+        await FirebaseMessaging.instance.getNotificationSettings();
+    hasNotificationPermission.value =
+        (settings.authorizationStatus == AuthorizationStatus.authorized);
 
     // Se i permessi vengono revocati mentre si è sulla pagina, resetta il focus su Animale
     if (!hasLocationPermission.value && _currentMapFocus == 'Dispositivo') {
@@ -367,66 +374,83 @@ class _SettingsScreenState extends State<SettingsScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionLabel("PERMESSI APP", scale),
-        // InkWell rende l'intera riga cliccabile e scalabile
-        InkWell(
-          onTap: _togglePermission,
-          borderRadius: BorderRadius.circular(15 * scale),
-          child: Container(
-            padding: EdgeInsets.all(16 * scale), // Padding scalato
-            decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(15 * scale),
-                boxShadow: [
-                  BoxShadow(
-                      color: Colors.black.withOpacity(0.02),
-                      blurRadius: 8 * scale)
-                ]),
-            child: ValueListenableBuilder<bool>(
-              valueListenable: hasLocationPermission,
-              builder: (context, hasPermission, child) {
-                return Row(
-                  children: [
-                    Icon(
-                      hasPermission ? Icons.location_on : Icons.location_off,
-                      color: hasPermission
-                          ? const Color(0xFF00C6B8)
-                          : Colors.redAccent,
-                      size: 28 * scale, // Icona scalata
-                    ),
-                    SizedBox(width: 15 * scale),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "Posizione GPS",
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16 * scale), // Testo scalato
-                          ),
-                          Text(
-                            hasPermission
-                                ? "Autorizzato"
-                                : "Non autorizzato (Clicca per gestire)",
-                            style: TextStyle(
-                                color: Colors.black38,
-                                fontSize: 13 * scale), // Sottotitolo scalato
-                          ),
-                        ],
-                      ),
-                    ),
-                    Icon(
-                      Icons.arrow_forward_ios,
-                      color: Colors.black12,
-                      size: 16 * scale, // Freccetta scalata
-                    ),
-                  ],
-                );
-              },
-            ),
+        Container(
+          padding: EdgeInsets.all(5 * scale),
+          decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(15 * scale),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 8)
+              ]),
+          child: Column(
+            children: [
+              // RIGA GPS
+              _buildPermissionTile(
+                icon: Icons.location_on,
+                label: "Posizione GPS",
+                notifier: hasLocationPermission,
+                scale: scale,
+              ),
+              const Divider(indent: 60, endIndent: 20, height: 1),
+              // RIGA NOTIFICHE
+              _buildPermissionTile(
+                icon: Icons.notifications_active,
+                label: "Notifiche Push",
+                notifier: hasNotificationPermission,
+                scale: scale,
+              ),
+            ],
           ),
         ),
       ],
+    );
+  }
+
+  // Helper per non ripetere il codice delle righe
+  Widget _buildPermissionTile({
+    required IconData icon,
+    required String label,
+    required ValueNotifier<bool> notifier,
+    required double scale,
+  }) {
+    return ValueListenableBuilder<bool>(
+      valueListenable: notifier,
+      builder: (context, hasPerm, child) {
+        return InkWell(
+          onTap: _togglePermission,
+          child: Padding(
+            padding: EdgeInsets.all(16 * scale),
+            child: Row(
+              children: [
+                Icon(
+                  icon,
+                  color: hasPerm ? const Color(0xFF00C6B8) : Colors.redAccent,
+                  size: 24 * scale,
+                ),
+                SizedBox(width: 15 * scale),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(label,
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14 * scale)),
+                      Text(
+                        hasPerm ? "Autorizzato" : "Non autorizzato (Gestisci)",
+                        style: TextStyle(
+                            color: Colors.black38, fontSize: 12 * scale),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.arrow_forward_ios,
+                    color: Colors.black12, size: 14),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 

@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/splash_view.dart';
-import 'screens/home.dart';
 import 'services/authentication.dart' as scambio;
+import './screens/globals/app_state.dart';
 import 'services/notification.dart';
 import 'package:intl/date_symbol_data_local.dart';
 

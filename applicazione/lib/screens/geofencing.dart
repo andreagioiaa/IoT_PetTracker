@@ -7,7 +7,7 @@ import '../services/authentication.dart' as scambio;
 import '../services/position_gps.dart';
 import '../services/geocoding.dart';
 import 'polygon_editor.dart';
-import 'home.dart';
+import './globals/app_state.dart';
 import "../repositories/positions_repo.dart";
 
 enum ActiveCard { none, zone, user, pet }

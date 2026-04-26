@@ -8,18 +8,15 @@ import 'geofencing.dart';
 import 'tracking.dart';
 import 'dart:async';
 import '../services/authentication.dart' as scambio;
+import '../services/notification.dart';
 import '../services/position_gps.dart';
 import 'settings.dart';
+import './globals/app_state.dart';
 import "../repositories/positions_repo.dart";
 import "../repositories/users_repo.dart";
 import 'package:shared_preferences/shared_preferences.dart';
 import "daily_recap.dart";
 import 'package:intl/intl.dart';
-
-// --- VARIABILI GLOBALI DI STATO ---
-final ValueNotifier<bool> isTrackingMode = ValueNotifier(false);
-final ValueNotifier<int> geofenceUpdateSignal = ValueNotifier(0);
-final ValueNotifier<String> mapFocusPreference = ValueNotifier('Animale');
 
 // Funzione globale da chiamare all'avvio dell'app (es. nel main o in initState di PetTrackerApp)
 Future<void> loadMapPreferences() async {
@@ -209,8 +206,18 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     }
 
     // 3. LOGICA DI SISTEMA (Permessi e Notifiche)
-    // Usiamo Future.microtask per assicurarci che il context sia pronto per l'eventuale pop-up
-    Future.microtask(() => PositionGpsService.richiediPermessi(context));
+    // Usiamo Future.microtask per assicurarci che il context sia pronto per i pop-up
+    Future.microtask(() async {
+      if (mounted) {
+        // Chiede prima il GPS
+        await PositionGpsService.richiediPermessi(context);
+
+        // Appena finito col GPS (che l'utente accetti o rifiuti), chiede le Notifiche
+        if (mounted) {
+          await NotificationService.richiediPermessi(context);
+        }
+      }
+    });
 
     // 4. ASCOLTATORI (Listeners)
     // Reagisce quando cambi le impostazioni dei Geofence

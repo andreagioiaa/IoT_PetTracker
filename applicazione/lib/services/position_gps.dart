@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../screens/globals/app_state.dart';
 import 'authentication.dart' as scambio;
-
-// Variabile globale per tenere traccia dello stato dei permessi di localizzazione
-final ValueNotifier<bool> hasLocationPermission = ValueNotifier(false);
 
 class PositionGpsService {
   // Controlla e richiede i permessi di localizzazione, mostrando un pop-up esplicativo del motivo della richiesta
