@@ -159,7 +159,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
             if (_history.isEmpty || _history.last != newPos) {
               _history.add(newPos);
 
-              //Mantiene solo gli ultimi 100 punti per non far laggare l'app
+              // Mantiene solo gli ultimi 100 punti per non far laggare l'app
               if (_history.length > 100) _history.removeAt(0);
             }
 

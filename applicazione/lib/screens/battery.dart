@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
 import 'dart:async';
-import '../services/authentication.dart' as scambio;
 import "../repositories/battery_data_repo.dart";
 
 class BatteryScreen extends StatefulWidget {

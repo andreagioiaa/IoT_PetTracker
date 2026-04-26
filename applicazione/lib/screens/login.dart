@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'home.dart';
-import '../services/authentication.dart' as scambio;
-import 'sign_in.dart'; // Import necessario per la navigazione verso la registrazione
+import 'sign_in.dart';
 import "../repositories/users_repo.dart";
 
 class AuthScreen extends StatefulWidget {
@@ -25,7 +24,7 @@ class _AuthScreenState extends State<AuthScreen> {
     final password = _passwordController.text.trim();
 
     if (username.isEmpty || password.isEmpty) {
-      return "Inserisci credenziali";
+      return "Uno dei campi è vuoti. Inserisci credenziali";
     }
     return null;
   }
@@ -34,7 +33,17 @@ class _AuthScreenState extends State<AuthScreen> {
   final UsersRepository _usersRepo = UsersRepository();
 
   void _submitForm() async {
-    // ... validazione ...
+    // 1. Chiamiamo la validazione
+    final validationError = _getValidationError();
+
+    // 2. Se c'è un errore (il testo non è null), lo mostriamo e ci fermiamo
+    if (validationError != null) {
+      // Uso un colore arancione per indicare un "avviso" (warning) anziché un errore critico rosso
+      _showSnackBar(validationError, Colors.orange.shade700);
+      return;
+    }
+
+    // Se arriviamo qui, i campi sono compilati. Partiamo col login.
     setState(() => _isLoading = true);
 
     try {

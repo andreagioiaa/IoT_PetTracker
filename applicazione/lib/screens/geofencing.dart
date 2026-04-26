@@ -21,11 +21,8 @@ class GeofencingScreen extends StatefulWidget {
 
 class _GeofencingScreenState extends State<GeofencingScreen> {
   List<Map<String, dynamic>> savedPlaces = [];
-
   bool isLoading = true;
-
   LatLng? _petLocation;
-
   StreamSubscription? _streamSubscription;
 
   late final PositionsRepository _positionsRepo =
@@ -35,11 +32,9 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
       ValueNotifier<ActiveCard>(ActiveCard.none);
 
   String _userAddress = "Rilevamento indirizzo in corso...";
-
   String _petAddress = "Rilevamento indirizzo in corso...";
 
   // Variabile per capire se l'utente ha modificato l'indirizzo trovato dal GPS
-
   String _indirizzoPrecompilatoGps = "";
 
   @override
@@ -47,11 +42,9 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     super.initState();
 
     // Ascolta il cambiamento globale dei permessi
-
     hasLocationPermission.addListener(_onPermissionChanged);
 
     // Esegui un controllo iniziale
-
     _checkPermissionAtStartup();
 
     _caricaZoneDalDatabase();
@@ -68,7 +61,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     });
 
     _scaricaPosizioneInizialeAnimale();
-
     _avviaGeolocalizzazioneSePermessa();
   }
 
@@ -194,11 +186,9 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
 
       nuoveZone.sort((a, b) {
         bool isActiveA = a['is_active'] ?? false;
-
         bool isActiveB = b['is_active'] ?? false;
 
         if (isActiveA && !isActiveB) return -1;
-
         if (!isActiveA && isActiveB) return 1;
 
         return a['name']
@@ -209,7 +199,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
 
       setState(() {
         savedPlaces = nuoveZone;
-
         isLoading = false;
 
         if (savedPlaces.isEmpty) {
@@ -227,7 +216,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
               selectedPlaceIndex = nuovoIndice;
 
               // Se abbiamo forzato l'id (es. appena salvato), mostriamo la card
-
               if (forceSelectId != null) {
                 _activeCard.value = ActiveCard.zone;
               }
@@ -240,14 +228,12 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
             }
           } else {
             // Avvio pulito: nessuna area selezionata!
-
             selectedPlaceIndex = null;
           }
         }
       });
     } catch (e) {
       debugPrint("Errore caricamento: $e");
-
       setState(() => isLoading = false);
     }
   }
@@ -288,7 +274,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
       });
 
       await _caricaZoneDalDatabase();
-
       geofenceUpdateSignal.value++;
 
       if (mounted) {
@@ -308,17 +293,12 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
   final MapController _mapController = MapController();
 
   final TextEditingController _nameController = TextEditingController();
-
   final TextEditingController _streetController = TextEditingController();
-
   final TextEditingController _civicController = TextEditingController();
-
   final TextEditingController _cityController = TextEditingController();
-
   final TextEditingController _capController = TextEditingController();
 
   bool isSatelliteMap = false;
-
   LatLng? _myLocation;
 
   Future<void> _determinePosition() async {
@@ -352,7 +332,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
   Future<void> _promptAddLocation() async {
     if (_myLocation == null) {
       _indirizzoPrecompilatoGps = "";
-
       _showPlaceDialog(isEditing: false);
 
       return;
@@ -387,7 +366,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
       await _performReverseGeocodingAndShowDialog();
     } else {
       _indirizzoPrecompilatoGps = "";
-
       _showPlaceDialog(isEditing: false);
     }
   }
@@ -463,7 +441,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
 
       if (sameAddress) {
         const Distance distance = Distance();
-
         final double meterDistance = distance(existingCenter, newCenter);
 
         if (meterDistance < 500) {
@@ -586,23 +563,16 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
       final place = savedPlaces[editIndex];
 
       _nameController.text = place['name'];
-
       _cityController.text = place['city'];
-
       _capController.text = place['cap'];
-
       _streetController.text = place['street'];
 
       _civicController.text = place['civic'];
     } else if (gpsLocation == null) {
       _nameController.clear();
-
       _cityController.clear();
-
       _capController.clear();
-
       _streetController.clear();
-
       _civicController.clear();
     }
 
@@ -611,11 +581,8 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
       barrierDismissible: false,
       builder: (dialogContext) {
         bool isLoading = false;
-
         String? nameError;
-
         String? cityError;
-
         String? generalError;
 
         return StatefulBuilder(builder: (context, setDialogState) {
@@ -723,62 +690,48 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                     : () async {
                         setDialogState(() {
                           nameError = null;
-
                           cityError = null;
-
                           generalError = null;
                         });
 
                         final name = _nameController.text.trim();
-
                         final city = _cityController.text.trim();
-
                         final street = _streetController.text.trim();
-
                         final civic = _civicController.text.trim();
-
                         final cap = _capController.text.trim();
-
                         bool hasError = false;
 
                         if (name.isEmpty) {
                           nameError = "Inserisci un nome";
-
                           hasError = true;
                         }
 
                         if (city.isEmpty) {
                           cityError = "Inserisci la città";
-
                           hasError = true;
                         }
 
                         if (hasError) {
                           setDialogState(() {});
-
                           return;
                         }
 
                         bool isNameDuplicate =
                             savedPlaces.asMap().entries.any((e) {
                           if (isEditing && e.key == editIndex) return false;
-
                           String existingName = (e.value['name'] ?? '')
                               .toString()
                               .trim()
                               .toLowerCase();
-
                           return existingName == name.toLowerCase();
                         });
 
                         if (isNameDuplicate) {
                           setDialogState(() => nameError = "Nome già in uso");
-
                           return;
                         }
 
                         setDialogState(() => isLoading = true);
-
                         String indirizzoAttuale = "$street$civic$city$cap"
                             .toLowerCase()
                             .replaceAll(" ", "");
@@ -818,7 +771,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                             setDialogState(() {
                               generalError =
                                   "Esiste già un'Area in questo indirizzo";
-
                               isLoading = false;
                             });
 
@@ -838,7 +790,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
 
                           if (context.mounted) {
                             Navigator.pop(dialogContext);
-
                             _navigateToPolygonEditor(
                                 newZoneData: body,
                                 placeName: name,
@@ -847,10 +798,8 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                         } else {
                           Map<String, dynamic> resultData =
                               await _fetchCoordinatesAndSaveOrUpdate(
-                                      isUpdating: isEditing,
-                                      updateIndex: editIndex) ??
-                                  {};
-
+                                  isUpdating: isEditing,
+                                  updateIndex: editIndex);
                           if (dialogContext.mounted) {
                             if (resultData.containsKey('error')) {
                               setDialogState(() {
@@ -952,9 +901,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
   @override
   Widget build(BuildContext context) {
     bool hasPlaces = savedPlaces.isNotEmpty && selectedPlaceIndex != null;
-
     var currentPlace = hasPlaces ? savedPlaces[selectedPlaceIndex!] : null;
-
     bool isCurrentPlaceActive = currentPlace?['is_active'] ?? false;
 
     // Calcolo dinamico del centro iniziale per evitare l'Italia intera
@@ -962,7 +909,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     double initialZoom = 6.0;
 
     double screenWidth = MediaQuery.of(context).size.width;
-
     double scale = (screenWidth / 400).clamp(0.75, 1.1);
 
     return Scaffold(
@@ -1062,9 +1008,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                           setState(() => selectedPlaceIndex = null);
 
                           _activeCard.value = ActiveCard.user;
-
                           _resolveAddress(_myLocation!, false);
-
                           _mapController.move(_myLocation!, 18.0);
                         },
                         child: Stack(
@@ -1100,11 +1044,8 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                         child: GestureDetector(
                           onTap: () {
                             setState(() => selectedPlaceIndex = null);
-
                             _activeCard.value = ActiveCard.pet;
-
                             _resolveAddress(_petLocation!, true);
-
                             _mapController.move(_petLocation!, 18.0);
                           },
                           child: const Icon(Icons.pets,
@@ -1372,7 +1313,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                               child: InkWell(
                                   onTap: () {
                                     // PULIZIA: Deseleziona la zona se clicchi sulla "X" della sua card
-
                                     setState(() {
                                       selectedPlaceIndex = null;
                                     });

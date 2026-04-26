@@ -1,6 +1,5 @@
 import 'package:pocketbase/pocketbase.dart';
 import 'package:latlong2/latlong.dart';
-import '../services/authentication.dart';
 import '../services/position_gps.dart';
 
 class GeofenceRepository {

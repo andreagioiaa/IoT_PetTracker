@@ -1,24 +1,11 @@
-import 'package:pocketbase/pocketbase.dart';
 import '../services/authentication.dart';
 import '../models/users.dart';
 import 'package:flutter/material.dart';
 import "../screens/login.dart";
 
 class UsersRepository {
-  /*
-  /// Effettua il login e restituisce l'esito.
-  Future<bool> login(String identity, String password) async {
-    try {
-      await pb.collection('users').authWithPassword(identity.trim(), password.trim());
-      return pb.authStore.isValid;
-    } catch (e) {
-      print('🛑 Errore Login: $e');
-      return false;
-    }
-  }*/
-
   // Recupera il boardId interrogando la collezione 'boards'.
-  /// Nota: Cerchiamo il record dove il campo 'user' (relazione) contiene l'ID dell'utente corrente.
+  // Nota: Cerchiamo il record dove il campo 'user' (relazione) contiene l'ID dell'utente corrente.
   Future<String?> getBoardIdFromBoards() async {
     try {
       if (!pb.authStore.isValid || pb.authStore.model == null) return null;

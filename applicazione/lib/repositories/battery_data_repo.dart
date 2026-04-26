@@ -1,6 +1,5 @@
 import '../services/authentication.dart';
 import '../models/battery_data.dart';
-import 'package:pocketbase/pocketbase.dart';
 import 'dart:async';
 
 class BatteryRepository {
