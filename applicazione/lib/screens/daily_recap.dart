@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../repositories/activities_repo.dart';
 import '../repositories/positions_repo.dart';
 import '../services/authentication.dart' as scambio;
+import "../repositories/users_repo.dart";
 
 class RecapScreen extends StatefulWidget {
   final DateTime dataSelezionata;
@@ -17,6 +18,7 @@ class RecapScreen extends StatefulWidget {
 class _RecapScreenState extends State<RecapScreen> {
   final ActivitiesRepository _activitiesRepo = ActivitiesRepository(scambio.pb);
   final PositionsRepository _positionsRepo = PositionsRepository(scambio.pb);
+  final UsersRepository _usersRepo = UsersRepository();
   final MapController _mapController = MapController();
 
   bool _isLoading = true;
@@ -57,7 +59,12 @@ class _RecapScreenState extends State<RecapScreen> {
 
     try {
       // ⚠️ NOTA CRITICA: ID Board forzato per i test. Ricordati di renderlo dinamico.
-      const String boardId = "864643061064939";
+      String boardId = await _usersRepo.getBoardIdFromBoards() ?? "";
+
+      if (boardId.isEmpty) {
+        print("⚠️[daily_recap]: Board ID non trovato, impossibile procedere.");
+        return; 
+      }
 
       // 1. Recupero Attività e calcolo statistiche
       final attivita = await _activitiesRepo.fetchActivitiesByDate(
