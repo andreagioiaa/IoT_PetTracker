@@ -85,6 +85,19 @@
   sensitive=true
 }
 
+\lstdefinelanguage{Dart}{
+  keywords={abstract, as, assert, async, await, break, case, catch, class, const, continue, default, deferred, do, dynamic, else, enum, export, extends, extension, external, factory, false, final, finally, for, Function, get, hide, if, implements, import, in, is, late, library, mixin, new, null, on, operator, part, required, rethrow, return, set, show, static, super, switch, sync, this, throw, true, try, typedef, var, void, while, with, yield},
+  morecomment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  morestring=[b]',
+  morestring=[b]",
+  keywordstyle=\color{blue}\bfseries,
+  identifierstyle=\color{black},
+  commentstyle=\color{codegreen}\ttfamily,
+  stringstyle=\color{codegreen}\ttfamily,
+  sensitive=true
+}
+
 \lstset{
     style=mystyle,
     language=JavaScript,
@@ -318,7 +331,148 @@ Questa implementazione riflette i principi del Modello IoTWF in due punti chiave
 \end{enumerate}
 
 \section{Front-end e Applicazione Mobile}
-L'applicazione mobile, sviluppata in Flutter \cite{flutter}, interagisce con i dati tramite il PocketBase SDK, garantendo una comunicazione asincrona e performante.
+
+L'applicazione mobile è stata sviluppata in Flutter \cite{flutter}, un framework
+cross-platform che permette di produrre un'unica codebase per Android e iOS.
+La comunicazione con il backend avviene tramite il PocketBase SDK ufficiale per
+Dart, che gestisce internamente le chiamate REST e i meccanismi di autenticazione.
+
+\subsection{Architettura a livelli}
+
+Il codice dell'applicazione è organizzato secondo una separazione netta tra livelli di
+responsabilità:
+
+\begin{itemize}
+  \item \textbf{Services}: logica trasversale e di sistema, indipendente dalla UI
+    (autenticazione, GPS, geocoding, notifiche push).
+  \item \textbf{Repositories}: accesso ai dati remoti tramite PocketBase SDK,
+    con esposizione di metodi asincroni e stream tipizzati verso le schermate.
+  \item \textbf{Screens}: interfaccia utente che si limita a richiedere i dati ai
+    repository e a reagire ai loro aggiornamenti.
+\end{itemize}
+
+Questa architettura facilita la testabilità e disaccoppia la logica di business dalla
+presentazione, in linea con il principio di separazione delle responsabilità.
+
+\subsection{Autenticazione e persistenza della sessione}
+
+L'autenticazione è gestita tramite un \texttt{SecureAuthStore} personalizzato che
+estende l'\texttt{AuthStore} nativo di PocketBase. Il token JWT restituito dal server
+al momento del login viene serializzato in JSON e salvato in modo cifrato tramite
+\texttt{flutter\_secure\_storage}, che su Android si appoggia al sistema Keystore e
+su iOS al Keychain.
+
+Al riavvio dell'app, il token viene riletto dallo storage sicuro e viene
+tentato un refresh automatico della sessione. In caso di successo, l'utente accede
+direttamente alla schermata principale senza dover reinserire le credenziali; in caso di
+token scaduto, lo store viene svuotato e l'utente viene reindirizzato al login.
+
+\subsection{Splash Screen e caricamento parallelo}
+
+La schermata di avvio svolge un ruolo attivo nel precaricare i dati necessari alla
+home page. Una volta verificata l'autenticazione, vengono avviate in parallelo,
+tramite \texttt{Future.wait}, le seguenti operazioni:
+
+\begin{itemize}
+  \item recupero del profilo utente e dello stato dell'allarme;
+  \item recupero dell'ultima posizione GPS registrata dal dispositivo;
+  \item recupero delle attività del giorno corrente filtrate per \texttt{board\_id}.
+\end{itemize}
+
+Il \texttt{board\_id}, identificativo univoco della board LilyGo associata all'utente,
+viene risolto dinamicamente interrogando la collezione \texttt{boards} sul backend,
+evitando qualsiasi valore hardcoded. Contestualmente, viene calcolata la zona di
+geofencing in cui si trova l'animale. I dati precaricati vengono poi passati
+direttamente alla schermata principale, eliminando ulteriori chiamate di rete al
+momento della navigazione.
+
+\subsection{Comunicazione in tempo reale}
+
+Per le funzionalità che richiedono aggiornamenti continui --- posizione GPS e stato
+della batteria --- l'app sfrutta il meccanismo di \textit{subscribe} offerto da
+PocketBase, basato su Server-Sent Events (SSE). I repository espongono uno
+\texttt{Stream} tipizzato (rispettivamente \texttt{Stream<Positions>} e
+\texttt{Stream<BatteryData>}) a cui le schermate si sottoscrivono tramite
+\texttt{StreamSubscription}. Ogni nuovo record inserito nel backend viene notificato
+istantaneamente all'app senza necessità di polling.
+
+\subsection{Geofencing lato client}
+
+La logica di geofencing è implementata interamente lato client tramite l'algoritmo
+\textit{Ray-Casting}. Dato un punto GPS (latitudine, longitudine) e un poligono
+definito da una lista di vertici, l'algoritmo traccia un raggio orizzontale dal punto
+verso l'infinito e conta le intersezioni con i lati del poligono: un numero dispari
+indica che il punto è interno al poligono.
+
+\begin{lstlisting}[language=Dart, caption={Algoritmo Ray-Casting per il geofencing}]
+static bool isPointInsidePolygon(LatLng point, List<LatLng> polygon) {
+  bool isInside = false;
+  int j = polygon.length - 1;
+  for (int i = 0; i < polygon.length; i++) {
+    if (((polygon[i].latitude > point.latitude) !=
+            (polygon[j].latitude > point.latitude)) &&
+        (point.longitude <
+            (polygon[j].longitude - polygon[i].longitude) *
+                    (point.latitude - polygon[i].latitude) /
+                    (polygon[j].latitude - polygon[i].latitude) +
+                polygon[i].longitude)) {
+      isInside = !isInside;
+    }
+    j = i;
+  }
+  return isInside;
+}
+\end{lstlisting}
+
+Le zone vengono recuperate dalla collezione \texttt{geofences} su PocketBase, dove
+ogni record memorizza il nome della zona, i dati dell'indirizzo e la lista dei vertici
+del poligono. Solo le zone con il flag \texttt{is\_active} impostato a \texttt{true}
+vengono considerate nel calcolo. Il risultato della verifica è una stringa con il nome
+della zona di appartenenza, oppure \textit{``Fuori zona sicura''} se il punto non
+rientra in nessuna area attiva. Questa informazione viene mostrata in tempo reale
+nella schermata principale.
+
+\subsection{Notifiche push}
+
+Le notifiche push sono gestite tramite Firebase Cloud Messaging (FCM). Al primo
+avvio, l'app mostra un dialog personalizzato che spiega all'utente il motivo della
+richiesta del permesso, prima di invocare la richiesta di sistema. Una volta ottenuto
+il consenso, il token FCM del dispositivo viene sincronizzato con il profilo utente su
+PocketBase: il campo \texttt{tokenFCM} è modellato come una lista, permettendo
+all'utente di ricevere notifiche su più dispositivi contemporaneamente. Un controllo
+di duplicazione evita che lo stesso token venga registrato più volte.
+
+\subsection{Funzionalità principali}
+
+\paragraph{Mappa in tempo reale.}
+La schermata principale mostra la posizione aggiornata dell'animale su mappa
+tramite la libreria \texttt{flutter\_map} con tile OpenStreetMap. La posizione viene
+aggiornata ad ogni evento ricevuto dallo stream in tempo reale. L'indirizzo
+corrispondente alle coordinate viene risolto in forma testuale tramite il servizio di
+reverse geocoding Nominatim.
+
+\paragraph{Riepilogo giornaliero.}
+La schermata di recap, accessibile selezionando una data dal calendario, recupera
+dal backend le attività e le posizioni GPS relative a quel giorno. Le posizioni vengono
+rappresentate come una polilinea sulla mappa, restituendo una visualizzazione del
+percorso effettuato dall'animale. Le statistiche aggregate (passi totali, distanza
+stimata in chilometri e durata complessiva del movimento) vengono calcolate
+client-side a partire dai dati ricevuti.
+
+\paragraph{Stato della batteria.}
+La schermata dedicata mostra la percentuale di carica residua tramite un indicatore
+circolare animato con gradiente. Quando il campo \texttt{charging} del record è
+impostato a \texttt{true}, l'indicatore entra in modalità animazione rotante per
+segnalare visivamente la ricarica in corso. La durata stimata residua viene calcolata
+proporzionalmente alla capacità nominale della batteria (3000 mAh).
+
+\paragraph{Gestione delle zone sicure.}
+L'app consente di creare, modificare e disattivare le zone di geofencing tramite un
+editor poligonale interattivo su mappa. L'utente può disegnare il perimetro della zona
+toccando i vertici direttamente sulla mappa; al salvataggio, le coordinate dei vertici
+e il centroide del poligono vengono persistiti su PocketBase. L'indirizzo associato
+alla zona viene ricavato automaticamente tramite geocoding inverso a partire dal
+centroide.
 
 \section{Test e Risultati}
 
