@@ -416,9 +416,30 @@ void loop() {
     delay(2000); 
     enterDeepSleep();
   } else {
-    Serial.println("[SYSTEM] Animale in viaggio");
-    String ts= getTimestamp();
-    inviaDati(gps.lat, gps.lon, bat, ts, step, false, true);
+    lastActivityTime = millis();
+    step.lastSession = step.session - lastSessionStepsCount;
+    lastSessionStepsCount = step.session;
+    
+    String ts = getTimestamp();
+    
+    // Salva le coordinate per la prossima accensione
+    if(gps.valid) {
+      Serial.println("[GPS] GPS valido, Lat: "); Serial.print(gps.lat, 6); Serial.print(" | Lon: "); Serial.println(gps.lon, 6);
+      lastLat = gps.lat; 
+      lastLon = gps.lon; 
+      hasGpsFix = true;
+      String r = sendAT("AT+CCLK?", 500);
+      int q1 = r.indexOf('"');
+      if (q1 != -1) {
+        String rawDate = r.substring(q1 + 7, q1 + 9) + r.substring(q1 + 4, q1 + 6) + r.substring(q1 + 1, q1 + 3);
+        String rawTime = r.substring(q1 + 10, q1 + 12) + r.substring(q1 + 13, q1 + 15) + r.substring(q1 + 16, q1 + 18);
+        strncpy(lastGpsDate, rawDate.c_str(), 6);
+        strncpy(lastGpsTime, rawTime.c_str(), 6);
+      }
+      inviaDati(gps.lat, gps.lon, bat, ts, step, false, true);
+    }else{
+      Serial.println("[SYS] Movimento rilevato ma GPS NON valido. Pacchetto saltato.");
+    }
   }
 
   delay(5000); // Intervallo a riposo tra i check del loop (quando non dorme)
