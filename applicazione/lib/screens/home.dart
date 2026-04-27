@@ -173,6 +173,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
   String _displayUsername = "Caricamento...";
 
   bool _isLoading = true; // Per il caricamento iniziale di tutta la pagina
+  DateTime _minDataSelezionabile = DateTime(2024); // Data di default (fallback)
   bool _isActivityLoading = false; // Per il passaggio tra i giorni
 
   StreamSubscription? _streamSubscription;
@@ -185,7 +186,10 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     // 1. Inizializzazione UI (Date e Calendario)
     _initializeDates();
 
-    // 2. INIEZIONE DATI PRE-CARICATI (Dalla Splash)
+    // 2. Recupera la data di creazione della board per limitare il calendario (se fallisce, rimane la data di default del 2024)
+    _recuperaDataCreazioneBoard();
+
+    // 3. INIEZIONE DATI PRE-CARICATI (Dalla Splash)
     // Questo elimina il testo "Caricamento..." istantaneamente se i dati ci sono
     if (widget.preloadedData != null) {
       _displayUsername = widget.preloadedData!['username'];
@@ -205,7 +209,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
       _scaricaDatiIniziali();
     }
 
-    // 3. LOGICA DI SISTEMA (Permessi e Notifiche)
+    // 4. LOGICA DI SISTEMA (Permessi e Notifiche)
     // Usiamo Future.microtask per assicurarci che il context sia pronto per i pop-up
     Future.microtask(() async {
       if (mounted) {
@@ -219,7 +223,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
       }
     });
 
-    // 4. ASCOLTATORI (Listeners)
+    // 5. ASCOLTATORI (Listeners)
     // Reagisce quando cambi le impostazioni dei Geofence
     geofenceUpdateSignal.addListener(() async {
       if (_ultimoAggiornamento != null) {
@@ -228,7 +232,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
       }
     });
 
-    // 5. STREAM REAL-TIME (Posizione Animale)
+    // 6. STREAM REAL-TIME (Posizione Animale)
     // Anche se abbiamo i dati della Splash, dobbiamo ascoltare i nuovi movimenti!
     _positionsRepo.subscribeToPositions();
     _streamSubscription =
@@ -249,7 +253,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
       }
     });
 
-    // 6. TIMER DI AGGIORNAMENTO UI
+    // 7. TIMER DI AGGIORNAMENTO UI
     // Aggiorna il testo "X min fa" ogni 30 secondi
     _uiRefreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
       if (mounted) setState(() {});
@@ -421,7 +425,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
                       mode: CupertinoDatePickerMode.date,
                       initialDateTime: _dataSelezionata,
                       maximumDate: DateTime.now(),
-                      minimumDate: DateTime(2020),
+                      minimumDate: _minDataSelezionabile,
                       dateOrder: DatePickerDateOrder.dmy,
                       onDateTimeChanged: (DateTime newDate) {
                         tempPickedDate = newDate;
@@ -491,6 +495,15 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     } catch (e) {
       debugPrint("❌ Errore scaricamento attività: $e");
       if (mounted) setState(() => _isActivityLoading = false);
+    }
+  }
+
+  Future<void> _recuperaDataCreazioneBoard() async {
+    final dataCreazione = await _usersRepo.getBoardCreationDate();
+    if (dataCreazione != null && mounted) {
+      setState(() {
+        _minDataSelezionabile = dataCreazione;
+      });
     }
   }
 

@@ -24,6 +24,28 @@ class UsersRepository {
     }
   }
 
+  /// Recupera la data di creazione della board
+  Future<DateTime?> getBoardCreationDate() async {
+    try {
+      if (!pb.authStore.isValid || pb.authStore.model == null) return null;
+
+      final userId = pb.authStore.model!.id;
+
+      final record = await pb.collection('boards').getFirstListItem(
+            'user ~ "$userId"',
+          );
+
+      // PocketBase salva in automatico la data nel campo 'created'
+      if (record.created.isNotEmpty) {
+        return DateTime.parse(record.created);
+      }
+      return null;
+    } catch (e) {
+      debugPrint('🚨 Errore getBoardCreationDate: $e');
+      return null;
+    }
+  }
+
   /// Registra un nuovo utente su PocketBase.
   Future<bool> register(String email, String password, String name,
       String surname, String username) async {
