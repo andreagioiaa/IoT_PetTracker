@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import '../services/authentication.dart' as scambio;
 import '../services/position_gps.dart';
 import './globals/app_state.dart';
 import "../repositories/geofences_repo.dart";
 
 class PolygonEditorScreen extends StatefulWidget {
-  final GeofenceRepository repository; // <-- Aggiunta della Repo
+  final GeofenceRepository repository;
   final String? placeId;
   final Map<String, dynamic>? newZoneData;
   final String placeName;
@@ -16,7 +15,7 @@ class PolygonEditorScreen extends StatefulWidget {
 
   const PolygonEditorScreen({
     super.key,
-    required this.repository, // <-- Obbligatoria
+    required this.repository,
     this.placeId,
     this.newZoneData,
     required this.placeName,
@@ -117,9 +116,10 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
         sumLat += p.latitude;
         sumLon += p.longitude;
       }
-      
+
       // Calcoliamo il baricentro del disegno
-      LatLng centroid = LatLng(sumLat / _points.length, sumLon / _points.length);
+      LatLng centroid =
+          LatLng(sumLat / _points.length, sumLon / _points.length);
 
       const distance = Distance();
       double distFromCenter = distance(widget.initialCenter, centroid);
@@ -137,8 +137,8 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
       // 3. CONTROLLO DI SOVRAPPOSIZIONE (Utilizzando la Repository)
       // ---------------------------------------------------------
       // Recuperiamo tutti i record tramite la repository invece di scambio.pb
-      final records = await widget.repository.fetchGeofences(); 
-      
+      final records = await widget.repository.fetchGeofences();
+
       String? overlappingZoneName;
 
       for (var zone in records) {
@@ -186,7 +186,8 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
       // ---------------------------------------------------------
       // 4. SALVATAGGIO TRAMITE REPOSITORY
       // ---------------------------------------------------------
-      final jsonVertices = _points.map((p) => [p.latitude, p.longitude]).toList();
+      final jsonVertices =
+          _points.map((p) => [p.latitude, p.longitude]).toList();
 
       // Prepariamo il corpo della richiesta
       Map<String, dynamic> body = widget.newZoneData != null
@@ -198,7 +199,8 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
 
       if (widget.placeId != null) {
         // MODIFICA ZONA ESISTENTE
-        final success = await widget.repository.updateGeofenceVertices(widget.placeId!, body);
+        final success = await widget.repository
+            .updateGeofenceVertices(widget.placeId!, body);
         if (success) savedZoneId = widget.placeId;
       } else {
         // CREAZIONE NUOVA ZONA
@@ -231,7 +233,7 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
       }
     }
   }
-    
+
   Future<bool> _onWillPop() async {
     if (_isForceExiting) return true;
 
