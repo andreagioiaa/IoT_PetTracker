@@ -48,27 +48,21 @@ class NotificationService {
       await prefs.setBool('permesso_notifiche_chiesto', true);
     }
 
-    // 2. CONTROLLIAMO COSA SERVE AL SISTEMA OPERATIVO
-    NotificationSettings currentSettings =
-        await _messaging.getNotificationSettings();
+    // 2. RICHIEDIAMO DIRETTAMENTE IL PERMESSO A FIREBASE
+    // Su Android 13+ farà apparire il pop-up, su Android 12 andrà avanti in automatico.
+    NotificationSettings settings = await _messaging.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
 
-    if (currentSettings.authorizationStatus ==
-        AuthorizationStatus.notDetermined) {
-      // Se il sistema operativo lo richiede (Android 13+ o iOS), mostriamo la richiesta ufficiale
-      NotificationSettings settings = await _messaging.requestPermission(
-        alert: true,
-        badge: true,
-        sound: true,
-      );
-      print('🔔 Permessi notifiche: ${settings.authorizationStatus}');
+    print('🔔 Permessi notifiche finali: ${settings.authorizationStatus}');
 
-      if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-        await syncToken();
-      }
-    } else if (currentSettings.authorizationStatus ==
-        AuthorizationStatus.authorized) {
-      // Se era già autorizzato (es. Android 12), sincronizziamo direttamente il token!
+    // 3. SE AUTORIZZATO, SALVIAMO IL TOKEN
+    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
       await syncToken();
+    } else {
+      print('❌ Permessi notifiche non concessi.');
     }
   }
 

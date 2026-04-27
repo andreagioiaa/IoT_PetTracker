@@ -13,16 +13,9 @@ class PositionGpsService {
 
     LocationPermission permission = await Geolocator.checkPermission();
 
-    // Se i permessi sono disabilitati del tutto nel telefono
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      debugPrint('GPS disattivato dal dispositivo.');
-      hasLocationPermission.value = false;
-      return;
-    }
-
+    // 1. GESTIAMO PRIMA IL PERMESSO (indipendentemente se l'antenna è accesa o spenta)
     if (permission == LocationPermission.denied) {
-      // Se è la prima volta che lo chiediamo, mostriamo un nostro pop-up per spiegare perché serve il GPS
+      // Se è la prima volta, mostriamo il nostro pop-up
       if (!giaChiesto && context.mounted) {
         await _mostraPopUpSpiegazione(context);
         await prefs.setBool('permesso_posizione_chiesto', true);
@@ -32,15 +25,18 @@ class PositionGpsService {
       permission = await Geolocator.requestPermission();
     }
 
+    // 2. ORA CONTROLLIAMO LO STATO FINALE (Permesso + Antenna)
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+
     if (permission == LocationPermission.deniedForever) {
-      // L'utente ha bloccato i permessi per sempre
       debugPrint('Permessi negati permanentemente.');
       hasLocationPermission.value = false;
-      return;
+    } else {
+      // La "lampadina" è verde SOLO SE l'app ha il permesso E l'antenna è accesa
+      hasLocationPermission.value = serviceEnabled &&
+          (permission == LocationPermission.always ||
+              permission == LocationPermission.whileInUse);
     }
-
-    hasLocationPermission.value = (permission == LocationPermission.always ||
-        permission == LocationPermission.whileInUse);
   }
 
   // Mostra un dialog personalizzato per spiegare all'utente perché serve il GPS
