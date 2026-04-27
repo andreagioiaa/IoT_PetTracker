@@ -9,6 +9,7 @@ import '../services/geocoding.dart';
 import 'polygon_editor.dart';
 import './globals/app_state.dart';
 import "../repositories/positions_repo.dart";
+import "../repositories/geofences_repo.dart";
 
 enum ActiveCard { none, zone, user, pet }
 
@@ -28,8 +29,12 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
   late final PositionsRepository _positionsRepo =
       PositionsRepository(scambio.pb);
 
+  final GeofenceRepository _geofenceRepo = GeofenceRepository(scambio.pb);
+
   final ValueNotifier<ActiveCard> _activeCard =
       ValueNotifier<ActiveCard>(ActiveCard.none);
+
+    
 
   String _userAddress = "Rilevamento indirizzo in corso...";
   String _petAddress = "Rilevamento indirizzo in corso...";
@@ -542,6 +547,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
         context,
         MaterialPageRoute(
             builder: (context) => PolygonEditorScreen(
+                repository: _geofenceRepo,
                 placeId: placeId,
                 newZoneData: newZoneData,
                 placeName: placeName,

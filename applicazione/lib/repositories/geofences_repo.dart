@@ -7,6 +7,23 @@ class GeofenceRepository {
 
   GeofenceRepository(this._pb);
 
+  // Metodo per recuperare i record grezzi (utile per logiche interne come l'overlap)
+  Future<List<RecordModel>> getFullList() async {
+    return await _pb.collection('geofences').getFullList();
+  }
+
+  // Metodo unificato per salvare (Create o Update)
+  Future<RecordModel> saveGeofence({
+    String? id,
+    required Map<String, dynamic> data,
+  }) async {
+    if (id != null) {
+      return await _pb.collection('geofences').update(id, body: data);
+    } else {
+      return await _pb.collection('geofences').create(body: data);
+    }
+  }
+
   /// Recupera tutte le zone e gestisce il parsing dei vertici
   Future<List<Map<String, dynamic>>> fetchGeofences() async {
     try {
@@ -79,6 +96,28 @@ class GeofenceRepository {
       return "Fuori zona sicura";
     } catch (e) {
       return "Errore rilevamento";
+    }
+  }
+
+  /// Aggiorna i dati (inclusi i vertici) di una zona esistente
+  Future<bool> updateGeofenceVertices(String id, Map<String, dynamic> body) async {
+    try {
+      await _pb.collection('geofences').update(id, body: body); //
+      return true;
+    } catch (e) {
+      print("🛑 Errore updateGeofenceVertices: $e");
+      return false;
+    }
+  }
+
+  /// Crea una nuova zona e restituisce il suo ID
+  Future<String?> createGeofence(Map<String, dynamic> body) async {
+    try {
+      final record = await _pb.collection('geofences').create(body: body); //
+      return record.id;
+    } catch (e) {
+      print("🛑 Errore createGeofence: $e");
+      return null;
     }
   }
 }
