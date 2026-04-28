@@ -22,8 +22,10 @@ const int        I2C_SDA      = 41;
 const int        I2C_SCL      = 42;
 const gpio_num_t WAKEUP_PIN   = GPIO_NUM_5;
 
-// Tempi (in millisecondi)
-const unsigned long SLEEP_TIMEOUT = 30000;
+// ═══════════════════════════════════════════════
+//  VARIABILI DI TEMPO (in millisecondi)
+// ═══════════════════════════════════════════════
+const unsigned long SLEEP_TIMEOUT = 30000; // Tempo di attesa dall'ultimo movimento prima di addormentarsi
 const unsigned long NET_TIMEOUT   = 60000; // Max tempo per cercare la rete prima di arrendersi
 const unsigned long GPS_TIMEOUT   = 180000; // Max tempo per fix GPS
 
@@ -236,7 +238,7 @@ void inviaDati(float l_lat, float l_lon, const BatInfo& bat, const String& times
   json += "\"battery_percent\":" + String((!bat.charging && bat.voltage > 0.1f) ? String(bat.percent) : "null") + ",";
   json += "\"charging\":" + String(bat.charging ? "true" : "false") + ",";
   json += "\"steps\":" + String(step.lastSession) + ",";
-  json += "\"sleep\":" + String(isSleeping ? "true" : "false");
+  json += "\"sleep\":" + String(isSleeping ? "true" : "false") + ",";
   json += "\"trip\":" + String(isTravelling ? "true" : "false");
   json += "}";
 
@@ -255,6 +257,7 @@ void inviaDati(float l_lat, float l_lon, const BatInfo& bat, const String& times
   String res = sendAT("AT+HTTPACTION=1", 10000);
   Serial.print("[HTTP] "); Serial.println(res);
   sendAT("AT+HTTPTERM", 1000);
+  delay(2000);
 }
 
 // ═══════════════════════════════════════════════
@@ -405,42 +408,38 @@ void loop() {
     }else{
       Serial.println("[SYS] Movimento rilevato ma GPS NON valido. Pacchetto saltato.");
     }
-  } 
-  // Se non ci muoviamo più, andiamo in sleep
-  else if (millis() - lastActivityTime > SLEEP_TIMEOUT) {
-    Serial.println("[SYSTEM] Timeout inattività. Invio stato 'Sleep' e chiusura.");
-    String ts = getTimestamp();
-    inviaDati(gps.lat, gps.lon, bat, ts, step, true, false);
-    
-    // Lascia al modem il tempo di finire la trasmissione HTTP prima di tagliare la corrente
-    delay(2000); 
-    enterDeepSleep();
-  } else {
-    lastActivityTime = millis();
-    step.lastSession = step.session - lastSessionStepsCount;
-    lastSessionStepsCount = step.session;
-    
-    String ts = getTimestamp();
-    
-    // Salva le coordinate per la prossima accensione
-    if(gps.valid) {
-      Serial.println("[GPS] GPS valido, Lat: "); Serial.print(gps.lat, 6); Serial.print(" | Lon: "); Serial.println(gps.lon, 6);
-      lastLat = gps.lat; 
-      lastLon = gps.lon; 
-      hasGpsFix = true;
-      String r = sendAT("AT+CCLK?", 500);
-      int q1 = r.indexOf('"');
-      if (q1 != -1) {
-        String rawDate = r.substring(q1 + 7, q1 + 9) + r.substring(q1 + 4, q1 + 6) + r.substring(q1 + 1, q1 + 3);
-        String rawTime = r.substring(q1 + 10, q1 + 12) + r.substring(q1 + 13, q1 + 15) + r.substring(q1 + 16, q1 + 18);
-        strncpy(lastGpsDate, rawDate.c_str(), 6);
-        strncpy(lastGpsTime, rawTime.c_str(), 6);
-      }
-      inviaDati(gps.lat, gps.lon, bat, ts, step, false, true);
-    }else{
-      Serial.println("[SYS] Movimento rilevato ma GPS NON valido. Pacchetto saltato.");
-    }
   }
-
-  delay(5000); // Intervallo a riposo tra i check del loop (quando non dorme)
+  else {
+    if (millis() - lastActivityTime > SLEEP_TIMEOUT) {
+      Serial.println("[SYSTEM] Timeout inattività. Invio stato 'Sleep' e chiusura.");
+      String ts = getTimestamp();
+      inviaDati(gps.lat, gps.lon, bat, ts, step, true, false);
+      enterDeepSleep();
+    } else {
+      lastActivityTime = millis();
+      step.lastSession = step.session - lastSessionStepsCount;
+      lastSessionStepsCount = step.session;
+      
+      String ts = getTimestamp();
+      
+      // Salva le coordinate per la prossima accensione
+      if(gps.valid) {
+        Serial.println("[GPS] GPS valido, Lat: "); Serial.print(gps.lat, 6); Serial.print(" | Lon: "); Serial.println(gps.lon, 6);
+        lastLat = gps.lat; 
+        lastLon = gps.lon; 
+        hasGpsFix = true;
+        String r = sendAT("AT+CCLK?", 500);
+        int q1 = r.indexOf('"');
+        if (q1 != -1) {
+          String rawDate = r.substring(q1 + 7, q1 + 9) + r.substring(q1 + 4, q1 + 6) + r.substring(q1 + 1, q1 + 3);
+          String rawTime = r.substring(q1 + 10, q1 + 12) + r.substring(q1 + 13, q1 + 15) + r.substring(q1 + 16, q1 + 18);
+          strncpy(lastGpsDate, rawDate.c_str(), 6);
+          strncpy(lastGpsTime, rawTime.c_str(), 6);
+        }
+        inviaDati(gps.lat, gps.lon, bat, ts, step, false, true);
+      }else{
+        Serial.println("[SYS] Movimento rilevato ma GPS NON valido. Pacchetto saltato.");
+      }
+    }
+  delay(5000);
 }
