@@ -475,10 +475,13 @@ Il codice dell'applicazione è organizzato secondo una separazione netta tra liv
 responsabilità:
 
 \begin{itemize}
-  \item \textbf{Services}: logica trasversale e di sistema, indipendente dalla UI
-    (autenticazione, GPS, geocoding, notifiche push).
   \item \textbf{Repositories}: accesso ai dati remoti tramite PocketBase SDK,
     con esposizione di metodi asincroni e stream tipizzati verso le schermate.
+  \item \textbf{Models}: rappresentazione del dominio applicativo (es. Utente, Posizione, Attività). 
+    Questo livello si occupa della deserializzazione dei dati, mappando i record grezzi (JSON) 
+    ricevuti dal backend in oggetti Dart fortemente tipizzati.
+  \item \textbf{Services}: logica trasversale e di sistema, indipendente dalla UI
+    (autenticazione, logica di geofencing, tracciamento GPS, notifiche push).
   \item \textbf{Screens}: interfaccia utente che si limita a richiedere i dati ai
     repository e a reagire ai loro aggiornamenti.
 \end{itemize}
@@ -535,26 +538,6 @@ La logica di geofencing è implementata interamente lato client tramite l'algori
 definito da una lista di vertici, l'algoritmo traccia un raggio orizzontale dal punto
 verso l'infinito e conta le intersezioni con i lati del poligono: un numero dispari
 indica che il punto è interno al poligono.
-
-\begin{lstlisting}[language=Dart, caption={Algoritmo Ray-Casting per il geofencing}]
-static bool isPointInsidePolygon(LatLng point, List<LatLng> polygon) {
-  bool isInside = false;
-  int j = polygon.length - 1;
-  for (int i = 0; i < polygon.length; i++) {
-    if (((polygon[i].latitude > point.latitude) !=
-            (polygon[j].latitude > point.latitude)) &&
-        (point.longitude <
-            (polygon[j].longitude - polygon[i].longitude) *
-                    (point.latitude - polygon[i].latitude) /
-                    (polygon[j].latitude - polygon[i].latitude) +
-                polygon[i].longitude)) {
-      isInside = !isInside;
-    }
-    j = i;
-  }
-  return isInside;
-}
-\end{lstlisting}
 
 Le zone vengono recuperate dalla collezione \texttt{geofences} su PocketBase, dove
 ogni record memorizza il nome della zona, i dati dell'indirizzo e la lista dei vertici
