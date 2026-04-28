@@ -17,6 +17,7 @@ import "../repositories/users_repo.dart";
 import 'package:shared_preferences/shared_preferences.dart';
 import "daily_recap.dart";
 import 'package:intl/intl.dart';
+import 'splash_view.dart';
 
 // Funzione globale da chiamare all'avvio dell'app (es. nel main o in initState di PetTrackerApp)
 Future<void> loadMapPreferences() async {
@@ -29,7 +30,11 @@ class PetTrackerApp extends StatelessWidget {
   const PetTrackerApp({super.key});
 
   @override
+  @override
   Widget build(BuildContext context) {
+    // Controllo se l'utente ha già fatto il login in passato
+    bool isAuth = scambio.pb.authStore.isValid;
+
     return MaterialApp(
       title: 'Pet Tracker',
       debugShowCheckedModeBanner: false,
@@ -39,7 +44,7 @@ class PetTrackerApp extends StatelessWidget {
         GlobalCupertinoLocalizations.delegate,
       ],
       supportedLocales: const [
-        Locale('it', 'IT'), // Forza l'italiano come lingua
+        Locale('it', 'IT'),
       ],
       locale: const Locale('it', 'IT'),
       theme: ThemeData(
@@ -48,7 +53,9 @@ class PetTrackerApp extends StatelessWidget {
         primarySwatch: Colors.teal,
         useMaterial3: true,
       ),
-      home: const PetTrackerNavigation(),
+
+      // L'app DEVE partire dalla Splash per scaricare i dati, senza far vedere il caricamento
+      home: SplashScreen(isAlreadyAuthenticated: isAuth),
     );
   }
 }
@@ -108,6 +115,12 @@ class _PetTrackerNavigationState extends State<PetTrackerNavigation> {
   @override
   void initState() {
     super.initState();
+
+    // Impostiamo il valore dell'allarme PRIMA di costruire la UI
+    if (widget.preloadedData != null) {
+      isTrackingMode.value = widget.preloadedData!['alarm'] ?? false;
+    }
+
     isTrackingMode.addListener(() {
       if (mounted) setState(() {});
     });
@@ -172,9 +185,14 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
   String _nomeZona = "Ricerca in corso...";
   String _displayUsername = "Caricamento...";
 
-  bool _isLoading = true; // Per il caricamento iniziale di tutta la pagina
-  DateTime _minDataSelezionabile = DateTime(2024); // Data di default (fallback)
-  bool _isActivityLoading = false; // Per il passaggio tra i giorni
+  // Per il caricamento iniziale di tutta la pagina
+  bool _isLoading = true;
+
+  // Data di default (fallback)
+  DateTime _minDataSelezionabile = DateTime(2024);
+
+  // Per il passaggio tra i giorni
+  bool _isActivityLoading = false;
 
   StreamSubscription? _streamSubscription;
   Timer? _uiRefreshTimer;
@@ -193,7 +211,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     // Questo elimina il testo "Caricamento..." istantaneamente se i dati ci sono
     if (widget.preloadedData != null) {
       _displayUsername = widget.preloadedData!['username'];
-      isTrackingMode.value = widget.preloadedData!['alarm'];
+
       _nomeZona = widget.preloadedData!['zone'];
 
       final pos = widget.preloadedData!['lastPosition'];

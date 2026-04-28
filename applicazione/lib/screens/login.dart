@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'home.dart';
 import 'sign_in.dart';
 import "../repositories/users_repo.dart";
+import 'splash_view.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -52,10 +53,16 @@ class _AuthScreenState extends State<AuthScreen> {
           _usernameController.text.trim(), _passwordController.text.trim());
 
       if (auth) {
+        // 1. Scarica i dati in background (mentre il bottone gira)
+        final dati = await SplashScreen.preparaDatiPerHome();
+
         if (!mounted) return;
+
+        // 2. Passa i dati alla Home
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const PetTrackerNavigation()),
+          MaterialPageRoute(
+              builder: (context) => PetTrackerNavigation(preloadedData: dati)),
         );
       } else {
         _showSnackBar('Accesso fallito. Controlla i dati.', Colors.red);
