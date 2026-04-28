@@ -137,7 +137,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
           _ricalcolaDirezione();
         });
         _checkPetSafety();
-        _mapController.move(_petLocation!, 17.0);
+        _mapController.move(_petLocation!, 18.0);
       }
     } catch (e) {
       debugPrint("Errore ultima pos: $e");
@@ -286,7 +286,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
             mapController: _mapController,
             options: MapOptions(
               initialCenter: _petLocation ?? const LatLng(41.8719, 12.5674),
-              initialZoom: 17.0,
+              initialZoom: 18.0,
             ),
             children: [
               TileLayer(

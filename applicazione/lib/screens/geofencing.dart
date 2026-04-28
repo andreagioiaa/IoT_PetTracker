@@ -31,6 +31,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
   // Variabili per la posizione dell'utente e dell'animale
   LatLng? _petLocation;
   StreamSubscription? _streamSubscription;
+  StreamSubscription<Position>? _userLocationStream;
 
   late final PositionsRepository _positionsRepo =
       PositionsRepository(scambio.pb);
@@ -82,29 +83,40 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
         permission == LocationPermission.whileInUse) {
       hasLocationPermission.value = true;
 
-      Position? position = await PositionGpsService.ottieniPosizioneUtente();
+      _avviaStreamPosizioneUtente();
+    } else {
+      hasLocationPermission.value = false;
+    }
+  }
 
-      if (position != null && mounted) {
-        setState(
-            () => _myLocation = LatLng(position.latitude, position.longitude));
+  // Funzione per avviare lo stream della posizione dell'utente
+  void _avviaStreamPosizioneUtente() {
+    _userLocationStream ??= Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high, distanceFilter: 5),
+    ).listen((Position pos) {
+      if (mounted) {
+        bool isFirstTime = _myLocation == null;
 
-        // LOGICA DI FOCUS E CARD
-        // Se l'utente preferisce il Dispositivo, ora che abbiamo il GPS apriamo la sua card
-        if (mapFocusPreference.value == 'Dispositivo') {
+        setState(() {
+          _myLocation = LatLng(pos.latitude, pos.longitude);
+        });
+
+        // Applica il focus e apre la card SOLO la prima volta che ci trova
+        if (isFirstTime && mapFocusPreference.value == 'Dispositivo') {
           _mapController.move(_myLocation!, 18.0);
           _activeCard.value = ActiveCard.user;
           _resolveAddress(_myLocation!, false);
         }
       }
-    } else {
-      hasLocationPermission.value = false;
-    }
+    });
   }
 
   @override
   void dispose() {
     hasLocationPermission.removeListener(_onPermissionChanged);
     _streamSubscription?.cancel();
+    _userLocationStream?.cancel();
     _positionsRepo.dispose();
 
     _nameController.dispose();
@@ -319,15 +331,17 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
   bool isSatelliteMap = false;
   LatLng? _myLocation;
 
+  // Getter per accedere al MapController in modo sicuro, evitando errori se viene chiamato fuori contesto
   Future<void> _determinePosition() async {
     try {
-      // 1. Chiamiamo il nostro servizio che gestisce il pop-up e i permessi!
       await PositionGpsService.richiediPermessi(context);
 
-      // 2. Se l'utente ha accettato, recuperiamo la posizione
       if (hasLocationPermission.value) {
-        Position? position = await PositionGpsService.ottieniPosizioneUtente();
+        // 1. Assicuriamoci che lo stream continuo sia acceso!
+        _avviaStreamPosizioneUtente();
 
+        // 2. Forza subito la posizione per centrare la mappa (azione del bottone)
+        Position? position = await PositionGpsService.ottieniPosizioneUtente();
         if (position != null && mounted) {
           setState(() {
             _myLocation = LatLng(position.latitude, position.longitude);
