@@ -127,6 +127,30 @@
       \verb https://uptimerobot.com/
       \endverb
     \endentry
+    \entry{nodejs}{online}{}{}
+      \field{sortinit}{1}
+      \field{sortinithash}{4f6aaa89bab872aa0999fec09ff8e98a}
+      \field{labeltitlesource}{title}
+      \field{title}{Node.js Documentation}
+      \verb{urlraw}
+      \verb https://nodejs.org/en/docs/
+      \endverb
+      \verb{url}
+      \verb https://nodejs.org/en/docs/
+      \endverb
+    \endentry
+    \entry{firebase_admin}{online}{}{}
+      \field{sortinit}{1}
+      \field{sortinithash}{4f6aaa89bab872aa0999fec09ff8e98a}
+      \field{labeltitlesource}{title}
+      \field{title}{Firebase Admin SDK - Cloud Messaging}
+      \verb{urlraw}
+      \verb https://firebase.google.com/docs/cloud-messaging/server
+      \endverb
+      \verb{url}
+      \verb https://firebase.google.com/docs/cloud-messaging/server
+      \endverb
+    \endentry
     \entry{flutter}{online}{}{}
       \field{sortinit}{1}
       \field{sortinithash}{4f6aaa89bab872aa0999fec09ff8e98a}

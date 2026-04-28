@@ -202,15 +202,21 @@ La trasmissione dei dati al backend PocketBase è affidata a una serie di comand
 \begin{itemize}
     \item \texttt{board\_id}: un identificativo univoco derivato dall'IMEI del modem;
     \item \texttt{geo}: un oggetto con latitudine e longitudine per la gestione cartografica;
-    \item \texttt{battery} / \texttt{steps}: telemetria sullo stato di carica e sull'attività motoria rilevata;
-    \item \texttt{sleep}: un flag booleano che segnala al server l'imminente entrata in stato di inattività.
+    \item \texttt{battery} / \texttt{battery\_percent} / \texttt{charging}: telemetria sullo stato di carica della batteria;
+    \item \texttt{steps}: conteggio dei passi rilevato dall'accelerometro;
+    \item \texttt{sleep}: flag booleano che segnala al server l'imminente entrata in stato di inattività;
+    \item \texttt{trip}: flag booleano che segnala al server che l'animale si trova su un veicolo in movimento. Quando attivo, ha priorità assoluta sulla logica di geofencing e sopprime il Deep Sleep per garantire la continuità del tracciamento.
 \end{itemize}
 \begin{lstlisting}[language=C++, caption={Esempio di strutturazione del payload JSON}]
-void inviaDati(float l_lat, float l_lon, const BatInfo& bat, const String& timestamp, const StepData& step, bool isSleeping) {
+void inviaDati(float l_lat, float l_lon, const BatInfo& bat, const String& timestamp, const StepData& step, bool isSleeping, bool isTrip) {
   String json = "{";
   json += "\"timestamp\":\"" + timestamp + "\",";
   json += "\"geo\":{\"lon\":" + String(l_lon, 6) + ",\"lat\":" + String(l_lat, 6) + "},";
   json += "\"battery\":" + String(bat.voltage, 2) + ",";
+  json += "\"battery_percent\":" + String(bat.percent) + ",";
+  json += "\"charging\":" + String(bat.charging ? "true" : "false") + ",";
+  json += "\"steps\":" + String(step.count) + ",";
+  json += "\"trip\":" + String(isTrip ? "true" : "false") + ",";
   json += "\"sleep\":" + String(isSleeping ? "true" : "false");
   json += "}";
   // Invio tramite comandi AT HTTP
@@ -219,10 +225,11 @@ void inviaDati(float l_lat, float l_lon, const BatInfo& bat, const String& times
 \end{lstlisting}
 
 \subsection{Risparmio Energetico e Deep Sleep}
-Il sistema è progettato per massimizzare l'autonomia della batteria da 3000mAh. La logica di risparmio energetico è coordinata con l'accelerometro \textbf{BMA400}:
+Il sistema è progettato per massimizzare l'autonomia della batteria da 3000mAh. La logica di risparmio energetico è coordinata con l'accelerometro \textbf{BMA400} e tiene conto dello stato di viaggio:
 \begin{enumerate}
     \item \textbf{Rilevamento Attività}: Il firmware monitora costantemente il numero di passi. Ogni nuovo movimento resetta un timer di inattività (\texttt{lastActivityTime}).
-    \item \textbf{Invio Finale}: Se non viene rilevata attività per un tempo superiore a \texttt{SLEEP\_TIMEOUT} (30 secondi), il sistema invia un ultimo pacchetto dati aggiornando il flag \texttt{sleep} a \texttt{true}.
+    \item \textbf{Modalità Viaggio}: Se il flag \texttt{trip} è attivo, il Deep Sleep viene soppresso indipendentemente dall'inattività rilevata dall'accelerometro. Il dispositivo continua a trasmettere posizione e telemetria a intervalli regolari per tutto il tempo in cui è in viaggio.
+    \item \textbf{Invio Finale}: Se non viene rilevata attività per un tempo superiore a \texttt{SLEEP\_TIMEOUT} (30 secondi) \emph{e} il flag \texttt{trip} non è attivo, il sistema invia un ultimo pacchetto dati aggiornando il flag \texttt{sleep} a \texttt{true}.
     \item \textbf{Ibernazione}: Il microcontrollore entra in \textit{Deep Sleep}, spegnendo i moduli radio. Il risveglio è gestito tramite interrupt hardware sul pin \texttt{GPIO\_5}, generato dal BMA400 solo al rilevamento di un nuovo movimento.
 \end{enumerate}
 \begin{lstlisting}[language=C++, caption={Configurazione del Deep Sleep con risveglio tramite accelerometro}]
@@ -267,7 +274,8 @@ I dati ricevuti vengono normalizzati e memorizzati in una collezione denominata 
     \item \texttt{battery\_percent}: stato di carica della batteria (espresso in percentuale);
     \item \texttt{charging}: booleano che indica se la batteria è in corso di ricarica;
     \item \texttt{steps}: conteggio dei passi rilevato dall'accelerometro BMA400;
-    \item \texttt{sleep}: booleano che indica se il dispositivo è in stato di "sleep" (assenza di movimento prolungata);
+    \item \texttt{sleep}: booleano che indica se il dispositivo è in stato di inattività prolungata;
+    \item \texttt{trip}: booleano che indica se l'animale si trova su un veicolo in movimento.
 \end{itemize}
 
 \subsection{Interfaccia API e API Rules}
@@ -289,39 +297,120 @@ Il sistema sfrutta l'hook \texttt{onRecordAfterCreateSuccess}, che si attiva imm
 
 \begin{itemize}
     \item \textbf{Persistenza Geografica ed Energetica:} I parametri di tensione, percentuale di carica e coordinate GPS vengono estratti e duplicati nelle collezioni \texttt{battery\_data} e \texttt{positions\_duplicate}. L'uso di blocchi \textit{try-catch} indipendenti garantisce che un errore in un sensore secondario non comprometta il tracciamento GPS.
-    \item \textbf{Logica di Sessione (Activity Tracking):} Il trigger implementa una macchina a stati basata sul parametro \texttt{sleep}. Se il dispositivo è attivo, il sistema verifica l'esistenza di una sessione: in caso positivo aggiorna il conteggio passi, in caso negativo crea una nuova attività.
-    \item \textbf{Gestione dello Stato Sleep:} Al ricezione di un pacchetto con \texttt{sleep: true}, il trigger chiude la sessione corrente impostando \texttt{is\_active = false}, permettendo una segmentazione precisa dei periodi di movimento.
+    \item \textbf{Logica di Sessione (Activity Tracking):} Il trigger implementa una macchina a stati che tiene conto dei parametri \texttt{sleep}, \texttt{trip} e della posizione GPS rispetto alle geofence configurate. Se il dispositivo è attivo, il sistema verifica l'esistenza di una sessione: in caso positivo aggiorna il conteggio passi e lo stato, in caso negativo crea una nuova attività.
+    \item \textbf{Gestione dello Stato Sleep:} Al ricevimento di un pacchetto con \texttt{sleep: true}, il comportamento dipende dallo stato corrente: se l'animale era in viaggio (\texttt{status = "v"}), la sessione rimane aperta con stato \texttt{"a"} (trip-sleep) per continuare a ricevere posizioni GPS; altrimenti la sessione viene chiusa normalmente con \texttt{is\_active = false}.
+    \item \textbf{Deduplicazione delle Sessioni:} Per evitare la frammentazione delle sessioni in caso di brevi interruzioni del segnale, il sistema verifica se esiste una sessione chiusa di recente (entro 120 secondi) con uno stato compatibile, riattivandola invece di crearne una nuova.
 \end{itemize}
 
-\begin{lstlisting}[language=JavaScript, caption={Implementazione della logica di sessione in PocketBase}]
-onRecordAfterCreateSuccess((e) => {
-    const raw = e.record;
-    const boardId = raw.getString("board_id");
-    const timestamp = raw.getString("timestamp");
-    const sleep = raw.getBool("sleep");
-    const steps = raw.getInt("steps");
+\subsubsection{Macchina a stati delle attività}
 
-    // 1. Logica di gestione delle sessioni (Activity Tracking)
+Il cuore della logica server-side è una macchina a stati che modella il comportamento dell'animale. Gli stati sono distinti in \textit{attivi} (dispositivo sveglio) e \textit{sleep} (dispositivo in Deep Sleep), con una corrispondenza biunivoca tra le due categorie.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}llp{6.5cm}@{}}
+\toprule
+\textbf{Stato attivo} & \textbf{Stato sleep} & \textbf{Descrizione} \\
+\midrule
+\texttt{i} — inside        & \texttt{d} & Animale all'interno della geofence \\
+\texttt{s} — search        & \texttt{p} & Ricerca attiva: animale fuori zona con allarme \\
+\texttt{f} — found         & \texttt{h} & Animale localizzato fuori zona (senza allarme) \\
+\texttt{w} — walk          & \texttt{z} & Animale in passeggiata fuori zona \\
+\texttt{v} — vehicle/trip  & \texttt{a} & Animale su veicolo (sessione non chiusa durante sleep) \\
+\texttt{n} — no geofence   & \texttt{n} & Nessuna geofence configurata \\
+\bottomrule
+\end{tabular}
+\caption{Macchina a stati delle attività: corrispondenza tra stati attivi e sleep}
+\label{tab:stati}
+\end{table}
+
+La transizione \texttt{v} $\to$ \texttt{a} è l'unico caso in cui il passaggio in Deep Sleep \emph{non} chiude la sessione: la sessione rimane \texttt{is\_active = true} con status \texttt{"a"}, permettendo di collegare correttamente le posizioni GPS successive. Al risveglio, se \texttt{trip} è ancora attivo, lo stato torna a \texttt{"v"} senza aprire una nuova sessione.
+
+Le transizioni tra stati attivi sono governate dalla funzione \texttt{checkGeofences} che, ricevuto un pacchetto, calcola il nuovo stato in base alla posizione rispetto ai poligoni configurati, alla presenza di un allarme utente e all'eventuale flag \texttt{trip}. La priorità di valutazione è:
+
+\begin{enumerate}
+    \item Se \texttt{trip = true} $\Rightarrow$ stato \texttt{"v"} (priorità assoluta, la geofence non viene calcolata).
+    \item Se il dispositivo era in \texttt{"v"} e \texttt{trip} torna \texttt{false} $\Rightarrow$ ricalcolo pulito della geofence senza stato precedente.
+    \item Altrimenti $\Rightarrow$ la macchina a stati valuta la posizione rispetto alle geofence e l'eventuale allarme utente per determinare la transizione corretta.
+\end{enumerate}
+
+\begin{lstlisting}[language=JavaScript, caption={Implementazione della logica di sessione con macchina a stati completa}]
+onRecordAfterCreateSuccess((e) => {
+    const utils   = require(`${__hooks}/utils.js`);
+    const raw     = e.record;
+    const boardId = raw.getString("board_id");
+    const sleep   = raw.getBool("sleep");
+    const trip    = raw.getBool("trip");
+    const steps   = raw.getInt("steps");
+    const lat     = raw.getFloat("lat");
+    const lon     = raw.getFloat("lon");
+    const hasCoords = !(lat === 0.0 && lon === 0.0);
+
+    // Recupera eventuale sessione attiva
+    let activeActivity = null;
+    const active = e.app.findRecordsByFilter(
+        "activities", "board_id = {:id} && is_active = true",
+        "-id", 1, 0, { id: boardId }
+    );
+    if (active.length > 0) activeActivity = active[0];
+
     if (!sleep) {
+        const prevStatus = activeActivity
+            ? activeActivity.getString("status") : null;
+
+        // trip ha priorita' assoluta sulla geofence
+        const status = (hasCoords || trip)
+            ? utils.checkGeofences(e.app, boardId, lat, lon, prevStatus, trip)
+            : prevStatus ?? "n";
+
         if (activeActivity) {
-            // Aggiorna passi e fine sessione corrente
-            activeActivity.set("total_steps", currentSteps + steps);
+            if (status === prevStatus) {
+                // Stesso stato: aggiorna passi e fine sessione
+                activeActivity.set("total_steps",
+                    activeActivity.getInt("total_steps") + steps);
+                activeActivity.set("end_time", timestamp);
+                e.app.save(activeActivity);
+            } else {
+                // Cambio di stato: chiudi e apri nuova sessione
+                activeActivity.set("end_time", timestamp);
+                activeActivity.set("is_active", false);
+                e.app.save(activeActivity);
+                // ... crea nuovo record activities con nuovo status
+            }
+        }
+    } else if (activeActivity) {
+        const prevStatus = activeActivity.getString("status");
+        if (prevStatus === "v") {
+            // Sleep durante viaggio: non chiude la sessione,
+            // cambia solo lo status in "a" (trip-sleep)
+            activeActivity.set("status", "a");
             activeActivity.set("end_time", timestamp);
             e.app.save(activeActivity);
         } else {
-            // Crea nuova sessione attiva se non esistente
-            activitiesRecord.set("is_active", true);
-            activitiesRecord.set("total_steps", steps);
-            e.app.save(activitiesRecord);
+            // Sleep normale: chiude la sessione
+            activeActivity.set("is_active", false);
+            activeActivity.set("end_time", timestamp);
+            e.app.save(activeActivity);
         }
-    } else if (activeActivity) {
-        // Chiusura sessione per stato SLEEP del dispositivo
-        activeActivity.set("is_active", false);
-        e.app.save(activeActivity);
     }
     e.next();
 }, "data_sent_raw");
 \end{lstlisting}
+
+\subsubsection{Hook onRecordAfterUpdateSuccess}
+
+Oltre all'hook di creazione, è presente un secondo hook \texttt{onRecordAfterUpdateSuccess} registrato sulla collezione \texttt{activities}. Il suo scopo è gestire le transizioni di stato che avvengono per aggiornamento del record piuttosto che per creazione, in particolare:
+
+\begin{itemize}
+    \item \texttt{"v"} $\to$ \texttt{"a"}: l'animale entra in sleep mentre è ancora in viaggio. La sessione non viene chiusa, ma lo status viene aggiornato a \texttt{"a"} e viene salvato un evento \texttt{status\_trip\_sleep}.
+    \item \texttt{"a"} $\to$ \texttt{"v"}: l'animale si risveglia e il flag \texttt{trip} è ancora attivo. La sessione esistente viene mantenuta e lo status torna a \texttt{"v"}, salvando un evento \texttt{status\_trip}.
+\end{itemize}
+
+Questo secondo hook è necessario perché \texttt{onRecordAfterCreateSuccess} intercetta solo i record \emph{nuovi} nella collezione \texttt{activities}, mentre queste transizioni avvengono su record già esistenti tramite \texttt{app.save()}.
+
+\subsubsection{Watchdog di Inattività}
+
+Un \textit{cron job} eseguito ogni minuto controlla che nessuna sessione rimanga aperta indefinitamente a causa di un'interruzione imprevista del dispositivo (perdita di segnale LTE, spegnimento improvviso). Se una sessione attiva non riceve aggiornamenti per più di 10 minuti, viene chiusa automaticamente impostando \texttt{is\_active = false} e il flag \texttt{anomaly = true}, e viene salvato un evento \texttt{watchdog} per tracciabilità.
 
 \subsubsection{Vantaggi Architetturali e Corrispondenza IoTWF}
 Questa implementazione riflette i principi del Modello IoTWF in due punti chiave:
@@ -329,6 +418,49 @@ Questa implementazione riflette i principi del Modello IoTWF in due punti chiave
     \item \textbf{Efficienza del Livello 3 (Edge):} La LilyGo invia un unico pacchetto ``bulk'', riducendo il tempo di attività del modem LTE e preservando la batteria.
     \item \textbf{Ottimizzazione del Livello 5 (Data Abstraction):} L'applicazione Flutter non deve processare dati grezzi; interroga API già normalizzate dal trigger, garantendo una visualizzazione fluida della cronologia.
 \end{enumerate}
+
+\section{Sistema di Notifiche Push}
+L'implementazione di un sistema di notifiche push è fondamentale per un dispositivo di tracciamento animali, in quanto permette di avvisare tempestivamente l'utente in caso di pericoli (uscita dal perimetro sicuro) o problemi tecnici (batteria scarica).
+\subsection{Analisi dei Vincoli Tecnologici: Incompatibilità Goja e Firebase}
+Durante la fase di sviluppo, è emerso un vincolo tecnico significativo riguardante l'integrazione tra il backend PocketBase e l'SDK ufficiale di Firebase. 
+PocketBase è scritto in linguaggio Go e utilizza \textbf{Goja} come motore di esecuzione JavaScript per la gestione della logica server-side (hooks). Goja è un'implementazione di ECMAScript 5.1 che presenta limitazioni strutturali rispetto a un ambiente Node.js \cite{nodejs} standard:
+\begin{itemize}
+    \item \textbf{Mancanza di moduli nativi}: Goja non supporta i moduli core di Node.js (come \texttt{fs}, \texttt{crypto} o \texttt{net}), indispensabili per il funzionamento dell'SDK di Firebase.
+    \item \textbf{Runtime isolato}: L'SDK \texttt{firebase-admin} \cite{firebase_admin} richiede un ambiente di esecuzione completo per gestire l'autenticazione tramite Service Account e le connessioni persistenti ai server Google.
+\end{itemize}
+Per superare queste limitazioni, è stata adottata un'architettura a \textbf{Bridge}, separando la logica di business dall'invio fisico dei messaggi.
+\subsection{Architettura del FCM Bridge}
+Il sistema si basa su un microservizio esterno sviluppato in Node.js \cite{nodejs}, denominato \textit{FCM Bridge}. L'interazione avviene secondo il seguente flusso:
+\begin{enumerate}
+    \item \textbf{PocketBase (Goja)}: Rileva un evento (es. batteria scarica) e invia una richiesta HTTP POST al bridge tramite il modulo interno \texttt{\$http.send}.
+    \item \textbf{FCM Bridge (Node.js)}: Riceve la richiesta, carica il Service Account di Firebase e inoltra la notifica tramite l'SDK ufficiale \cite{firebase_admin}.
+    \item \textbf{Feedback e pulizia token}: Il bridge restituisce lo stato della consegna. In caso di errore \texttt{404} (token non registrato, app disinstallata) o \texttt{400} (token malformato), il backend provvede alla rimozione automatica del token dal profilo utente. I token FCM sono memorizzati come array JSON per supportare più dispositivi per singolo utente.
+\end{enumerate}
+\subsection{Logica di Invio e Trigger}
+Le notifiche vengono scatenate dai seguenti eventi, ciascuno con logica contestuale per evitare invii ridondanti:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}lp{4.5cm}p{5cm}@{}}
+\toprule
+\textbf{Evento} & \textbf{Condizione di trigger} & \textbf{Nota} \\
+\midrule
+Uscita dalla zona      & \texttt{i} $\to$ \texttt{s} oppure \texttt{i} $\to$ \texttt{w} & Dipende dalla presenza di allarme utente \\
+Rientro autonomo       & \texttt{s} $\to$ \texttt{i}                                    & \\
+Animale trovato        & \texttt{s} $\to$ \texttt{f}                                    & Allarme disattivato \\
+Ritorno in zona        & \texttt{f} $\to$ \texttt{i}                                    & \\
+Allarme da passeggiata & \texttt{w} $\to$ \texttt{s}                                    & Allarme riattivato \\
+Inizio viaggio         & qualsiasi $\to$ \texttt{v}                                     & Solo al primo pacchetto trip \\
+Fine viaggio           & \texttt{v} $\to$ qualsiasi                                     & Ricalcolo geofence \\
+Batteria bassa         & $\leq 20\%$ (cambio soglia)                                    & Solo al cambio di fascia \\
+Batteria critica       & $\leq 10\%$ (cambio soglia)                                    & Solo al cambio di fascia \\
+Batteria in carica     & \texttt{charging} passa a \texttt{true}                        & Solo al cambio di stato \\
+Watchdog               & Silenzio $>$ 10 minuti                                         & Chiusura automatica sessione \\
+\bottomrule
+\end{tabular}
+\caption{Trigger del sistema di notifiche push}
+\label{tab:notifiche}
+\end{table}
 
 \section{Front-end e Applicazione Mobile}
 
