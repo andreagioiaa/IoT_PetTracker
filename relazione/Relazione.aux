@@ -29,7 +29,6 @@
 \@writefile{lol}{\contentsline {lstlisting}{\numberline {2}{\ignorespaces Esempio di strutturazione del payload JSON}}{5}{lstlisting.2}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Risparmio Energetico e Deep Sleep}{5}{subsection.3.3}\protected@file@percent }
 \@writefile{lol}{\contentsline {lstlisting}{\numberline {3}{\ignorespaces Configurazione del Deep Sleep con risveglio tramite accelerometro}}{5}{lstlisting.3}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}Monitoraggio Hardware e Batteria}{5}{subsection.3.4}\protected@file@percent }
 \abx@aux@cite{0}{pocketbase}
 \abx@aux@segm{0}{0}{pocketbase}
 \abx@aux@cite{0}{ngrok}
@@ -40,25 +39,46 @@
 \abx@aux@segm{0}{0}{backblaze}
 \abx@aux@cite{0}{uptimerobot}
 \abx@aux@segm{0}{0}{uptimerobot}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}Monitoraggio Hardware e Batteria}{6}{subsection.3.4}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {4}Back-end e Database}{6}{section.4}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Architettura di Hosting e Network Exposure}{6}{subsection.4.1}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Sistema di Backup e Data Retention}{6}{subsection.4.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Monitoraggio e Business Continuity}{6}{subsection.4.3}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.4}Struttura dei dati}{6}{subsection.4.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Monitoraggio e Business Continuity}{7}{subsection.4.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.4}Struttura dei dati}{7}{subsection.4.4}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.5}Interfaccia API e API Rules}{7}{subsection.4.5}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsubsection}{\numberline {4.5.1}API Rules e Sicurezza}{7}{subsubsection.4.5.1}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.6}Smistamento e Normalizzazione}{7}{subsection.4.6}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.6.1}Funzionamento del Trigger onRecordAfterCreateSuccess}{7}{subsubsection.4.6.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.6.1}Funzionamento del Trigger onRecordAfterCreateSuccess}{8}{subsubsection.4.6.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.6.2}Macchina a stati delle attività}{8}{subsubsection.4.6.2}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Macchina a stati delle attività: corrispondenza tra stati attivi e sleep}}{8}{table.caption.1}\protected@file@percent }
+\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\newlabel{tab:stati}{{1}{8}{Macchina a stati delle attività: corrispondenza tra stati attivi e sleep}{table.caption.1}{}}
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {4}{\ignorespaces Implementazione della logica di sessione con macchina a stati completa}}{9}{lstlisting.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.6.3}Hook onRecordAfterUpdateSuccess}{10}{subsubsection.4.6.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.6.4}Watchdog di Inattività}{10}{subsubsection.4.6.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.6.5}Vantaggi Architetturali e Corrispondenza IoTWF}{10}{subsubsection.4.6.5}\protected@file@percent }
+\abx@aux@cite{0}{nodejs}
+\abx@aux@segm{0}{0}{nodejs}
+\abx@aux@cite{0}{firebase_admin}
+\abx@aux@segm{0}{0}{firebase_admin}
+\abx@aux@cite{0}{nodejs}
+\abx@aux@segm{0}{0}{nodejs}
+\abx@aux@cite{0}{firebase_admin}
+\abx@aux@segm{0}{0}{firebase_admin}
+\@writefile{toc}{\contentsline {section}{\numberline {5}Sistema di Notifiche Push}{11}{section.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Analisi dei Vincoli Tecnologici: Incompatibilità Goja e Firebase}{11}{subsection.5.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Architettura del FCM Bridge}{11}{subsection.5.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Logica di Invio e Trigger}{11}{subsection.5.3}\protected@file@percent }
 \abx@aux@cite{0}{flutter}
 \abx@aux@segm{0}{0}{flutter}
-\@writefile{lol}{\contentsline {lstlisting}{\numberline {4}{\ignorespaces Implementazione della logica di sessione in PocketBase}}{8}{lstlisting.4}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.6.2}Vantaggi Architetturali e Corrispondenza IoTWF}{8}{subsubsection.4.6.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {5}Front-end e Applicazione Mobile}{8}{section.5}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {6}Test e Risultati}{8}{section.6}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {7}Limiti del sistema}{8}{section.7}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {8}Conclusioni}{9}{section.8}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{Riferimenti bibliografici}{10}{section.8}\protected@file@percent }
-\abx@aux@read@bbl@mdfivesum{98026BBC5286CCAE2272FE05F19DEF3E}
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Trigger del sistema di notifiche push}}{12}{table.caption.2}\protected@file@percent }
+\newlabel{tab:notifiche}{{2}{12}{Trigger del sistema di notifiche push}{table.caption.2}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {6}Front-end e Applicazione Mobile}{12}{section.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {7}Test e Risultati}{12}{section.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {8}Limiti del sistema}{12}{section.8}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {9}Conclusioni}{12}{section.9}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{Riferimenti bibliografici}{13}{section.9}\protected@file@percent }
+\abx@aux@read@bbl@mdfivesum{57B8A14A821832D6556CBD285D634C26}
 \abx@aux@defaultrefcontext{0}{lilygo_specs}{none/global//global/global/global}
 \abx@aux@defaultrefcontext{0}{LTE}{none/global//global/global/global}
 \abx@aux@defaultrefcontext{0}{GPS}{none/global//global/global/global}
@@ -68,5 +88,7 @@
 \abx@aux@defaultrefcontext{0}{rclone}{none/global//global/global/global}
 \abx@aux@defaultrefcontext{0}{backblaze}{none/global//global/global/global}
 \abx@aux@defaultrefcontext{0}{uptimerobot}{none/global//global/global/global}
+\abx@aux@defaultrefcontext{0}{nodejs}{none/global//global/global/global}
+\abx@aux@defaultrefcontext{0}{firebase_admin}{none/global//global/global/global}
 \abx@aux@defaultrefcontext{0}{flutter}{none/global//global/global/global}
-\gdef \@abspage@last{11}
+\gdef \@abspage@last{14}
