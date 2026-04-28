@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'login.dart';
 import 'home.dart';
-import 'scambio.dart' as scambio;
-import "repositories/users_repo.dart";
+import "../repositories/users_repo.dart";
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -12,8 +11,12 @@ class SignInScreen extends StatefulWidget {
 }
 
 class _SignInScreenState extends State<SignInScreen> {
+  // Stato per gestire il caricamento e la visibilità della password
   bool _isLoading = false;
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
 
+  // Controller per i campi di input
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _surnameController = TextEditingController();
   final TextEditingController _usernameController = TextEditingController();
@@ -48,13 +51,13 @@ class _SignInScreenState extends State<SignInScreen> {
       return "Il cognome deve essere compreso tra 2 e 50 caratteri.";
     }
 
-    // Solo lettere, spazi, apostrofi e lettere accentate italiane
+    // Solo lettere, spazi, apostrofi e lettere accentate
     final nameRegex = RegExp(r"^[a-zA-Zàèéìíòóùú\s\']+$");
     if (!nameRegex.hasMatch(name) || !nameRegex.hasMatch(surname)) {
       return "Nome e cognome possono contenere solo lettere.";
     }
 
-    // 3. Controllo Username (PocketBase Safe)
+    // 3. Controllo Username (Limiti minimi, massimi e caratteri)
     if (username.length < 6 || username.length > 15) {
       return "Lo username deve essere tra 6 e 15 caratteri.";
     }
@@ -64,13 +67,13 @@ class _SignInScreenState extends State<SignInScreen> {
       return "Lo username può contenere solo lettere, numeri e underscore (_). Nessuno spazio.";
     }
 
-    // 4. Email Regex
+    // 4. Email Regex: Controlla che sia un formato email valido
     final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
     if (!emailRegex.hasMatch(email)) {
       return "Inserisci un indirizzo email valido.";
     }
 
-    // 5. Password Validation "Anti-Mediocrità"
+    // 5. Password Regex: Minimo 8 caratteri, almeno una maiuscola, un numero e un simbolo speciale
     final passwordRegex = RegExp(
         r'^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[!@#\$%^&*(),.?":{}|<>]).{8,}$');
 
@@ -106,7 +109,6 @@ class _SignInScreenState extends State<SignInScreen> {
       final password = _passwordController.text.trim();
 
       // 2. Chiamata al Repository per la registrazione
-      // Nota: Assicurati di aver aggiunto il metodo 'register' nel tuo UsersRepository
       bool success = await _usersRepo.register(
         email,
         password,
@@ -141,7 +143,7 @@ class _SignInScreenState extends State<SignInScreen> {
           );
         }
       } else {
-        // Errore restituito dal server (es. duplicati)
+        // Errore restituito dal server (es. dati duplicati)
         _showSnackBar('Errore: Email o Username potrebbero essere già in uso.',
             Colors.red);
       }
@@ -159,7 +161,7 @@ class _SignInScreenState extends State<SignInScreen> {
     _usernameController.clear();
     _emailController.clear();
     _passwordController.clear();
-    _confirmPassController.clear(); // <-- Aggiunto
+    _confirmPassController.clear();
   }
 
   void _showSnackBar(String message, Color color) {
@@ -179,7 +181,7 @@ class _SignInScreenState extends State<SignInScreen> {
     _usernameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
-    _confirmPassController.dispose(); // <-- Aggiunto
+    _confirmPassController.dispose();
     super.dispose();
   }
 
@@ -250,15 +252,49 @@ class _SignInScreenState extends State<SignInScreen> {
                   _buildTextField(
                       _emailController, 'Email', Icons.email_outlined, scale),
                   SizedBox(height: 12 * scale),
-                  _buildTextField(_passwordController, 'Password',
-                      Icons.lock_outline, scale,
-                      obscure: true),
-
+                  _buildTextField(
+                    _passwordController,
+                    'Password',
+                    Icons.lock_outline,
+                    scale,
+                    obscure: _obscurePassword,
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePassword
+                            ? Icons.visibility_off_rounded
+                            : Icons.visibility_rounded,
+                        color: Colors.black26,
+                        size: 22 * scale,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _obscurePassword = !_obscurePassword;
+                        });
+                      },
+                    ),
+                  ),
                   SizedBox(height: 12 * scale),
-
-                  _buildTextField(_confirmPassController, 'Conferma Password',
-                      Icons.lock_reset_outlined, scale,
-                      obscure: true),
+                  _buildTextField(
+                    _confirmPassController,
+                    'Conferma Password',
+                    Icons.lock_reset_outlined,
+                    scale,
+                    obscure: _obscureConfirmPassword,
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscureConfirmPassword
+                            ? Icons.visibility_off_rounded
+                            : Icons.visibility_rounded,
+                        color: Colors.black26,
+                        size: 22 * scale,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _obscureConfirmPassword = !_obscureConfirmPassword;
+                        });
+                      },
+                    ),
+                  ),
 
                   Padding(
                     padding: const EdgeInsets.only(top: 8.0, left: 4.0),
@@ -335,7 +371,7 @@ class _SignInScreenState extends State<SignInScreen> {
 
   Widget _buildTextField(TextEditingController controller, String label,
       IconData icon, double scale,
-      {bool obscure = false}) {
+      {bool obscure = false, Widget? suffixIcon}) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -355,6 +391,7 @@ class _SignInScreenState extends State<SignInScreen> {
           labelStyle: const TextStyle(color: Colors.black38, fontSize: 14),
           prefixIcon:
               Icon(icon, color: const Color(0xFF00C6B8), size: 22 * scale),
+          suffixIcon: suffixIcon,
           border: InputBorder.none,
           contentPadding:
               const EdgeInsets.symmetric(vertical: 15, horizontal: 20),

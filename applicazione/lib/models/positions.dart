@@ -1,24 +1,20 @@
 import 'package:pocketbase/pocketbase.dart';
 
-/// Rappresenta i record della tabella "data_sent_raw", contenente i dati grezzi 
-/// inviati dal dispositivo prima dell'elaborazione.
-class DataSentRaw {
+// Rappresenta un record della tabella "positions", utilizzato per il tracciamento in tempo reale e lo storico dei movimenti
+class Positions {
   final String id;
-  final String boardId;
   final DateTime timestamp;
   final double lon;
   final double lat;
-  final Map<String, dynamic> geo; // Campo JSON per dati geografici complessi
+  final Map<String, dynamic> geo; // Campo Geo/JSON
   final double battery;
   final int batteryPercent;
   final bool charging;
-  final int steps;
+  final int feet; // Rappresenta i passi o la distanza calcolata
   final bool sleep;
-  final bool gpsValid;
 
-  DataSentRaw({
+  Positions({
     required this.id,
-    required this.boardId,
     required this.timestamp,
     required this.lon,
     required this.lat,
@@ -26,34 +22,33 @@ class DataSentRaw {
     required this.battery,
     required this.batteryPercent,
     required this.charging,
-    required this.steps,
+    required this.feet,
     required this.sleep,
-    required this.gpsValid,
   });
 
-  /// Factory per mappare il record di PocketBase nell'oggetto Dart.
-  factory DataSentRaw.fromRecord(RecordModel record) {
-    return DataSentRaw(
+  // Factory per convertire un RecordModel di PocketBase in un oggetto Positions
+  factory Positions.fromRecord(RecordModel record) {
+    return Positions(
       id: record.id,
-      boardId: record.getStringValue('board_id'),
+      // Parsing del timestamp con conversione al fuso orario locale.
       timestamp: DateTime.parse(record.getStringValue('timestamp')).toLocal(),
       lon: record.getDoubleValue('lon'),
       lat: record.getDoubleValue('lat'),
-      // Il campo 'geo' è di tipo JSON su PocketBase.
-      geo: record.data['geo'] is Map ? record.data['geo'] as Map<String, dynamic> : {},
+      // Gestione sicura del campo geo (mappa JSON)
+      geo: record.data['geo'] is Map
+          ? record.data['geo'] as Map<String, dynamic>
+          : {},
       battery: record.getDoubleValue('battery'),
       batteryPercent: record.getIntValue('battery_percent'),
       charging: record.getBoolValue('charging'),
-      steps: record.getIntValue('steps'),
+      feet: record.getIntValue('feet'),
       sleep: record.getBoolValue('sleep'),
-      gpsValid: record.getBoolValue('gps_valid'),
     );
   }
 
-  /// Converte l'oggetto in mappa per eventuali log di sistema o update.
+  /// Converte l'oggetto in una mappa per operazioni di scrittura o log
   Map<String, dynamic> toJson() {
     return {
-      'board_id': boardId,
       'timestamp': timestamp.toUtc().toIso8601String(),
       'lon': lon,
       'lat': lat,
@@ -61,9 +56,8 @@ class DataSentRaw {
       'battery': battery,
       'battery_percent': batteryPercent,
       'charging': charging,
-      'steps': steps,
+      'feet': feet,
       'sleep': sleep,
-      'gps_valid': gpsValid,
     };
   }
 }

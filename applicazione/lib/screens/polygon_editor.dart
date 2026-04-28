@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'scambio.dart' as scambio;
-import 'home.dart';
+import '../services/position_gps.dart';
+import './globals/app_state.dart';
+import "../repositories/geofences_repo.dart";
 
 class PolygonEditorScreen extends StatefulWidget {
+  final GeofenceRepository repository;
   final String? placeId;
   final Map<String, dynamic>? newZoneData;
   final String placeName;
@@ -13,6 +15,7 @@ class PolygonEditorScreen extends StatefulWidget {
 
   const PolygonEditorScreen({
     super.key,
+    required this.repository,
     this.placeId,
     this.newZoneData,
     required this.placeName,
@@ -25,10 +28,12 @@ class PolygonEditorScreen extends StatefulWidget {
 }
 
 class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
+  // Lista dei vertici del poligono in fase di creazione/modifica
   List<LatLng> _points = [];
   bool _isSatellite = true;
   bool _isSaving = false;
 
+  // Flag per distinguere tra creazione di una nuova zona (true) o modifica di una esistente (false)
   late bool _isNewZone;
   bool _isForceExiting = false;
 
@@ -69,25 +74,6 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
     });
   }
 
-  // --- ALGORITMO GEOMETRICO (Usato per calcolare le sovrapposizioni) ---
-  bool _isPointInPolygon(LatLng point, List<LatLng> polygon) {
-    bool isInside = false;
-    int i, j = polygon.length - 1;
-    for (i = 0; i < polygon.length; i++) {
-      if ((polygon[i].latitude > point.latitude) !=
-              (polygon[j].latitude > point.latitude) &&
-          point.longitude <
-              (polygon[j].longitude - polygon[i].longitude) *
-                      (point.latitude - polygon[i].latitude) /
-                      (polygon[j].latitude - polygon[i].latitude) +
-                  polygon[i].longitude) {
-        isInside = !isInside;
-      }
-      j = i;
-    }
-    return isInside;
-  }
-
   // --- DIALOG DI ERRORE PERSONALIZZATO ---
   void _showValidationDialog(String title, String message) {
     showDialog(
@@ -109,6 +95,7 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
   }
 
   Future<void> _savePolygon() async {
+    // 1. Controllo validità formale dei vertici
     if (_points.length < 3) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -123,7 +110,7 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
 
     try {
       // ---------------------------------------------------------
-      // 1. CONTROLLO DI LONTANANZA (Troppo distanti dal marker rosso)
+      // 2. CONTROLLO DI LONTANANZA (Troppo distanti dal marker rosso)
       // ---------------------------------------------------------
       double sumLat = 0;
       double sumLon = 0;
@@ -131,6 +118,7 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
         sumLat += p.latitude;
         sumLon += p.longitude;
       }
+
       // Calcoliamo il baricentro del disegno
       LatLng centroid =
           LatLng(sumLat / _points.length, sumLon / _points.length);
@@ -142,47 +130,31 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
         setState(() => _isSaving = false);
         _showValidationDialog(
           "Area troppo lontana",
-          "L'area che hai disegnato dista circa ${(distFromCenter / 1000).toStringAsFixed(1)} km dall'indirizzo selezionato.\n\nAvvicina il perimetro al segnaposto rosso o inserisci un nuovo indirizzo.",
+          "L'area che hai disegnato dista circa ${(distFromCenter / 1000).toStringAsFixed(1)} km dall'indirizzo selezionato.\n\nAvvicina il perimetro al segnaposto rosso.",
         );
         return;
       }
 
       // ---------------------------------------------------------
-      // 2. CONTROLLO DI SOVRAPPOSIZIONE (Anti-Conflitto tra Aree)
+      // 3. CONTROLLO DI SOVRAPPOSIZIONE (Utilizzando la Repository)
       // ---------------------------------------------------------
-      final records = await scambio.pb.collection('geofences').getFullList();
-      List<Map<String, dynamic>> existingZones = [];
-
-      for (var res in records) {
-        // Ignoriamo la zona stessa se la stiamo solo modificando
-        if (res.id == widget.placeId) continue;
-
-        List<LatLng> pts = [];
-        try {
-          final rawList = res.getListValue<dynamic>('vertices');
-          for (var pt in rawList) {
-            if (pt is List && pt.length >= 2) {
-              pts.add(LatLng(double.parse(pt[0].toString()),
-                  double.parse(pt[1].toString())));
-            }
-          }
-        } catch (_) {} // ignoriamo errori di parsing sui vecchi record
-
-        if (pts.length >= 3) {
-          existingZones
-              .add({"name": res.getStringValue('name'), "vertices": pts});
-        }
-      }
+      // Recuperiamo tutti i record tramite la repository e controlliamo se c'è sovrapposizione con il disegno attuale
+      final records = await widget.repository.fetchGeofences();
 
       String? overlappingZoneName;
 
-      for (var zone in existingZones) {
+      for (var zone in records) {
+        // Ignoriamo la zona stessa se la stiamo solo modificando
+        if (zone['id'] == widget.placeId) continue;
+
         List<LatLng> existingPoly = zone['vertices'];
+        if (existingPoly.length < 3) continue;
+
         bool overlap = false;
 
         // Caso A: I punti della zona in creazione cadono in una vecchia zona?
         for (var p in _points) {
-          if (_isPointInPolygon(p, existingPoly)) {
+          if (PositionGpsService.isPointInsidePolygon(p, existingPoly)) {
             overlap = true;
             break;
           }
@@ -191,7 +163,7 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
         // Caso B: I punti di una vecchia zona cadono nel disegno attuale?
         if (!overlap) {
           for (var p in existingPoly) {
-            if (_isPointInPolygon(p, _points)) {
+            if (PositionGpsService.isPointInsidePolygon(p, _points)) {
               overlap = true;
               break;
             }
@@ -208,37 +180,34 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
         setState(() => _isSaving = false);
         _showValidationDialog(
           "Sovrapposizione rilevata",
-          "Il perimetro che stai creando si sovrappone a un'Area Sicura già esistente ('$overlappingZoneName').\n\nNon è possibile avere aree che si incrociano. Modifica i vertici e riprova.",
+          "Il perimetro si sovrappone all'Area Sicura '$overlappingZoneName'.\n\nModifica i vertici e riprova.",
         );
         return;
       }
 
       // ---------------------------------------------------------
-      // 3. SALVATAGGIO SUL DATABASE
+      // 4. SALVATAGGIO TRAMITE REPOSITORY
       // ---------------------------------------------------------
       final jsonVertices =
           _points.map((p) => [p.latitude, p.longitude]).toList();
 
+      // Prepariamo il corpo della richiesta
+      Map<String, dynamic> body = widget.newZoneData != null
+          ? Map<String, dynamic>.from(widget.newZoneData!)
+          : {};
+      body["vertices"] = jsonVertices;
+
       String? savedZoneId;
 
       if (widget.placeId != null) {
-        // MODIFICA ZONA ESISTENTE: Ora unisce i nuovi dati dell'indirizzo (se presenti) ai vertici
-        Map<String, dynamic> bodyToUpdate = widget.newZoneData != null
-            ? Map<String, dynamic>.from(widget.newZoneData!)
-            : {};
-        bodyToUpdate["vertices"] = jsonVertices;
-
-        final rec = await scambio.pb
-            .collection('geofences')
-            .update(widget.placeId!, body: bodyToUpdate);
-        savedZoneId = rec.id;
-      } else if (widget.newZoneData != null) {
+        // MODIFICA ZONA ESISTENTE
+        final success = await widget.repository
+            .updateGeofenceVertices(widget.placeId!, body);
+        if (success) savedZoneId = widget.placeId;
+      } else {
         // CREAZIONE NUOVA ZONA
-        final bodyToSave = Map<String, dynamic>.from(widget.newZoneData!);
-        bodyToSave["vertices"] = jsonVertices;
-        final rec =
-            await scambio.pb.collection('geofences').create(body: bodyToSave);
-        savedZoneId = rec.id;
+        final newRecordId = await widget.repository.createGeofence(body);
+        savedZoneId = newRecordId;
       }
 
       if (mounted) {
@@ -248,6 +217,7 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
               backgroundColor: Colors.green),
         );
 
+        // Segnaliamo l'aggiornamento allo stato globale (usando il ValueNotifier)
         geofenceUpdateSignal.value++;
 
         _isForceExiting = true;
@@ -265,6 +235,7 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
     }
   }
 
+  // Intercettiamo il tentativo di uscita (tasto indietro o swipe) per mostrare un dialog di conferma se stiamo creando una nuova zona
   Future<bool> _onWillPop() async {
     if (_isForceExiting) return true;
 
@@ -307,7 +278,7 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
     );
   }
 
-  // Helper per i pulsanti FAB compatti
+  // Helper per i pulsanti FAB più piccoli (undo, clear) con dimensioni e padding adattivi
   Widget _miniFAB(IconData icon, Color color, VoidCallback onPressed,
       bool isSmallScreen, String heroTag) {
     return SizedBox(
@@ -444,8 +415,6 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
                     );
                   }),
                 ),
-                // --- FINE LOGICA TRASCINAMENTO ---
-
                 MarkerLayer(
                   markers: [
                     Marker(
@@ -461,7 +430,6 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
             ),
             SafeArea(
               child: Padding(
-                // Padding dinamico ai lati
                 padding: EdgeInsets.all(screenWidth * 0.04),
                 child: Column(
                   children: [

@@ -1,32 +1,63 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart'; // <-- 1. NUOVO IMPORT AGGIUNTO
-import 'splash_screen.dart';
-import 'home.dart';
-import 'scambio.dart' as scambio;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'screens/splash_view.dart';
+import 'services/authentication.dart' as scambio;
+import './screens/globals/app_state.dart';
+import 'services/notification.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 void main() async {
-  // 1. Necessario per eseguire codice asincrono prima di runApp
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 2. CARICHIAMO IL FILE SEGRETO PRIMA DI FARE QUALSIASI ALTRA COSA
-  print('🔐 Caricamento variabili d\'ambiente dal file .env...');
-  await dotenv.load(fileName: ".env");
+  // 1. Inizializza Firebase Messaging e gestori
+  await NotificationService.init();
 
-  print('🏁 Avvio sistema: inizializzazione PocketBase...');
+  // 2. Localizzazione
+  try {
+    await initializeDateFormatting('it_IT', null);
+    print('✅ Localizzazione it_IT pronta.');
+  } catch (e) {
+    print('⚠️ Errore localizzazione: $e');
+  }
 
-  // 3. Eseguiamo l'autenticazione PRIMA di caricare l'interfaccia.
-  // Questo garantisce che quando i widget verranno costruiti,
-  // il client PocketBase avrà già il token salvato e le credenziali lette.
-  bool isAuthenticated = await scambio.autenticazione();
+  // 3. Variabili d'ambiente
+  try {
+    await dotenv.load(fileName: ".env");
+    print('✅ File .env caricato.');
+  } catch (e) {
+    print('⚠️ Errore .env: $e');
+  }
 
-  // 4. Lanciamo l'app passando il risultato dell'autenticazione
-  runApp(PetTrackerApp(isAuthSuccessful: isAuthenticated));
+  // 4. Preferenze Locali (Mappa)
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final String? savedFocus = prefs.getString('map_focus_priority');
+    if (savedFocus != null) {
+      mapFocusPreference.value = savedFocus;
+    }
+  } catch (e) {
+    print('⚠️ Errore SharedPreferences: $e');
+  }
+
+  // 5. PocketBase Auth & Sync Token
+  scambio.inizializzaClient();
+  bool canConnect = await scambio.autenticazione();
+
+  if (canConnect && scambio.pb.authStore.isValid) {
+    print('✅ Autenticato come: ${scambio.pb.authStore.model.id}');
+
+    // Sincronizza il token FCM con PocketBase
+    await NotificationService.syncToken();
+  } else {
+    print('❌ Errore connessione o sessione non valida.');
+  }
+
+  runApp(PetTrackerApp(isAuthSuccessful: canConnect));
 }
 
 class PetTrackerApp extends StatelessWidget {
   final bool isAuthSuccessful;
-
   const PetTrackerApp({super.key, required this.isAuthSuccessful});
 
   @override
@@ -38,15 +69,13 @@ class PetTrackerApp extends StatelessWidget {
         primarySwatch: Colors.blue,
         useMaterial3: true,
       ),
-      // Se il server non risponde, mostriamo l'errore. 
-      // Altrimenti carichiamo SEMPRE la SplashScreen.
       home: !isAuthSuccessful
           ? _buildErrorScreen()
           : SplashScreen(isAlreadyAuthenticated: scambio.pb.authStore.isValid),
     );
   }
 
-  // Una piccola schermata di emergenza se il server non risponde
+  // Schermata di errore semplice se l'autenticazione fallisce
   Widget _buildErrorScreen() {
     return const Scaffold(
       body: Center(
@@ -55,9 +84,14 @@ class PetTrackerApp extends StatelessWidget {
           children: [
             Icon(Icons.cloud_off, size: 60, color: Colors.red),
             SizedBox(height: 20),
-            Text('Impossibile connettersi al server.',
+            Text('Errore di connessione',
                 style: TextStyle(fontWeight: FontWeight.bold)),
-            Text('Controlla se il tunnel ngrok è attivo o i dati di accesso.'),
+            Padding(
+              padding: EdgeInsets.all(20),
+              child: Text(
+                  'Verifica il tunnel ngrok o le credenziali nel file .env.',
+                  textAlign: TextAlign.center),
+            ),
           ],
         ),
       ),

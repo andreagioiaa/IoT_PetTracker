@@ -1,24 +1,24 @@
 import 'package:pocketbase/pocketbase.dart';
-import '../objects/activities.dart';
-import '../scambio.dart';
+import '../models/activities.dart';
 
 class ActivitiesRepository {
   final PocketBase _pb;
 
   ActivitiesRepository(this._pb);
 
+  // Prende l'attività attiva per un dato boardId, se esiste
   Future<Activities?> fetchCurrentActiveActivities(String boardId) async {
     try {
       final result = await _pb.collection('activities').getFirstListItem(
-        'board_id = "$boardId" && is_active = true',
-      );
+            'board_id = "$boardId" && is_active = true',
+          );
       return Activities.fromRecord(result);
     } catch (e) {
       return null; // 404 gestito silenziosamente
     }
   }
 
-  /// Rinominato in startNewActivity (singolare) per chiarezza
+  // Crea una nuova attività solo se non ne esiste già una attiva per lo stesso boardId
   Future<Activities?> startNewActivity(String boardId) async {
     try {
       // Analisi Critica: Prima di iniziare, controlla se ne esiste già una attiva
@@ -38,7 +38,6 @@ class ActivitiesRepository {
     }
   }
 
-
   /// Crea una nuova attività (es. all'inizio di una camminata)
   Future<Activities?> startActivities(String boardId) async {
     try {
@@ -52,6 +51,52 @@ class ActivitiesRepository {
     } catch (e) {
       print('❌ Errore durante la creazione dell\'attività: $e');
       return null;
+    }
+  }
+
+  // Termina l'attività attiva (es. alla fine di una camminata)
+  Future<List<Activities>> fetchActivitiesByDate(
+      String boardId, DateTime date) async {
+    try {
+      final startOfDay = DateTime(date.year, date.month, date.day, 0, 0, 0)
+          .toUtc()
+          .toIso8601String();
+      final endOfDay = DateTime(date.year, date.month, date.day, 23, 59, 59)
+          .toUtc()
+          .toIso8601String();
+
+      final result = await _pb.collection('activities').getFullList(
+            filter:
+                'board_id = "$boardId" && start_time >= "$startOfDay" && start_time <= "$endOfDay"',
+            sort: '-start_time',
+          );
+
+      return result.map((record) => Activities.fromRecord(record)).toList();
+    } catch (e) {
+      print('❌ Errore fetchActivitiesByDate: $e');
+      return [];
+    }
+  }
+
+  // Fetch dello storico completo delle attività per un dato boardId e giorno
+  Future<List<dynamic>> fetchDailyStats(String boardId, DateTime date) async {
+    try {
+      // Definisci i limiti temporali del giorno scelto (00:00 - 23:59)
+      final start =
+          DateTime(date.year, date.month, date.day).toUtc().toIso8601String();
+      final end = DateTime(date.year, date.month, date.day, 23, 59, 59)
+          .toUtc()
+          .toIso8601String();
+
+      final records = await _pb.collection('activities').getFullList(
+            filter:
+                'board_id = "$boardId" && start_time >= "$start" && start_time <= "$end"',
+          );
+
+      return records;
+    } catch (e) {
+      print("Errore fetch storico: $e");
+      return [];
     }
   }
 }

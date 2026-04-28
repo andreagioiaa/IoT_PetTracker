@@ -1,22 +1,52 @@
-import 'package:pocketbase/pocketbase.dart';
-import '../scambio.dart'; 
-import '../objects/users.dart';
+import '../services/authentication.dart';
+import '../models/users.dart';
 import 'package:flutter/material.dart';
-import "../login.dart";
+import "../screens/login.dart";
 
 class UsersRepository {
-  /// Effettua il login e restituisce l'esito.
-  Future<bool> login(String identity, String password) async {
+  // Recupera il boardId interrogando la collezione 'boards'
+  // Nota: Cerchiamo il record dove il campo 'user' (relazione) contiene l'ID dell'utente corrente
+  Future<String?> getBoardIdFromBoards() async {
     try {
-      await pb.collection('users').authWithPassword(identity.trim(), password.trim());
-      return pb.authStore.isValid;
+      if (!pb.authStore.isValid || pb.authStore.model == null) return null;
+
+      final userId = pb.authStore.model!.id;
+
+      // Usiamo l'operatore '~' (contiene) per gestire il caso in cui 'user' sia una relazione o un array di relazioni
+      final record = await pb.collection('boards').getFirstListItem(
+            'user ~ "$userId"',
+          );
+
+      return record.getStringValue('board');
     } catch (e) {
-      print('🛑 Errore Login: $e');
-      return false;
+      debugPrint('🚨 Errore getBoardIdFromBoards: $e');
+      return null;
     }
   }
 
-  /// Registra un nuovo utente su PocketBase.
+  // Recupera la data di creazione della board
+  Future<DateTime?> getBoardCreationDate() async {
+    try {
+      if (!pb.authStore.isValid || pb.authStore.model == null) return null;
+
+      final userId = pb.authStore.model!.id;
+
+      final record = await pb.collection('boards').getFirstListItem(
+            'user ~ "$userId"',
+          );
+
+      // PocketBase salva in automatico la data nel campo 'created'
+      if (record.created.isNotEmpty) {
+        return DateTime.parse(record.created);
+      }
+      return null;
+    } catch (e) {
+      debugPrint('🚨 Errore getBoardCreationDate: $e');
+      return null;
+    }
+  }
+
+  // Registra un nuovo utente su PocketBase
   Future<bool> register(String email, String password, String name,
       String surname, String username) async {
     try {
@@ -38,12 +68,13 @@ class UsersRepository {
     }
   }
 
-  /// Recupera i dati dell'utente corrente trasformandoli nel modello User.
+  // Recupera i dati dell'utente corrente trasformandoli nel modello User
   Future<User?> getCurrentUser() async {
     if (!pb.authStore.isValid || pb.authStore.model == null) return null;
     try {
       // Recuperiamo il record aggiornato dal server per evitare dati obsoleti
-      final record = await pb.collection('users').getOne(pb.authStore.model!.id);
+      final record =
+          await pb.collection('users').getOne(pb.authStore.model!.id);
       return User.fromRecord(record);
     } catch (e) {
       print('🛑 Errore recupero utente: $e');
@@ -51,13 +82,13 @@ class UsersRepository {
     }
   }
 
-  /// Restituisce lo stato dell'allarme (necessario per home.dart).
+  // Restituisce lo stato dell'allarme (necessario per home.dart)
   Future<bool?> getAlarmStatus() async {
     final user = await getCurrentUser();
     return user?.alarm;
   }
 
-  /// Aggiorna lo stato dell'allarme sul database (necessario per home.dart).
+  // Aggiorna lo stato dell'allarme sul database (necessario per home.dart)
   Future<bool> updateAlarm(bool status) async {
     try {
       if (!pb.authStore.isValid) return false;
@@ -71,7 +102,7 @@ class UsersRepository {
     }
   }
 
-  /// Aggiorna i dati anagrafici.
+  // Aggiorna i dati anagrafici
   Future<bool> updateProfile(String name, String surname) async {
     try {
       if (!pb.authStore.isValid) return false;
@@ -86,12 +117,12 @@ class UsersRepository {
     }
   }
 
-  /// Aggiorna la password ed effettua il re-login automatico.
-  /// PocketBase invalida il token quando la password cambia, quindi il re-auth è d'obbligo.
+  // Aggiorna la password ed effettua il re-login automatico
+  // PocketBase invalida il token quando la password cambia, quindi il re-auth è d'obbligo.
   Future<bool> updatePassword(String oldPassword, String newPassword) async {
     try {
       if (!pb.authStore.isValid) return false;
-      
+
       final userId = pb.authStore.model!.id;
       final email = pb.authStore.model!.getStringValue('email');
 
@@ -109,12 +140,12 @@ class UsersRepository {
     }
   }
 
-  /// Effettua il logout pulendo lo store e riportando l'utente al login
+  // Effettua il logout pulendo lo store e riportando l'utente al login
   void eseguiLogout(BuildContext context) {
-    // 1. Pulisce il PocketBase authStore 
-    logout(); 
+    // 1. Pulisce il PocketBase authStore
+    logout();
 
-    // 2. Navigazione: rimuove tutte le rotte e torna al Login
+    // 2. Rimuove tutte le rotte e torna al Login
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (context) => const AuthScreen()),
@@ -122,8 +153,28 @@ class UsersRepository {
     );
   }
 
-  /// Effettua il logout pulendo lo store 
+  // Effettua il logout pulendo lo store
   void logout() {
     pb.authStore.clear();
+  }
+
+  // Effettua il login e aggiorna la variabile globale isReady in scambio.dart
+  Future<bool> login(String identity, String password) async {
+    try {
+      // PocketBase gestisce il token internamente: dopo questa chiamata,
+      // il token viene salvato nel secureStore configurato in scambio.dart
+      await pb
+          .collection('users')
+          .authWithPassword(identity.trim(), password.trim());
+
+      if (pb.authStore.isValid) {
+        isReady = true; // Impostiamo la variabile globale in scambio.dart
+        return true;
+      }
+      return false;
+    } catch (e) {
+      print('🚨 Errore Login Utente: $e');
+      return false;
+    }
   }
 }

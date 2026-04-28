@@ -1,6 +1,6 @@
 import 'package:pocketbase/pocketbase.dart';
 
-class Boards{
+class Boards {
   final String id;
   final String userID;
 
@@ -9,7 +9,7 @@ class Boards{
     required this.userID,
   });
 
-  /// Factory per convertire un RecordModel grezzo in un oggetto tipizzato.
+  // Factory per convertire un RecordModel grezzo in un oggetto tipizzato
   factory Boards.fromRecord(RecordModel record) {
     return Boards(
       id: record.id,
@@ -17,10 +17,8 @@ class Boards{
     );
   }
 
-  /// Converte l'oggetto in JSON per eventuali operazioni di scrittura.
+  // Converte l'oggetto in JSON per eventuali operazioni di scrittura
   Map<String, dynamic> toJson() {
-    return {
-      'user_id': userID
-    };
+    return {'user_id': userID};
   }
 }

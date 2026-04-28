@@ -6,10 +6,11 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_compass/flutter_compass.dart';
 import 'dart:async';
 import 'dart:math' as math;
-import 'scambio.dart' as scambio;
-import 'home.dart';
-import 'repositories/users_repo.dart';
-import "repositories/positions_repo.dart";
+import '../services/authentication.dart' as scambio;
+import '../services/position_gps.dart';
+import './globals/app_state.dart';
+import '../repositories/users_repo.dart';
+import "../repositories/positions_repo.dart";
 
 class TrackingScreen extends StatefulWidget {
   const TrackingScreen({super.key});
@@ -19,14 +20,18 @@ class TrackingScreen extends StatefulWidget {
 }
 
 class _TrackingScreenState extends State<TrackingScreen> {
+  // --- VARIABILI PRINCIPALI ---
   final MapController _mapController = MapController();
   final UsersRepository _usersRepo = UsersRepository();
-  // Istanziamo il repository (usando EXCHANGE.pb come abbiamo definito)
-  late final PositionsRepository _positionsRepo = PositionsRepository(scambio.pb);
 
+  late final PositionsRepository _positionsRepo =
+      PositionsRepository(scambio.pb);
+
+  // Posizioni e cronologia
   LatLng? _petLocation;
   LatLng? _userLocation;
 
+  // Cronologia delle posizioni del cane (per tracciare la scia)
   final List<LatLng> _history = [];
   List<Map<String, dynamic>> _savedZones = [];
 
@@ -39,18 +44,23 @@ class _TrackingScreenState extends State<TrackingScreen> {
   double? _phoneHeading;
   bool _isSatellite = true;
 
-  // --- IL CUORE DEL CAMALEONTE: Il cane è al sicuro? ---
-  bool _isPetSafe =
-      true; // Di base assumiamo sia al sicuro finché non calcoliamo
+  // Stato di sicurezza del pet (true = in zona sicura, false = fuori)
+  bool _isPetSafe = true;
 
   @override
   void initState() {
     super.initState();
+    hasLocationPermission.addListener(_onPermissionChanged);
     _inizializzaDati();
-    _inizializzaBussola();
+  }
+
+  void _onPermissionChanged() {
+    if (mounted) setState(() {});
   }
 
   void _inizializzaBussola() {
+    if (_compassSubscription != null) return;
+
     _compassSubscription = FlutterCompass.events?.listen((event) {
       if (mounted && event.heading != null) {
         setState(() {
@@ -60,46 +70,16 @@ class _TrackingScreenState extends State<TrackingScreen> {
     });
   }
 
-  // ALGORITMO PER CALCOLARE L'ANGOLO (BEARING)
+  //  Algoritmo di calcolo della direzione: utilizza la funzione di bearing per ottenere l'angolo esatto tra la posizione dell'utente e quella del pet
   void _ricalcolaDirezione() {
     if (_userLocation == null || _petLocation == null) return;
 
-    final lat1 = _userLocation!.latitude * math.pi / 180;
-    final lon1 = _userLocation!.longitude * math.pi / 180;
-    final lat2 = _petLocation!.latitude * math.pi / 180;
-    final lon2 = _petLocation!.longitude * math.pi / 180;
-
-    final dLon = lon2 - lon1;
-
-    final y = math.sin(dLon) * math.cos(lat2);
-    final x = math.cos(lat1) * math.sin(lat2) -
-        math.sin(lat1) * math.cos(lat2) * math.cos(dLon);
-
-    double brng = math.atan2(y, x) * 180 / math.pi;
-    brng = (brng + 360) % 360;
-
+    const Distance distance = Distance();
+    // Calcola direttamente l'angolo dal tuo punto a quello del cane
+    double brng = distance.bearing(_userLocation!, _petLocation!);
     setState(() {
       _directionToPet = brng;
     });
-  }
-
-  // --- ALGORITMO GEOMETRICO PER CAPIRE SE È DENTRO UNA ZONA ---
-  bool _isPointInPolygon(LatLng point, List<LatLng> polygon) {
-    bool isInside = false;
-    int i, j = polygon.length - 1;
-    for (i = 0; i < polygon.length; i++) {
-      if ((polygon[i].latitude > point.latitude) !=
-              (polygon[j].latitude > point.latitude) &&
-          point.longitude <
-              (polygon[j].longitude - polygon[i].longitude) *
-                      (point.latitude - polygon[i].latitude) /
-                      (polygon[j].latitude - polygon[i].latitude) +
-                  polygon[i].longitude) {
-        isInside = !isInside;
-      }
-      j = i;
-    }
-    return isInside;
   }
 
   // --- CONTROLLA LO STATO DI SICUREZZA ---
@@ -114,7 +94,8 @@ class _TrackingScreenState extends State<TrackingScreen> {
 
     bool safe = false;
     for (var zone in _savedZones) {
-      if (_isPointInPolygon(_petLocation!, zone['vertices'])) {
+      if (PositionGpsService.isPointInsidePolygon(
+          _petLocation!, zone['vertices'])) {
         safe = true;
         break;
       }
@@ -148,21 +129,15 @@ class _TrackingScreenState extends State<TrackingScreen> {
     }
 
     try {
-      final posResult = await scambio.pb
-          .collection('positions')
-          .getList(page: 1, perPage: 1, sort: '-timestamp');
-      if (posResult.items.isNotEmpty) {
-        final lat = posResult.items.first.getDoubleValue('lat');
-        final lon = posResult.items.first.getDoubleValue('lon');
-        if (mounted) {
-          setState(() {
-            _petLocation = LatLng(lat, lon);
-            _history.add(_petLocation!);
-            _ricalcolaDirezione();
-          });
-          _checkPetSafety(); // Controlla subito se è al sicuro
-          _mapController.move(_petLocation!, 17.0);
-        }
+      final ultimaPos = await _positionsRepo.getLatestPosition();
+      if (ultimaPos != null && mounted) {
+        setState(() {
+          _petLocation = LatLng(ultimaPos.lat, ultimaPos.lon);
+          _history.add(_petLocation!);
+          _ricalcolaDirezione();
+        });
+        _checkPetSafety();
+        _mapController.move(_petLocation!, 17.0);
       }
     } catch (e) {
       debugPrint("Errore ultima pos: $e");
@@ -172,23 +147,26 @@ class _TrackingScreenState extends State<TrackingScreen> {
     _positionsRepo.subscribeToPositions();
 
     // 2. Ascoltiamo lo stream di oggetti 'Positions' (non più record grezzi)
-    _petStreamSubscription = _positionsRepo.positionsStream.listen((nuovaPosizione) {
+    _petStreamSubscription =
+        _positionsRepo.positionsStream.listen((nuovaPosizione) {
       try {
-        // Notazione corretta: nuovaPosizione è un oggetto, non un RecordModel
         final newPos = LatLng(nuovaPosizione.lat, nuovaPosizione.lon);
 
         if (mounted) {
           setState(() {
             _petLocation = newPos;
-            
+
             // Gestione cronologia
             if (_history.isEmpty || _history.last != newPos) {
               _history.add(newPos);
+
+              // Mantiene solo gli ultimi 100 punti per non far laggare l'app
+              if (_history.length > 100) _history.removeAt(0);
             }
-            
+
             _ricalcolaDirezione();
           });
-          
+
           _checkPetSafety(); // Logica di sicurezza immutata
         }
       } catch (e) {
@@ -196,34 +174,51 @@ class _TrackingScreenState extends State<TrackingScreen> {
       }
     });
 
+    await _checkAndStartLocation();
+  }
+
+  // Controlla se il servizio di localizzazione è attivo e se abbiamo i permessi, poi avvia lo stream della posizione dell'utente
+  Future<void> _checkAndStartLocation() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (serviceEnabled) {
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.whileInUse ||
-          permission == LocationPermission.always) {
-        _userLocationStream = Geolocator.getPositionStream(
-          locationSettings: const LocationSettings(
-              accuracy: LocationAccuracy.high, distanceFilter: 5),
-        ).listen((Position pos) {
-          if (mounted) {
-            setState(() {
-              _userLocation = LatLng(pos.latitude, pos.longitude);
-              _ricalcolaDirezione();
-            });
-          }
+    if (!serviceEnabled) return;
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.whileInUse ||
+        permission == LocationPermission.always) {
+      hasLocationPermission.value = true;
+
+      _avviaStreamPosizioneUtente();
+
+      _inizializzaBussola();
+    } else {
+      hasLocationPermission.value = false;
+    }
+  }
+
+  void _avviaStreamPosizioneUtente() {
+    _userLocationStream ??= Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high, distanceFilter: 5),
+    ).listen((Position pos) {
+      if (mounted) {
+        setState(() {
+          _userLocation = LatLng(pos.latitude, pos.longitude);
+          _ricalcolaDirezione();
         });
       }
-    }
+    });
   }
 
   @override
   void dispose() {
+    hasLocationPermission.removeListener(_onPermissionChanged);
     _petStreamSubscription?.cancel();
     _userLocationStream?.cancel();
     _compassSubscription?.cancel();
     super.dispose();
   }
 
+  // Funzione per aprire il navigatore esterno con la posizione del pet
   Future<void> _apriNavigatore() async {
     if (_petLocation == null) return;
     final url = Uri.parse(
@@ -238,6 +233,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
     }
   }
 
+  // Funzione per calcolare il testo da mostrare nel banner in alto, con distanza e stato di rilevamento dell'animale e dell'utente
   String _calcolaTestoDistanza() {
     if (_petLocation == null) return "Rilevamento animale...";
     if (_userLocation == null) return "Rilevamento tua posizione...";
@@ -436,57 +432,58 @@ class _TrackingScreenState extends State<TrackingScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 15, vertical: 8),
-                      decoration: BoxDecoration(
-                          color: Colors.black54,
-                          borderRadius: BorderRadius.circular(25),
-                          border: Border.all(color: Colors.white24)),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(_calcolaTestoDistanza(),
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16 * scale,
-                                  fontWeight: FontWeight.bold)),
-                          if (_directionToPet != null &&
-                              _phoneHeading != null) ...[
-                            SizedBox(width: 15 * scale),
-                            Container(
-                              width: 30 * scale,
-                              height: 30 * scale,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Colors.white.withOpacity(0.1),
-                              ),
-                              child: Transform.rotate(
-                                angle: compassRotation,
-                                child: Icon(
-                                  Icons.navigation,
-                                  color: petColor, // Sempre arancione
-                                  size: 20 * scale,
+                  if (hasLocationPermission.value)
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 15, vertical: 8),
+                        decoration: BoxDecoration(
+                            color: Colors.black54,
+                            borderRadius: BorderRadius.circular(25),
+                            border: Border.all(color: Colors.white24)),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(_calcolaTestoDistanza(),
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16 * scale,
+                                    fontWeight: FontWeight.bold)),
+                            if (_directionToPet != null &&
+                                _phoneHeading != null) ...[
+                              SizedBox(width: 15 * scale),
+                              Container(
+                                width: 30 * scale,
+                                height: 30 * scale,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.white.withOpacity(0.1),
                                 ),
-                              ),
-                            )
-                          ] else ...[
-                            SizedBox(width: 15 * scale),
-                            SizedBox(
-                              width: 15 * scale,
-                              height: 15 * scale,
-                              child: const CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white54,
-                              ),
-                            )
-                          ]
-                        ],
+                                child: Transform.rotate(
+                                  angle: compassRotation,
+                                  child: Icon(
+                                    Icons.navigation,
+                                    color: petColor, // Sempre arancione
+                                    size: 20 * scale,
+                                  ),
+                                ),
+                              )
+                            ] else ...[
+                              SizedBox(width: 15 * scale),
+                              SizedBox(
+                                width: 15 * scale,
+                                height: 15 * scale,
+                                child: const CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white54,
+                                ),
+                              )
+                            ]
+                          ],
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),
@@ -506,12 +503,36 @@ class _TrackingScreenState extends State<TrackingScreen> {
                   }
                 }, isSmallScreen, "trackLocatePet", iconColor: petColor),
                 const SizedBox(height: 10),
-                _miniFAB(Icons.smartphone, Colors.white, () {
-                  if (_userLocation != null) {
-                    _mapController.move(_userLocation!, 18.0);
-                  }
-                }, isSmallScreen, "trackLocateMe",
-                    iconColor: Colors.blueAccent),
+                _miniFAB(
+                  Icons.smartphone,
+                  hasLocationPermission.value
+                      ? Colors.white
+                      : Colors.grey[300]!,
+                  () {
+                    if (!hasLocationPermission.value) {
+                      // Non chiede i permessi, mostra direttamente l'errore se non li ha
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content:
+                                Text("Attiva la posizione nelle impostazioni."),
+                            backgroundColor: Colors.grey,
+                          ),
+                        );
+                      }
+                    } else {
+                      // Se ha i permessi, sposta la mappa
+                      if (_userLocation != null) {
+                        _mapController.move(_userLocation!, 18.0);
+                      }
+                    }
+                  },
+                  isSmallScreen,
+                  "trackLocateMe",
+                  iconColor: hasLocationPermission.value
+                      ? Colors.blueAccent
+                      : Colors.grey[600]!,
+                ),
                 const SizedBox(height: 10),
                 _miniFAB(
                     _isSatellite ? Icons.map : Icons.satellite_alt,
@@ -526,9 +547,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 300),
                   child: _isPetSafe
-                      ? const SizedBox.shrink(
-                          key: ValueKey(
-                              "SafeEmpty")) // <-- RIMOSSO IL TASTO QUI!
+                      ? const SizedBox.shrink(key: ValueKey("SafeEmpty"))
                       : Row(
                           key: const ValueKey("AlarmButtons"),
                           children: [
@@ -569,7 +588,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
                                         fontSize: 14 * scale,
                                         fontWeight: FontWeight.bold)),
                                 onPressed: () async {
-                                  await _usersRepo.updateAlarm(false); 
+                                  await _usersRepo.updateAlarm(false);
                                   isTrackingMode.value = false;
                                 },
                               ),

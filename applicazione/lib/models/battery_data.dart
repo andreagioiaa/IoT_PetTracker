@@ -1,6 +1,6 @@
 import 'package:pocketbase/pocketbase.dart';
 
-/// Rappresenta i dati della telemetria batteria dalla tabella "battery_data".
+// Rappresenta i dati della telemetria batteria dalla tabella "battery_data"
 class BatteryData {
   final String id;
   final String boardId;
@@ -18,7 +18,7 @@ class BatteryData {
     required this.charging,
   });
 
-  /// Factory per convertire un RecordModel grezzo in un oggetto tipizzato.
+  // Factory per convertire un RecordModel grezzo in un oggetto tipizzato
   factory BatteryData.fromRecord(RecordModel record) {
     return BatteryData(
       id: record.id,
@@ -31,7 +31,7 @@ class BatteryData {
     );
   }
 
-  /// Converte l'oggetto in JSON per eventuali operazioni di scrittura.
+  // Converte l'oggetto in JSON per eventuali operazioni di scrittura
   Map<String, dynamic> toJson() {
     return {
       'board_id': boardId,

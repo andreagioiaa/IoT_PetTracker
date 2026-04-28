@@ -1,19 +1,19 @@
 import 'dart:async';
 import 'package:pocketbase/pocketbase.dart';
-import '../scambio.dart';
-import '../objects/positions.dart';
+import '../services/authentication.dart';
+import '../models/positions.dart';
 
 class PositionsRepository {
-  final PocketBase _pb; // 1. Devi dichiarare questa variabile privata 
-  final StreamController<Positions> _positionsController = StreamController<Positions>.broadcast();
+  final PocketBase _pb;
+  final StreamController<Positions> _positionsController =
+      StreamController<Positions>.broadcast();
 
-  // 2. IL PUNTO CRITICO: Devi aggiungere questo costruttore 
-  PositionsRepository(this._pb); 
+  PositionsRepository(this._pb);
 
   Stream<Positions> get positionsStream => _positionsController.stream;
 
+  // Sottoscrizione in tempo reale alla collezione 'positions'
   void subscribeToPositions() {
-    // Nota: ora usiamo _pb (quella passata al costruttore) 
     _pb.collection(tabella_positions).subscribe('*', (e) {
       if (e.record != null) {
         _positionsController.add(Positions.fromRecord(e.record!));
@@ -21,15 +21,15 @@ class PositionsRepository {
     });
   }
 
-  /// Recupera l'ultimo record della posizione registrato
+  // Recupera l'ultimo record della posizione registrato
   Future<Positions?> getLatestPosition() async {
     try {
       final result = await pb.collection(tabella_positions).getList(
-        page: 1,
-        perPage: 1,
-        sort: '-timestamp',
-      );
-      
+            page: 1,
+            perPage: 1,
+            sort: '-timestamp',
+          );
+
       if (result.items.isEmpty) return null;
       return Positions.fromRecord(result.items.first);
     } catch (e) {
@@ -38,28 +38,52 @@ class PositionsRepository {
     }
   }
 
-  /// Recupera l'ultimo timestamp (sostituisce 'scambio.getUltimoTimestamp')
+  // Recupera l'ultimo timestamp in positions_repo.dart
   Future<DateTime?> getLastTimestamp() async {
     try {
-      final result = await pb.collection(tabella_positions).getList(
-        page: 1,
-        perPage: 1, 
-        sort: '-timestamp'
-      );
+      final result = await pb
+          .collection(tabella_positions)
+          .getList(page: 1, perPage: 1, sort: '-timestamp');
 
       if (result.items.isEmpty) return null;
 
-      // Restituiamo il timestamp convertito al fuso orario locale
       String timeStr = result.items.first.getStringValue('timestamp');
-      return DateTime.parse(timeStr).toLocal();
+
+      // DateTime.parse riconosce automaticamente il formato ISO 8601 di PocketBase.
+      // Se la stringa termina con 'Z', l'oggetto creato sarà già in UTC.
+      // Usiamo .toUtc() per sicurezza assoluta e chiarezza d'intenti.
+      return DateTime.parse(timeStr).toUtc();
     } catch (e) {
-      print('🛑 [PositionsRepository] Errore getLastTimestamp: $e');
+      print('🛑 Errore durante il recupero del timestamp: $e');
       return null;
     }
   }
 
-  /// Chiude lo stream quando non più necessario (per evitare memory leak)
+  // Chiude lo stream quando non più necessario (per evitare memory leak)
   void dispose() {
     _positionsController.close();
+  }
+
+  // Recupera tutte le posizioni di un giorno specifico
+  Future<List<Positions>> fetchPositionsByDate(DateTime date) async {
+    try {
+      // Definiamo i limiti del giorno (00:00 - 23:59) in UTC
+      final start =
+          DateTime(date.year, date.month, date.day).toUtc().toIso8601String();
+      final end = DateTime(date.year, date.month, date.day, 23, 59, 59)
+          .toUtc()
+          .toIso8601String();
+
+      // Query alla collezione 'positions'
+      final result = await _pb.collection('positions').getFullList(
+            filter: 'timestamp >= "$start" && timestamp <= "$end"',
+            sort: 'timestamp',
+          );
+
+      return result.map((record) => Positions.fromRecord(record)).toList();
+    } catch (e) {
+      print('🛑 [PositionsRepository] Errore fetchPositionsByDate: $e');
+      return [];
+    }
   }
 }
