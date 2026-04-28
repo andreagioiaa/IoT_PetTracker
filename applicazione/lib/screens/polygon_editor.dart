@@ -28,10 +28,12 @@ class PolygonEditorScreen extends StatefulWidget {
 }
 
 class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
+  // Lista dei vertici del poligono in fase di creazione/modifica
   List<LatLng> _points = [];
   bool _isSatellite = true;
   bool _isSaving = false;
 
+  // Flag per distinguere tra creazione di una nuova zona (true) o modifica di una esistente (false)
   late bool _isNewZone;
   bool _isForceExiting = false;
 
@@ -136,7 +138,7 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
       // ---------------------------------------------------------
       // 3. CONTROLLO DI SOVRAPPOSIZIONE (Utilizzando la Repository)
       // ---------------------------------------------------------
-      // Recuperiamo tutti i record tramite la repository invece di scambio.pb
+      // Recuperiamo tutti i record tramite la repository e controlliamo se c'è sovrapposizione con il disegno attuale
       final records = await widget.repository.fetchGeofences();
 
       String? overlappingZoneName;
@@ -204,7 +206,6 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
         if (success) savedZoneId = widget.placeId;
       } else {
         // CREAZIONE NUOVA ZONA
-        // Nota: Assicurati di avere un metodo 'createGeofence' nella tua repository
         final newRecordId = await widget.repository.createGeofence(body);
         savedZoneId = newRecordId;
       }
@@ -216,7 +217,7 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
               backgroundColor: Colors.green),
         );
 
-        // Segnaliamo l'aggiornamento allo stato globale (usando il ValueNotifier fornito)
+        // Segnaliamo l'aggiornamento allo stato globale (usando il ValueNotifier)
         geofenceUpdateSignal.value++;
 
         _isForceExiting = true;
@@ -234,6 +235,7 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
     }
   }
 
+  // Intercettiamo il tentativo di uscita (tasto indietro o swipe) per mostrare un dialog di conferma se stiamo creando una nuova zona
   Future<bool> _onWillPop() async {
     if (_isForceExiting) return true;
 
@@ -276,7 +278,7 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
     );
   }
 
-  // Helper per i pulsanti FAB compatti
+  // Helper per i pulsanti FAB più piccoli (undo, clear) con dimensioni e padding adattivi
   Widget _miniFAB(IconData icon, Color color, VoidCallback onPressed,
       bool isSmallScreen, String heroTag) {
     return SizedBox(
@@ -413,8 +415,6 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
                     );
                   }),
                 ),
-                // --- FINE LOGICA TRASCINAMENTO ---
-
                 MarkerLayer(
                   markers: [
                     Marker(
@@ -430,7 +430,6 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
             ),
             SafeArea(
               child: Padding(
-                // Padding dinamico ai lati
                 padding: EdgeInsets.all(screenWidth * 0.04),
                 child: Column(
                   children: [

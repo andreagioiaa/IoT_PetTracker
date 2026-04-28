@@ -24,7 +24,7 @@ class GeofenceRepository {
     }
   }
 
-  /// Recupera tutte le zone e gestisce il parsing dei vertici
+  // Recupera tutte le zone e gestisce il parsing dei vertici
   Future<List<Map<String, dynamic>>> fetchGeofences() async {
     try {
       final records =
@@ -61,6 +61,7 @@ class GeofenceRepository {
     }
   }
 
+  // Aggiorna solo lo stato attivo di una zona (utile per toggle rapido)
   Future<bool> updateActiveStatus(String id, bool isActive) async {
     try {
       await _pb
@@ -72,6 +73,7 @@ class GeofenceRepository {
     }
   }
 
+  // Elimina una zona
   Future<bool> deleteGeofence(String id) async {
     try {
       await _pb.collection('geofences').delete(id);
@@ -81,6 +83,7 @@ class GeofenceRepository {
     }
   }
 
+  // Determina se un punto è dentro una zona attiva e restituisce il nome della zona o "Fuori zona sicura"
   Future<String> getZoneForPoint(LatLng point) async {
     try {
       final geofences = await fetchGeofences();
@@ -99,8 +102,9 @@ class GeofenceRepository {
     }
   }
 
-  /// Aggiorna i dati (inclusi i vertici) di una zona esistente
-  Future<bool> updateGeofenceVertices(String id, Map<String, dynamic> body) async {
+  // Aggiorna i dati (inclusi i vertici) di una zona esistente
+  Future<bool> updateGeofenceVertices(
+      String id, Map<String, dynamic> body) async {
     try {
       await _pb.collection('geofences').update(id, body: body); //
       return true;
@@ -110,7 +114,7 @@ class GeofenceRepository {
     }
   }
 
-  /// Crea una nuova zona e restituisce il suo ID
+  // Crea una nuova zona e restituisce il suo ID
   Future<String?> createGeofence(Map<String, dynamic> body) async {
     try {
       final record = await _pb.collection('geofences').create(body: body); //

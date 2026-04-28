@@ -30,7 +30,6 @@ class _AuthScreenState extends State<AuthScreen> {
     return null;
   }
 
-  // Aggiungi il repository come variabile di stato
   final UsersRepository _usersRepo = UsersRepository();
 
   void _submitForm() async {
@@ -48,7 +47,6 @@ class _AuthScreenState extends State<AuthScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // CAMBIO QUI: Usiamo il repo
       bool auth = await _usersRepo.login(
           _usernameController.text.trim(), _passwordController.text.trim());
 
@@ -97,7 +95,6 @@ class _AuthScreenState extends State<AuthScreen> {
       backgroundColor: const Color(0xFFF7F8FA),
       body: Stack(
         children: [
-          // Decorazione Gradiente (In alto a destra)
           Positioned(
             top: -20,
             right: -20,
@@ -112,7 +109,6 @@ class _AuthScreenState extends State<AuthScreen> {
               ),
             ),
           ),
-
           SafeArea(
             child: SingleChildScrollView(
               padding: EdgeInsets.symmetric(horizontal: 30.0 * scale),
@@ -135,8 +131,6 @@ class _AuthScreenState extends State<AuthScreen> {
                     ],
                   ),
                   SizedBox(height: 60 * scale),
-
-                  // Titolo
                   Text('Accedi ora',
                       style: TextStyle(
                           fontSize: 34 * scale,
@@ -155,9 +149,8 @@ class _AuthScreenState extends State<AuthScreen> {
                     'Password',
                     Icons.lock_outline,
                     scale,
-                    obscure: _obscurePassword, // <-- Usa la variabile di stato
+                    obscure: _obscurePassword,
                     suffixIcon: IconButton(
-                      // <-- Aggiunge il pulsante cliccabile
                       icon: Icon(
                         _obscurePassword
                             ? Icons.visibility_off_rounded
@@ -167,8 +160,7 @@ class _AuthScreenState extends State<AuthScreen> {
                       ),
                       onPressed: () {
                         setState(() {
-                          _obscurePassword =
-                              !_obscurePassword; // <-- Inverte lo stato
+                          _obscurePassword = !_obscurePassword;
                         });
                       },
                     ),
@@ -240,6 +232,7 @@ class _AuthScreenState extends State<AuthScreen> {
     );
   }
 
+  // Widget helper per costruire i campi di testo con icona, label e stile coerente
   Widget _buildTextField(TextEditingController controller, String label,
       IconData icon, double scale,
       {bool obscure = false, Widget? suffixIcon}) {

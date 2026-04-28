@@ -15,7 +15,7 @@ class PositionGpsService {
 
     // 1. GESTIAMO PRIMA IL PERMESSO (indipendentemente se l'antenna è accesa o spenta)
     if (permission == LocationPermission.denied) {
-      // Se è la prima volta, mostriamo il nostro pop-up
+      // Se è la prima volta, mostriamo il pop-up
       if (!giaChiesto && context.mounted) {
         await _mostraPopUpSpiegazione(context);
         await prefs.setBool('permesso_posizione_chiesto', true);

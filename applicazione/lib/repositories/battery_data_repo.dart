@@ -3,17 +3,14 @@ import '../models/battery_data.dart';
 import 'dart:async';
 
 class BatteryRepository {
-  // Trasferiamo qui lo StreamController per la batteria, ma tipizzato!
   static final StreamController<BatteryData> _batteryStreamController =
       StreamController<BatteryData>.broadcast();
 
   Stream<BatteryData> get batteryStream => _batteryStreamController.stream;
 
-  /// Recupera l'ultimo record completo della batteria
+  // Recupera l'ultimo record completo della batteria
   Future<BatteryData?> getLatestBattery() async {
     try {
-      // Nota: Ho usato 'positions' perché nel tuo scambio.dart i dati sembrano essere lì.
-      // Se invece usi la tabella specifica, cambia in 'battery_data'.
       final result = await pb.collection(tabella_batteryData).getList(
             page: 1,
             perPage: 1,
@@ -28,7 +25,7 @@ class BatteryRepository {
     }
   }
 
-  /// Avvia l'ascolto in tempo reale e trasforma i RecordModel in BatteryData
+  // Avvia l'ascolto in tempo reale e trasforma i RecordModel in BatteryData
   Future<void> subscribeToBatteryUpdates() async {
     try {
       pb.collection(tabella_batteryData).subscribe('*', (e) {
@@ -43,7 +40,7 @@ class BatteryRepository {
     }
   }
 
-  /// Metodo helper per sapere se è in carica (usando il modello)
+  // Metodo helper per sapere se è in carica (usando il modello)
   Future<bool> isCharging() async {
     final data = await getLatestBattery();
     return data?.charging ?? false;

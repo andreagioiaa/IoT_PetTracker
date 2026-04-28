@@ -6,6 +6,7 @@ class ActivitiesRepository {
 
   ActivitiesRepository(this._pb);
 
+  // Prende l'attività attiva per un dato boardId, se esiste
   Future<Activities?> fetchCurrentActiveActivities(String boardId) async {
     try {
       final result = await _pb.collection('activities').getFirstListItem(
@@ -17,7 +18,7 @@ class ActivitiesRepository {
     }
   }
 
-  /// Rinominato in startNewActivity (singolare) per chiarezza
+  // Crea una nuova attività solo se non ne esiste già una attiva per lo stesso boardId
   Future<Activities?> startNewActivity(String boardId) async {
     try {
       // Analisi Critica: Prima di iniziare, controlla se ne esiste già una attiva
@@ -53,10 +54,10 @@ class ActivitiesRepository {
     }
   }
 
+  // Termina l'attività attiva (es. alla fine di una camminata)
   Future<List<Activities>> fetchActivitiesByDate(
       String boardId, DateTime date) async {
     try {
-      // Definiamo l'inizio e la fine del giorno in UTC per la query
       final startOfDay = DateTime(date.year, date.month, date.day, 0, 0, 0)
           .toUtc()
           .toIso8601String();
@@ -77,6 +78,7 @@ class ActivitiesRepository {
     }
   }
 
+  // Fetch dello storico completo delle attività per un dato boardId e giorno
   Future<List<dynamic>> fetchDailyStats(String boardId, DateTime date) async {
     try {
       // Definisci i limiti temporali del giorno scelto (00:00 - 23:59)

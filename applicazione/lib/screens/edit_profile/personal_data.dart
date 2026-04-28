@@ -11,8 +11,11 @@ class PersonalDataScreen extends StatefulWidget {
 }
 
 class _PersonalDataScreenState extends State<PersonalDataScreen> {
+  // Controller per i campi di testo
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _surnameController = TextEditingController();
+
+  // Stato per la gestione del caricamento e degli errori
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -26,6 +29,7 @@ class _PersonalDataScreenState extends State<PersonalDataScreen> {
         scambio.pb.authStore.model?.getStringValue('surname') ?? '';
   }
 
+  // Funzione per salvare le modifiche
   void _save() async {
     final name = _nameController.text.trim();
     final surname = _surnameController.text.trim();
@@ -111,7 +115,7 @@ class _PersonalDataScreenState extends State<PersonalDataScreen> {
 
               SizedBox(height: 40 * scale),
 
-              // --- FORM RAGGRUPPATO (STILE iOS) ---
+              // --- FORM RAGGRUPPATO ---
               Container(
                 decoration: BoxDecoration(
                     color: Colors.white,
@@ -157,7 +161,7 @@ class _PersonalDataScreenState extends State<PersonalDataScreen> {
     );
   }
 
-  // Helper aggiornato con lo scale
+  // Campo di testo con icona e label, utilizzato per nome e cognome
   Widget _buildCleanField(
       TextEditingController ctrl, String label, IconData icon, double scale) {
     return TextField(
@@ -175,7 +179,7 @@ class _PersonalDataScreenState extends State<PersonalDataScreen> {
     );
   }
 
-  // Tasto aggiornato con lo scale
+  // Pulsante di salvataggio con stato di caricamento
   Widget _buildSaveButton(double scale) {
     return SizedBox(
       width: double.infinity,

@@ -11,10 +11,12 @@ class SignInScreen extends StatefulWidget {
 }
 
 class _SignInScreenState extends State<SignInScreen> {
+  // Stato per gestire il caricamento e la visibilità della password
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
+  // Controller per i campi di input
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _surnameController = TextEditingController();
   final TextEditingController _usernameController = TextEditingController();
@@ -49,13 +51,13 @@ class _SignInScreenState extends State<SignInScreen> {
       return "Il cognome deve essere compreso tra 2 e 50 caratteri.";
     }
 
-    // Solo lettere, spazi, apostrofi e lettere accentate italiane
+    // Solo lettere, spazi, apostrofi e lettere accentate
     final nameRegex = RegExp(r"^[a-zA-Zàèéìíòóùú\s\']+$");
     if (!nameRegex.hasMatch(name) || !nameRegex.hasMatch(surname)) {
       return "Nome e cognome possono contenere solo lettere.";
     }
 
-    // 3. Controllo Username (PocketBase Safe)
+    // 3. Controllo Username (Limiti minimi, massimi e caratteri)
     if (username.length < 6 || username.length > 15) {
       return "Lo username deve essere tra 6 e 15 caratteri.";
     }
@@ -65,13 +67,13 @@ class _SignInScreenState extends State<SignInScreen> {
       return "Lo username può contenere solo lettere, numeri e underscore (_). Nessuno spazio.";
     }
 
-    // 4. Email Regex
+    // 4. Email Regex: Controlla che sia un formato email valido
     final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
     if (!emailRegex.hasMatch(email)) {
       return "Inserisci un indirizzo email valido.";
     }
 
-    // 5. Password Validation "Anti-Mediocrità"
+    // 5. Password Regex: Minimo 8 caratteri, almeno una maiuscola, un numero e un simbolo speciale
     final passwordRegex = RegExp(
         r'^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[!@#\$%^&*(),.?":{}|<>]).{8,}$');
 
@@ -107,7 +109,6 @@ class _SignInScreenState extends State<SignInScreen> {
       final password = _passwordController.text.trim();
 
       // 2. Chiamata al Repository per la registrazione
-      // Nota: Assicurati di aver aggiunto il metodo 'register' nel tuo UsersRepository
       bool success = await _usersRepo.register(
         email,
         password,
@@ -142,7 +143,7 @@ class _SignInScreenState extends State<SignInScreen> {
           );
         }
       } else {
-        // Errore restituito dal server (es. duplicati)
+        // Errore restituito dal server (es. dati duplicati)
         _showSnackBar('Errore: Email o Username potrebbero essere già in uso.',
             Colors.red);
       }
@@ -160,7 +161,7 @@ class _SignInScreenState extends State<SignInScreen> {
     _usernameController.clear();
     _emailController.clear();
     _passwordController.clear();
-    _confirmPassController.clear(); // <-- Aggiunto
+    _confirmPassController.clear();
   }
 
   void _showSnackBar(String message, Color color) {
@@ -180,7 +181,7 @@ class _SignInScreenState extends State<SignInScreen> {
     _usernameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
-    _confirmPassController.dispose(); // <-- Aggiunto
+    _confirmPassController.dispose();
     super.dispose();
   }
 

@@ -10,19 +10,23 @@ class ChangePasswordScreen extends StatefulWidget {
 }
 
 class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
+  // Controller per i campi di input
   final _currentController = TextEditingController();
   final _newController = TextEditingController();
   final _confirmController = TextEditingController();
 
+  // Variabili di stato per la visibilità delle password e il caricamento
   bool _obs1 = true;
   bool _obs2 = true;
   bool _obs3 = true;
   bool _isLoading = false;
   String? _errorMessage;
 
+  // Espressione regolare per validare la complessità della password
   final RegExp _passwordRegex = RegExp(
       r'^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[!@#\$%^&*(),.?":{}|<>]).{8,}$');
 
+  // Funzione per gestire l'aggiornamento della password
   void _updatePassword() async {
     final cur = _currentController.text.trim();
     final next = _newController.text.trim();
@@ -61,9 +65,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     }
   }
 
+  // Build include un fattore di scala basato sull'altezza dello schermo, migliorando l'adattabilità su dispositivi diversi
   @override
   Widget build(BuildContext context) {
-    // Fattore di scala basato sull'altezza dello schermo
     double screenHeight = MediaQuery.of(context).size.height;
     double scale = (screenHeight / 800).clamp(0.7, 1.2);
 
@@ -128,7 +132,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                     ]),
                 child: Column(
                   children: [
-                    // PASSWORD ATTUALE: Usiamo la CHIAVE (Icons.vpn_key_outlined)
+                    // PASSWORD ATTUALE
                     _buildCleanPassField(
                         _currentController,
                         "Password Attuale",
@@ -156,6 +160,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                         indent: 50 * scale,
                         color: Colors.grey.shade200),
 
+                    // CONFERMA NUOVA PASSWORD
                     _buildCleanPassField(
                         _confirmController,
                         "Conferma Nuova Password",
@@ -188,7 +193,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     );
   }
 
-  // Helper aggiornato con lo scale
+  // Widget per i campi password con icone e toggle di visibilità
   Widget _buildCleanPassField(TextEditingController ctrl, String label,
       bool obs, VoidCallback toggle, double scale, IconData icon) {
     return TextField(
@@ -211,7 +216,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     );
   }
 
-  // Tasto aggiornato con lo scale
+  // Widget per il pulsante di submit con stato di caricamento
   Widget _buildSubmitButton(double scale) {
     return SizedBox(
       width: double.infinity,

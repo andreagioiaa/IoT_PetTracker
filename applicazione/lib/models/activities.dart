@@ -1,6 +1,6 @@
 import 'package:pocketbase/pocketbase.dart';
 
-/// Rappresenta un record della tabella "activities"
+// Rappresenta un record della tabella "activities"
 class Activities {
   final String id;
   final String boardId;
@@ -18,7 +18,7 @@ class Activities {
     required this.isActive,
   });
 
-  /// Crea un'istanza di Activities a partire da un RecordModel di PocketBase.
+  // Crea un'istanza di Activities a partire da un RecordModel di PocketBase
   factory Activities.fromRecord(RecordModel record) {
     return Activities(
       id: record.id,
@@ -35,7 +35,7 @@ class Activities {
     );
   }
 
-  /// Converte l'oggetto in una mappa per l'invio al database.
+  // Converte l'oggetto in una mappa per l'invio al database
   Map<String, dynamic> toJson() {
     return {
       'board_id': boardId,

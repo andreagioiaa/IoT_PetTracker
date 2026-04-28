@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 class Geocoding {
   static const String _userAgent = 'PetTrackerApp_IoT_Project';
 
-  /// Trasforma coordinate (Lat, Lon) in una stringa indirizzo pronta per l'interfaccia
+  // Trasforma coordinate (Lat, Lon) in una stringa indirizzo pronta per l'interfaccia
   static Future<String?> getAddressFromCoordinates(LatLng loc) async {
     final details = await getAddressDetailsFromCoordinates(loc);
     if (details.isNotEmpty) {
@@ -22,7 +22,7 @@ class Geocoding {
     return null;
   }
 
-  /// Trasforma coordinate in dettagli separati (utile per riempire i TextField)
+  // Trasforma coordinate in dettagli separati (utile per riempire i TextField)
   static Future<Map<String, String>> getAddressDetailsFromCoordinates(
       LatLng loc) async {
     final url = Uri.parse(
@@ -56,7 +56,7 @@ class Geocoding {
     return {};
   }
 
-  /// Trasforma un indirizzo testuale in coordinate (Lat, Lon)
+  // Trasforma un indirizzo testuale in coordinate (Lat, Lon)
   static Future<Map<String, dynamic>> getCoordinatesFromAddress({
     required String rawStreet,
     required String rawCivic,

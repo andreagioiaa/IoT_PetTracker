@@ -10,17 +10,20 @@ class BatteryScreen extends StatefulWidget {
   State<BatteryScreen> createState() => _BatteryScreenState();
 }
 
-// 1. Aggiunto SingleTickerProviderStateMixin per le animazioni
 class _BatteryScreenState extends State<BatteryScreen>
     with SingleTickerProviderStateMixin {
   // Riferimento al Repository per la gestione dati
-  final BatteryRepository _batteryRepo = BatteryRepository(); //
+  final BatteryRepository _batteryRepo = BatteryRepository();
 
+  // Stato locale della schermata
   int? _currentBattery;
+
+  // Variabili per gestire lo stato di carica e il loading
   bool _isCharging = false;
   bool _isLoading = true;
   StreamSubscription? _streamSubscription;
 
+  // Controller per l'animazione di rotazione quando è in carica
   late AnimationController _spinController;
 
   @override
@@ -100,6 +103,7 @@ class _BatteryScreenState extends State<BatteryScreen>
   }
 
   Widget _buildBody(BuildContext context) {
+    // Gestione degli stati di caricamento, errore e visualizzazione normale
     if (_isLoading) {
       return const Center(
         child: CircularProgressIndicator(color: Color(0xFF00C6B8)),
@@ -320,6 +324,7 @@ class _BatteryScreenState extends State<BatteryScreen>
   }
 }
 
+// Widget personalizzato per il cerchio di progresso con gradiente
 class GradientCircularProgress extends StatelessWidget {
   final double percentage;
   final double strokeWidth;
@@ -384,6 +389,7 @@ class _GradientCircularProgressPainter extends CustomPainter {
     }
   }
 
+  // Aggiunta di shouldRepaint per ottimizzare le prestazioni
   @override
   bool shouldRepaint(covariant _GradientCircularProgressPainter oldDelegate) {
     return oldDelegate.percentage != percentage ||

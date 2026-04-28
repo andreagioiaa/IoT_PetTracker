@@ -4,17 +4,16 @@ import '../services/authentication.dart';
 import '../models/positions.dart';
 
 class PositionsRepository {
-  final PocketBase _pb; // 1. Devi dichiarare questa variabile privata
+  final PocketBase _pb;
   final StreamController<Positions> _positionsController =
       StreamController<Positions>.broadcast();
 
-  // 2. IL PUNTO CRITICO: Devi aggiungere questo costruttore
   PositionsRepository(this._pb);
 
   Stream<Positions> get positionsStream => _positionsController.stream;
 
+  // Sottoscrizione in tempo reale alla collezione 'positions'
   void subscribeToPositions() {
-    // Nota: ora usiamo _pb (quella passata al costruttore)
     _pb.collection(tabella_positions).subscribe('*', (e) {
       if (e.record != null) {
         _positionsController.add(Positions.fromRecord(e.record!));
@@ -22,7 +21,7 @@ class PositionsRepository {
     });
   }
 
-  /// Recupera l'ultimo record della posizione registrato
+  // Recupera l'ultimo record della posizione registrato
   Future<Positions?> getLatestPosition() async {
     try {
       final result = await pb.collection(tabella_positions).getList(
@@ -39,8 +38,7 @@ class PositionsRepository {
     }
   }
 
-  /// Recupera l'ultimo timestamp (sostituisce 'scambio.getUltimoTimestamp')
-  // In positions_repo.dart
+  // Recupera l'ultimo timestamp in positions_repo.dart
   Future<DateTime?> getLastTimestamp() async {
     try {
       final result = await pb
@@ -61,11 +59,12 @@ class PositionsRepository {
     }
   }
 
-  /// Chiude lo stream quando non più necessario (per evitare memory leak)
+  // Chiude lo stream quando non più necessario (per evitare memory leak)
   void dispose() {
     _positionsController.close();
   }
 
+  // Recupera tutte le posizioni di un giorno specifico
   Future<List<Positions>> fetchPositionsByDate(DateTime date) async {
     try {
       // Definiamo i limiti del giorno (00:00 - 23:59) in UTC

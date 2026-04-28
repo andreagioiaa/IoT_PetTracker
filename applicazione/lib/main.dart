@@ -10,10 +10,10 @@ import 'package:intl/date_symbol_data_local.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 0. 🔔 Inizializza Firebase Messaging e gestori
+  // 1. Inizializza Firebase Messaging e gestori
   await NotificationService.init();
 
-  // 1. 🌍 Localizzazione
+  // 2. Localizzazione
   try {
     await initializeDateFormatting('it_IT', null);
     print('✅ Localizzazione it_IT pronta.');
@@ -21,7 +21,7 @@ void main() async {
     print('⚠️ Errore localizzazione: $e');
   }
 
-  // 2. 🔐 Variabili d'ambiente
+  // 3. Variabili d'ambiente
   try {
     await dotenv.load(fileName: ".env");
     print('✅ File .env caricato.');
@@ -29,7 +29,7 @@ void main() async {
     print('⚠️ Errore .env: $e');
   }
 
-  // 3. 💾 Preferenze Locali (Mappa)
+  // 4. Preferenze Locali (Mappa)
   try {
     final prefs = await SharedPreferences.getInstance();
     final String? savedFocus = prefs.getString('map_focus_priority');
@@ -40,7 +40,7 @@ void main() async {
     print('⚠️ Errore SharedPreferences: $e');
   }
 
-  // 4. 🏁 PocketBase Auth & Sync Token
+  // 5. PocketBase Auth & Sync Token
   scambio.inizializzaClient();
   bool canConnect = await scambio.autenticazione();
 
@@ -75,6 +75,7 @@ class PetTrackerApp extends StatelessWidget {
     );
   }
 
+  // Schermata di errore semplice se l'autenticazione fallisce
   Widget _buildErrorScreen() {
     return const Scaffold(
       body: Center(

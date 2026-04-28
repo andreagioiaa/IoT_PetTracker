@@ -1,7 +1,6 @@
 import 'package:pocketbase/pocketbase.dart';
 
-/// Rappresenta un record della tabella "positions", utilizzato per il tracciamento
-/// in tempo reale e lo storico dei movimenti.
+// Rappresenta un record della tabella "positions", utilizzato per il tracciamento in tempo reale e lo storico dei movimenti
 class Positions {
   final String id;
   final DateTime timestamp;
@@ -27,7 +26,7 @@ class Positions {
     required this.sleep,
   });
 
-  /// Factory per convertire un RecordModel di PocketBase in un oggetto Positions.
+  // Factory per convertire un RecordModel di PocketBase in un oggetto Positions
   factory Positions.fromRecord(RecordModel record) {
     return Positions(
       id: record.id,
@@ -35,8 +34,10 @@ class Positions {
       timestamp: DateTime.parse(record.getStringValue('timestamp')).toLocal(),
       lon: record.getDoubleValue('lon'),
       lat: record.getDoubleValue('lat'),
-      // Gestione sicura del campo geo (mappa JSON).
-      geo: record.data['geo'] is Map ? record.data['geo'] as Map<String, dynamic> : {},
+      // Gestione sicura del campo geo (mappa JSON)
+      geo: record.data['geo'] is Map
+          ? record.data['geo'] as Map<String, dynamic>
+          : {},
       battery: record.getDoubleValue('battery'),
       batteryPercent: record.getIntValue('battery_percent'),
       charging: record.getBoolValue('charging'),
@@ -45,7 +46,7 @@ class Positions {
     );
   }
 
-  /// Converte l'oggetto in una mappa per operazioni di scrittura o log.
+  /// Converte l'oggetto in una mappa per operazioni di scrittura o log
   Map<String, dynamic> toJson() {
     return {
       'timestamp': timestamp.toUtc().toIso8601String(),

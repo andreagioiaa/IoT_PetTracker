@@ -1,6 +1,6 @@
 import 'package:pocketbase/pocketbase.dart';
 
-
+// Rappresenta un record della tabella "users" in PocketBase, con campi personalizzati per l'applicazione
 class User {
   final String id;
   final String email;
@@ -38,8 +38,7 @@ class User {
       name: record.getStringValue('name'),
       surname: record.getStringValue('surname'),
       alarm: record.getBoolValue('alarm'),
-      // Se il campo su PocketBase è vuoto, restituisce una stringa vuota
-      boardId: record.getStringValue('boardId'), 
+      boardId: record.getStringValue('boardId'),
       created: DateTime.parse(record.created).toLocal(),
       updated: DateTime.parse(record.updated).toLocal(),
     );
@@ -51,7 +50,7 @@ class User {
       'surname': surname,
       'alarm': alarm,
       'emailVisibility': emailVisibility,
-      'boardId': boardId, // <--- AGGIUNTO (se vuoi aggiornarlo via JSON)
+      'boardId': boardId,
     };
   }
 }

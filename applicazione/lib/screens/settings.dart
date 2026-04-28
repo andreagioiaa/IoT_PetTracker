@@ -53,7 +53,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     hasNotificationPermission.value =
         (settings.authorizationStatus == AuthorizationStatus.authorized);
 
-    // Sicurezza: se revochi il GPS torna al focus animale
+    // Se l'utente ha revocato il permesso GPS ma aveva "Focus Dispositivo" attivo, resettiamo a "Focus Animale" per evitare problemi di UX
     if (!hasLocationPermission.value && _currentMapFocus == 'Dispositivo') {
       _updateMapFocus('Animale');
     }

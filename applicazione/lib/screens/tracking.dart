@@ -20,15 +20,18 @@ class TrackingScreen extends StatefulWidget {
 }
 
 class _TrackingScreenState extends State<TrackingScreen> {
+  // --- VARIABILI PRINCIPALI ---
   final MapController _mapController = MapController();
   final UsersRepository _usersRepo = UsersRepository();
-  // Istanziamo il repository (usando EXCHANGE.pb come abbiamo definito)
+
   late final PositionsRepository _positionsRepo =
       PositionsRepository(scambio.pb);
 
+  // Posizioni e cronologia
   LatLng? _petLocation;
   LatLng? _userLocation;
 
+  // Cronologia delle posizioni del cane (per tracciare la scia)
   final List<LatLng> _history = [];
   List<Map<String, dynamic>> _savedZones = [];
 
@@ -41,9 +44,8 @@ class _TrackingScreenState extends State<TrackingScreen> {
   double? _phoneHeading;
   bool _isSatellite = true;
 
-  // --- IL CUORE DEL CAMALEONTE: Il cane è al sicuro? ---
-  bool _isPetSafe =
-      true; // Di base assumiamo sia al sicuro finché non calcoliamo
+  // Stato di sicurezza del pet (true = in zona sicura, false = fuori)
+  bool _isPetSafe = true;
 
   @override
   void initState() {
@@ -68,7 +70,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
     });
   }
 
-  // ALGORITMO PER CALCOLARE L'ANGOLO (BEARING)
+  //  Algoritmo di calcolo della direzione: utilizza la funzione di bearing per ottenere l'angolo esatto tra la posizione dell'utente e quella del pet
   void _ricalcolaDirezione() {
     if (_userLocation == null || _petLocation == null) return;
 
@@ -148,7 +150,6 @@ class _TrackingScreenState extends State<TrackingScreen> {
     _petStreamSubscription =
         _positionsRepo.positionsStream.listen((nuovaPosizione) {
       try {
-        // Notazione corretta: nuovaPosizione è un oggetto, non un RecordModel
         final newPos = LatLng(nuovaPosizione.lat, nuovaPosizione.lon);
 
         if (mounted) {
@@ -176,6 +177,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
     await _checkAndStartLocation();
   }
 
+  // Controlla se il servizio di localizzazione è attivo e se abbiamo i permessi, poi avvia lo stream della posizione dell'utente
   Future<void> _checkAndStartLocation() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) return;
@@ -216,6 +218,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
     super.dispose();
   }
 
+  // Funzione per aprire il navigatore esterno con la posizione del pet
   Future<void> _apriNavigatore() async {
     if (_petLocation == null) return;
     final url = Uri.parse(
@@ -230,6 +233,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
     }
   }
 
+  // Funzione per calcolare il testo da mostrare nel banner in alto, con distanza e stato di rilevamento dell'animale e dell'utente
   String _calcolaTestoDistanza() {
     if (_petLocation == null) return "Rilevamento animale...";
     if (_userLocation == null) return "Rilevamento tua posizione...";
@@ -543,9 +547,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 300),
                   child: _isPetSafe
-                      ? const SizedBox.shrink(
-                          key: ValueKey(
-                              "SafeEmpty")) // <-- RIMOSSO IL TASTO QUI!
+                      ? const SizedBox.shrink(key: ValueKey("SafeEmpty"))
                       : Row(
                           key: const ValueKey("AlarmButtons"),
                           children: [

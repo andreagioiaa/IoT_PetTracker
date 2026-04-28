@@ -1,6 +1,6 @@
 import 'package:pocketbase/pocketbase.dart';
 
-/// Rappresenta un'area geografica definita (Geofence).
+// Rappresenta un'area geografica definita (Geofence)
 class Geofences {
   final String id;
   final String name;
@@ -32,7 +32,7 @@ class Geofences {
     required this.updated,
   });
 
-  /// Factory per mappare il record di PocketBase nell'oggetto Dart.
+  // Factory per mappare il record di PocketBase nell'oggetto Dart
   factory Geofences.fromRecord(RecordModel record) {
     return Geofences(
       id: record.id,
@@ -52,7 +52,7 @@ class Geofences {
     );
   }
 
-  /// Converte l'oggetto in mappa per salvataggi o aggiornamenti.
+  // Converte l'oggetto in mappa per salvataggi o aggiornamenti
   Map<String, dynamic> toJson() {
     return {
       'name': name,

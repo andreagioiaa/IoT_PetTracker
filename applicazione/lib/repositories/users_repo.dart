@@ -4,15 +4,15 @@ import 'package:flutter/material.dart';
 import "../screens/login.dart";
 
 class UsersRepository {
-  // Recupera il boardId interrogando la collezione 'boards'.
-  // Nota: Cerchiamo il record dove il campo 'user' (relazione) contiene l'ID dell'utente corrente.
+  // Recupera il boardId interrogando la collezione 'boards'
+  // Nota: Cerchiamo il record dove il campo 'user' (relazione) contiene l'ID dell'utente corrente
   Future<String?> getBoardIdFromBoards() async {
     try {
       if (!pb.authStore.isValid || pb.authStore.model == null) return null;
 
       final userId = pb.authStore.model!.id;
 
-      // Usiamo l'operatore '~' (contiene) perché 'user' sembra una lista nello screenshot
+      // Usiamo l'operatore '~' (contiene) per gestire il caso in cui 'user' sia una relazione o un array di relazioni
       final record = await pb.collection('boards').getFirstListItem(
             'user ~ "$userId"',
           );
@@ -24,7 +24,7 @@ class UsersRepository {
     }
   }
 
-  /// Recupera la data di creazione della board
+  // Recupera la data di creazione della board
   Future<DateTime?> getBoardCreationDate() async {
     try {
       if (!pb.authStore.isValid || pb.authStore.model == null) return null;
@@ -46,7 +46,7 @@ class UsersRepository {
     }
   }
 
-  /// Registra un nuovo utente su PocketBase.
+  // Registra un nuovo utente su PocketBase
   Future<bool> register(String email, String password, String name,
       String surname, String username) async {
     try {
@@ -68,7 +68,7 @@ class UsersRepository {
     }
   }
 
-  /// Recupera i dati dell'utente corrente trasformandoli nel modello User.
+  // Recupera i dati dell'utente corrente trasformandoli nel modello User
   Future<User?> getCurrentUser() async {
     if (!pb.authStore.isValid || pb.authStore.model == null) return null;
     try {
@@ -82,13 +82,13 @@ class UsersRepository {
     }
   }
 
-  /// Restituisce lo stato dell'allarme (necessario per home.dart).
+  // Restituisce lo stato dell'allarme (necessario per home.dart)
   Future<bool?> getAlarmStatus() async {
     final user = await getCurrentUser();
     return user?.alarm;
   }
 
-  /// Aggiorna lo stato dell'allarme sul database (necessario per home.dart).
+  // Aggiorna lo stato dell'allarme sul database (necessario per home.dart)
   Future<bool> updateAlarm(bool status) async {
     try {
       if (!pb.authStore.isValid) return false;
@@ -102,7 +102,7 @@ class UsersRepository {
     }
   }
 
-  /// Aggiorna i dati anagrafici.
+  // Aggiorna i dati anagrafici
   Future<bool> updateProfile(String name, String surname) async {
     try {
       if (!pb.authStore.isValid) return false;
@@ -117,8 +117,8 @@ class UsersRepository {
     }
   }
 
-  /// Aggiorna la password ed effettua il re-login automatico.
-  /// PocketBase invalida il token quando la password cambia, quindi il re-auth è d'obbligo.
+  // Aggiorna la password ed effettua il re-login automatico
+  // PocketBase invalida il token quando la password cambia, quindi il re-auth è d'obbligo.
   Future<bool> updatePassword(String oldPassword, String newPassword) async {
     try {
       if (!pb.authStore.isValid) return false;
@@ -140,12 +140,12 @@ class UsersRepository {
     }
   }
 
-  /// Effettua il logout pulendo lo store e riportando l'utente al login
+  // Effettua il logout pulendo lo store e riportando l'utente al login
   void eseguiLogout(BuildContext context) {
     // 1. Pulisce il PocketBase authStore
     logout();
 
-    // 2. Navigazione: rimuove tutte le rotte e torna al Login
+    // 2. Rimuove tutte le rotte e torna al Login
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (context) => const AuthScreen()),
@@ -153,12 +153,12 @@ class UsersRepository {
     );
   }
 
-  /// Effettua il logout pulendo lo store
+  // Effettua il logout pulendo lo store
   void logout() {
     pb.authStore.clear();
   }
 
-  // In users_repo.dart
+  // Effettua il login e aggiorna la variabile globale isReady in scambio.dart
   Future<bool> login(String identity, String password) async {
     try {
       // PocketBase gestisce il token internamente: dopo questa chiamata,

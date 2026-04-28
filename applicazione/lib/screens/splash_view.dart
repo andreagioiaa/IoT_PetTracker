@@ -14,9 +14,7 @@ class SplashScreen extends StatefulWidget {
   final bool isAlreadyAuthenticated;
   const SplashScreen({super.key, required this.isAlreadyAuthenticated});
 
-  // --- FUNZIONE STATICA GLOBALE ---
-  // Raccoglie i dati in parallelo. Essendo "static", la pagina di Login
-  // può chiamare questa funzione senza mostrare la grafica della zampa!
+  // Funzione statica per preparare i dati necessari alla Home prima di navigare
   static Future<Map<String, dynamic>> preparaDatiPerHome() async {
     final usersRepo = UsersRepository();
     final positionsRepo = PositionsRepository(scambio.pb);
@@ -78,7 +76,7 @@ class _SplashScreenState extends State<SplashScreen>
   late AnimationController _controller;
   late Animation<double> _animation;
 
-  // Definiamo il tempo minimo in cui la zampa deve rimanere a schermo (in millisecondi)
+  // Definiamo il tempo minimo in cui il logo deve rimanere a schermo (in millisecondi)
   final int _tempoMinimoSplash = 2500;
 
   @override
@@ -115,7 +113,6 @@ class _SplashScreenState extends State<SplashScreen>
 
     // SCENARIO B: Utente Autenticato -> Scarichiamo i dati
     try {
-      // Usiamo la nostra nuova funzione!
       final datiHome = await SplashScreen.preparaDatiPerHome();
 
       await _attendiTempoRimanente(stopwatch);

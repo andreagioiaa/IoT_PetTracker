@@ -11,6 +11,7 @@ import './globals/app_state.dart';
 import "../repositories/positions_repo.dart";
 import "../repositories/geofences_repo.dart";
 
+// Schermata principale per la gestione delle Aree Sicure (Geofencing)
 enum ActiveCard { none, zone, user, pet }
 
 class GeofencingScreen extends StatefulWidget {
@@ -21,8 +22,13 @@ class GeofencingScreen extends StatefulWidget {
 }
 
 class _GeofencingScreenState extends State<GeofencingScreen> {
+  // Lista delle aree sicure salvate
   List<Map<String, dynamic>> savedPlaces = [];
+
+  // Stato di caricamento generale per la schermata
   bool isLoading = true;
+
+  // Variabili per la posizione dell'utente e dell'animale
   LatLng? _petLocation;
   StreamSubscription? _streamSubscription;
 
@@ -33,8 +39,6 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
 
   final ValueNotifier<ActiveCard> _activeCard =
       ValueNotifier<ActiveCard>(ActiveCard.none);
-
-    
 
   String _userAddress = "Rilevamento indirizzo in corso...";
   String _petAddress = "Rilevamento indirizzo in corso...";
@@ -52,9 +56,11 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     // Esegui un controllo iniziale
     _checkPermissionAtStartup();
 
+    // Carica le zone salvate e attiva la sottoscrizione alle posizioni
     _caricaZoneDalDatabase();
 
-    _positionsRepo.subscribeToPositions(); // Attiva la sottoscrizione
+    // Sottoscrizione in tempo reale alle posizioni dell'animale
+    _positionsRepo.subscribeToPositions();
     _streamSubscription =
         _positionsRepo.positionsStream.listen((nuovaPosizione) {
       if (mounted) {
@@ -69,6 +75,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     _avviaGeolocalizzazioneSePermessa();
   }
 
+  // Funzione per avviare la geolocalizzazione utente se i permessi sono già stati concessi
   Future<void> _avviaGeolocalizzazioneSePermessa() async {
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.always ||
@@ -113,6 +120,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     if (mounted) setState(() {});
   }
 
+  // Controllo iniziale dei permessi al caricamento della schermata
   Future<void> _checkPermissionAtStartup() async {
     LocationPermission permission = await Geolocator.checkPermission();
 
@@ -120,6 +128,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
         permission == LocationPermission.whileInUse);
   }
 
+  // Recupera la posizione iniziale dell'animale
   Future<void> _scaricaPosizioneInizialeAnimale() async {
     final posizione = await _positionsRepo.getLatestPosition();
 
@@ -138,6 +147,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     }
   }
 
+  // Funzione per caricare le zone dal database e gestire la selezione
   Future<void> _caricaZoneDalDatabase({String? forceSelectId}) async {
     setState(() => isLoading = true);
 
@@ -187,8 +197,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
         };
       }).toList();
 
-      // FIX ORDINAMENTO
-
+      // Ordina le zone: prima le attive, poi in ordine alfabetico
       nuoveZone.sort((a, b) {
         bool isActiveA = a['is_active'] ?? false;
         bool isActiveB = b['is_active'] ?? false;
@@ -243,6 +252,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     }
   }
 
+  // Funzione per risolvere l'indirizzo da coordinate e aggiornare lo stato
   Future<void> _resolveAddress(LatLng loc, bool isPet) async {
     setState(() {
       if (isPet)
@@ -270,6 +280,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     });
   }
 
+  // Funzione per attivare/disattivare una zona
   Future<void> _toggleZoneActiveStatus(String id, bool currentStatus) async {
     try {
       final newStatus = !currentStatus;
@@ -295,8 +306,10 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
 
   int? selectedPlaceIndex;
 
+  // Controller per la mappa
   final MapController _mapController = MapController();
 
+  // Controllers per i TextField del dialog di creazione/modifica area
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _streetController = TextEditingController();
   final TextEditingController _civicController = TextEditingController();
@@ -334,6 +347,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     }
   }
 
+  // Funzione per gestire la logica di aggiunta di una nuova area, con o senza GPS
   Future<void> _promptAddLocation() async {
     if (_myLocation == null) {
       _indirizzoPrecompilatoGps = "";
@@ -375,6 +389,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     }
   }
 
+  // Funzione per eseguire il reverse geocoding e mostrare il dialog di creazione area con i campi precompilati
   Future<void> _performReverseGeocodingAndShowDialog() async {
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text("Rilevamento indirizzo in corso..."),
@@ -456,6 +471,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
       return false;
     });
 
+    // Controlla se esiste già un'area con lo stesso indirizzo (considerando anche la distanza)
     if (isDuplicateLocation) {
       return {'error': "Esiste già un'Area in questo indirizzo!"};
     }
@@ -536,6 +552,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     }
   }
 
+  // Funzione per navigare all'editor della zona virtuale (geofence), passando i dati necessari
   Future<void> _navigateToPolygonEditor({
     String? placeId,
     Map<String, dynamic>? newZoneData,
@@ -563,6 +580,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     }
   }
 
+  // Funzione per mostrare il dialog di creazione/modifica area, con logica per precompilare i campi se viene dal GPS o se è in modalità modifica
   void _showPlaceDialog(
       {bool isEditing = false, int? editIndex, LatLng? gpsLocation}) {
     if (isEditing && editIndex != null) {
@@ -847,6 +865,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     );
   }
 
+  // Funzione per confermare l'eliminazione di un'area, con dialog di conferma e gestione della cancellazione dal database
   void _confirmDeleteCurrentPlace() {
     if (selectedPlaceIndex == null) return;
 
@@ -910,7 +929,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     var currentPlace = hasPlaces ? savedPlaces[selectedPlaceIndex!] : null;
     bool isCurrentPlaceActive = currentPlace?['is_active'] ?? false;
 
-    // Calcolo dinamico del centro iniziale per evitare l'Italia intera
+    // Calcolo dinamico del centro iniziale e dello zoom in base alla posizione dell'utente/animale
     LatLng initialCenter = const LatLng(41.8719, 12.5674);
     double initialZoom = 6.0;
 
@@ -975,6 +994,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
             ),
             children: [
               TileLayer(
+                // Cambia l'URL del tile layer in base alla modalità (satellite o standard)
                 urlTemplate: isSatelliteMap
                     ? 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}'
                     : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
@@ -1318,7 +1338,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                               alignment: Alignment.centerRight,
                               child: InkWell(
                                   onTap: () {
-                                    // PULIZIA: Deseleziona la zona se clicchi sulla "X" della sua card
+                                    // Deseleziona la zona se clicchi sulla "X" della sua card
                                     setState(() {
                                       selectedPlaceIndex = null;
                                     });
@@ -1469,6 +1489,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     );
   }
 
+  // Widget helper per le azioni rapide nella card dell'area, con icona, label e colore dinamici
   Widget _buildSmallAction(IconData icon, String label,
       {Color color = Colors.black45, required double scale}) {
     return Padding(

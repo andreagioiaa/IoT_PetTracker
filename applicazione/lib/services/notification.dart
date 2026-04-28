@@ -49,7 +49,7 @@ class NotificationService {
     }
 
     // 2. RICHIEDIAMO DIRETTAMENTE IL PERMESSO A FIREBASE
-    // Su Android 13+ farà apparire il pop-up, su Android 12 andrà avanti in automatico.
+    // Su Android 13+ farà apparire il pop-up, su Android 12 le salva ion automatico
     NotificationSettings settings = await _messaging.requestPermission(
       alert: true,
       badge: true,
@@ -66,7 +66,7 @@ class NotificationService {
     }
   }
 
-  /// Il Pop-Up personalizzato
+  /// Mostra un dialog personalizzato per spiegare all'utente perché servono le notifiche
   static Future<void> _mostraPopUpSpiegazione(BuildContext context) async {
     double screenHeight = MediaQuery.of(context).size.height;
     double scale = (screenHeight / 800).clamp(0.65, 1.2);
