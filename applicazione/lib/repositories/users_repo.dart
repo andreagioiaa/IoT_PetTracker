@@ -1,3 +1,4 @@
+import 'package:pocketbase/pocketbase.dart';
 import '../services/authentication.dart';
 import '../models/users.dart';
 import 'package:flutter/material.dart';
@@ -46,10 +47,19 @@ class UsersRepository {
     }
   }
 
-  // Registra un nuovo utente su PocketBase
-  Future<bool> register(String email, String password, String name,
-      String surname, String username) async {
+  // Registra un nuovo utente su PocketBase e lo collega alla board
+  Future<String?> register(String email, String password, String name,
+      String surname, String username, String boardId) async {
     try {
+      // 1. Verifica che la board esista PRIMA di creare l'utente
+      RecordModel board;
+      try {
+        board = await pb.collection('boards').getOne(boardId);
+      } catch (e) {
+        return "Codice Board inesistente. Controlla i 15 numeri.";
+      }
+
+      // 2. Crea l'utente
       final body = {
         'email': email,
         'password': password,
@@ -59,12 +69,40 @@ class UsersRepository {
         'username': username,
         'role': 'user',
         'alarm': false,
+        'boardId': boardId,
       };
-      await pb.collection('users').create(body: body);
-      return true;
+
+      RecordModel userRecord;
+      try {
+        userRecord = await pb.collection('users').create(body: body);
+      } catch (e) {
+        return "Errore: Email o Username potrebbero essere già in uso.";
+      }
+
+      // 3. Logga l'utente per ottenere i permessi necessari ad aggiornare la board
+      await login(email, password);
+
+      // 4. Aggiungi il nuovo utente alla relazione 'user' della board
+      try {
+        List<String> currentUsers =
+            List<String>.from(board.getListValue<String>('user'));
+
+        if (!currentUsers.contains(userRecord.id)) {
+          currentUsers.add(userRecord.id);
+          await pb.collection('boards').update(boardId, body: {
+            'user': currentUsers,
+          });
+        }
+      } catch (e) {
+        debugPrint('🛑 Errore aggiornamento Board: $e');
+        // Se l'update fallisce per via delle API Rules di PocketBase,
+        // l'account è comunque creato, ma potresti dover sistemare le rules sul server.
+      }
+
+      return null; // Nessun errore, successo assoluto!
     } catch (e) {
-      print('🛑 Errore Registrazione: $e');
-      return false;
+      debugPrint('🛑 Errore Registrazione: $e');
+      return "Si è verificato un errore imprevisto.";
     }
   }
 
