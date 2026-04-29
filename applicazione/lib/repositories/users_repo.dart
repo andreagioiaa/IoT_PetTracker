@@ -25,6 +25,49 @@ class UsersRepository {
     }
   }
 
+  /// Legge lo stato dell'allarme per la board associata all'utente
+  Future<bool> getAlarmFromBoard() async {
+    try {
+      if (!pb.authStore.isValid || pb.authStore.model == null) return false;
+      final userId = pb.authStore.model!.id;
+
+      // Poiché 'user' è un array (visto nello screenshot), usiamo l'operatore '~'
+      final record = await pb.collection('boards').getFirstListItem(
+        'user ~ "{:id}"',
+        query: {'id': userId},
+      );
+
+      return record.getBoolValue('alarm');
+    } catch (e) {
+      print('🚨 [users_repo]: Errore lettura allarme: $e');
+      return false;
+    }
+  }
+
+  /// Aggiorna lo stato dell'allarme sulla board
+  Future<bool> setBoardAlarm(bool value) async {
+    try {
+      if (!pb.authStore.isValid || pb.authStore.model == null) return false;
+      final userId = pb.authStore.model!.id;
+
+      // 1. Troviamo il record della board tramite l'utente
+      final record = await pb.collection('boards').getFirstListItem(
+        'user ~ "{:id}"',
+        query: {'id': userId},
+      );
+
+      // 2. Aggiorniamo il record specifico
+      await pb.collection('boards').update(record.id, body: {
+        'alarm': value,
+      });
+
+      return true;
+    } catch (e) {
+      print('🚨 [users_repo]: Errore aggiornamento allarme: $e');
+      return false;
+    }
+  }
+
   // Recupera la data di creazione della board
   Future<DateTime?> getBoardCreationDate() async {
     try {
@@ -48,63 +91,88 @@ class UsersRepository {
   }
 
   // Registra un nuovo utente su PocketBase e lo collega alla board
-  Future<String?> register(String email, String password, String name,
-      String surname, String username, String boardId) async {
+Future<String?> register(String email, String password, String name,
+    String surname, String username, String boardIdInput) async {
+  
+  String? createdUserId; // Variabile per il rollback in caso di errore
+
+  try {
+    final cleanBoardId = boardIdInput.trim();
+    if (cleanBoardId.isEmpty) return "Codice Board vuoto.";
+
+    // 1. VERIFICA BOARD (Public View Rule: id != "")
+    RecordModel board;
     try {
-      // 1. Verifica che la board esista PRIMA di creare l'utente
-      RecordModel board;
-      try {
-        board = await pb.collection('boards').getOne(boardId);
-      } catch (e) {
-        return "Codice Board inesistente. Controlla i 15 numeri.";
-      }
-
-      // 2. Crea l'utente
-      final body = {
-        'email': email,
-        'password': password,
-        'passwordConfirm': password,
-        'name': name,
-        'surname': surname,
-        'username': username,
-        'role': 'user',
-        'alarm': false,
-        'boardId': boardId,
-      };
-
-      RecordModel userRecord;
-      try {
-        userRecord = await pb.collection('users').create(body: body);
-      } catch (e) {
-        return "Errore: Email o Username potrebbero essere già in uso.";
-      }
-
-      // 3. Logga l'utente per ottenere i permessi necessari ad aggiornare la board
-      await login(email, password);
-
-      // 4. Aggiungi il nuovo utente alla relazione 'user' della board
-      try {
-        List<String> currentUsers =
-            List<String>.from(board.getListValue<String>('user'));
-
-        if (!currentUsers.contains(userRecord.id)) {
-          currentUsers.add(userRecord.id);
-          await pb.collection('boards').update(boardId, body: {
-            'user': currentUsers,
-          });
-        }
-      } catch (e) {
-        debugPrint('🛑 Errore aggiornamento Board: $e');
-        // Se l'update fallisce per via delle API Rules di PocketBase,
-        // l'account è comunque creato, ma potresti dover sistemare le rules sul server.
-      }
-
-      return null; // Nessun errore, successo assoluto!
+      // Usiamo getOne perché ora la View Rule è aperta e conosciamo l'ID
+      board = await pb.collection('boards').getOne(cleanBoardId);
+      print("[DEBUG] Board verificata: ${board.id}");
     } catch (e) {
-      debugPrint('🛑 Errore Registrazione: $e');
-      return "Si è verificato un errore imprevisto.";
+      print("[ERROR] Board non trovata o permessi mancanti: $e");
+      return "Codice Board inesistente o non accessibile.";
     }
+
+    // 2. CREAZIONE UTENTE
+    final userBody = {
+      'email': email,
+      'password': password,
+      'passwordConfirm': password,
+      'name': name,
+      'surname': surname,
+      'username': username,
+      'role': 'user',
+      'alarm': false,
+      'boardId': board.id, 
+    };
+
+    RecordModel userRecord;
+    try {
+      userRecord = await pb.collection('users').create(body: userBody);
+      createdUserId = userRecord.id;
+      print("[DEBUG] Utente creato con ID: $createdUserId");
+    } catch (e) {
+      return "Errore: Email o Username potrebbero essere già in uso.";
+    }
+
+    // 3. LOGIN (Necessario per l'autorizzazione all'update della board)
+    try {
+      await pb.collection('users').authWithPassword(email, password);
+      print("[DEBUG] Login effettuato con successo.");
+    } catch (e) {
+      // Se il login fallisce, eliminiamo l'utente per coerenza
+      await pb.collection('users').delete(createdUserId);
+      return "Errore critico durante l'autenticazione.";
+    }
+
+    // 4. AGGIORNAMENTO BOARD (Associazione Utente)
+    try {
+      // Verifichiamo la validità del token prima di procedere
+      if (!pb.authStore.isValid) throw Exception("Token non valido");
+
+      // Usiamo l'operatore '+' per aggiungere l'ID alla lista esistente senza sovrascriverla
+      // Questo richiede che la 'Update Rule' su PB sia @request.auth.id != ""
+      await pb.collection('boards').update(board.id, body: {
+        'user+': userRecord.id, 
+      });
+
+      print("[SUCCESS] Utente collegato correttamente alla board.");
+      return null; // Tutto completato con successo!
+
+    } catch (e) {
+      // 🛑 ROLLBACK: Se l'associazione fallisce, eliminiamo l'account
+      // "L'utente dev'essere eliminato, non deve continuare ad esistere sul DB"
+      if (createdUserId != null) {
+        await pb.collection('users').delete(createdUserId);
+        pb.authStore.clear(); // Puliamo la sessione fallita
+        print("[ROLLBACK] Utente eliminato per errore associazione board: $e");
+      }
+      return "Errore nell'attivazione della Board. Registrazione annullata.";
+    }
+
+  } catch (e) {
+    debugPrint('🛑 Errore Imprevisto in register: $e');
+    return "Si è verificato un errore imprevisto.";
   }
+}
 
   // Recupera i dati dell'utente corrente trasformandoli nel modello User
   Future<User?> getCurrentUser() async {

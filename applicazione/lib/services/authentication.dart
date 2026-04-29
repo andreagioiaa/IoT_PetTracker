@@ -17,7 +17,7 @@ const String tabella_activities = "activities";
 const String tabella_batteryData = "battery_data";
 const String tabella_boards = "boards";
 const String tabella_geofences = "geofences";
-const String tabella_positions = "positions_duplicate";
+const String tabella_positions = "positions";
 const String tabella_positions_duplicate = "positions_duplicate";
 
 // ==============================================

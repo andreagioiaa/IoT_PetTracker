@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'login.dart';
 import 'home.dart';
 import "../repositories/users_repo.dart";
@@ -23,6 +24,7 @@ class _SignInScreenState extends State<SignInScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPassController = TextEditingController();
+  final TextEditingController _boardIdController = TextEditingController();
 
   // --- LOGICA DI VALIDAZIONE AGGIORNATA ---
   String? _getValidationError() {
@@ -31,7 +33,8 @@ class _SignInScreenState extends State<SignInScreen> {
     final username = _usernameController.text.trim();
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
-    final confirmPass = _confirmPassController.text.trim(); // <-- Aggiunto
+    final confirmPass = _confirmPassController.text.trim();
+    final boardId = _boardIdController.text.trim();
 
     // 1. Controllo campi vuoti
     if (name.isEmpty ||
@@ -39,7 +42,8 @@ class _SignInScreenState extends State<SignInScreen> {
         username.isEmpty ||
         email.isEmpty ||
         password.isEmpty ||
-        confirmPass.isEmpty) {
+        confirmPass.isEmpty||
+        boardId.isEmpty) {
       return "Tutti i campi sono obbligatori.";
     }
 
@@ -61,7 +65,7 @@ class _SignInScreenState extends State<SignInScreen> {
     if (username.length < 6 || username.length > 15) {
       return "Lo username deve essere tra 6 e 15 caratteri.";
     }
-    // Solo lettere (minuscole/maiuscole), numeri e underscore. Niente spazi!
+    // Solo lettere (minuscole/maiuscole), numeri, underscore e niente spazi.
     final usernameRegex = RegExp(r'^[a-zA-Z0-9_]+$');
     if (!usernameRegex.hasMatch(username)) {
       return "Lo username può contenere solo lettere, numeri e underscore (_). Nessuno spazio.";
@@ -86,6 +90,12 @@ class _SignInScreenState extends State<SignInScreen> {
       return "Le password non coincidono.";
     }
 
+    // 7. Controllo Board ID: Esattamente 15 numeri
+    final boardIdRegex = RegExp(r'^\d{15}$');
+    if (!boardIdRegex.hasMatch(boardId)) {
+      return "Il codice Board deve essere composto esattamente da 15 numeri.";
+    }
+
     return null;
   }
 
@@ -107,23 +117,26 @@ class _SignInScreenState extends State<SignInScreen> {
       final username = _usernameController.text.trim();
       final email = _emailController.text.trim();
       final password = _passwordController.text.trim();
+      final boardId = _boardIdController.text.trim();
 
       // 2. Chiamata al Repository per la registrazione
-      bool success = await _usersRepo.register(
+      // MODIFICA: Ora è un String? e si chiama registrationError
+      String? registrationError = await _usersRepo.register(
         email,
         password,
         name,
         surname,
         username,
+        boardId,
       );
 
-      if (success) {
+      if (registrationError == null) {
         // 3. Login Automatico dopo la registrazione tramite Repository
         bool loggedIn = await _usersRepo.login(email, password);
 
         if (loggedIn) {
           if (!mounted) return;
-          _showSnackBar('Account creato! Benvenuto.', const Color(0xFF00C6B8));
+          _showSnackBar('Account creato e collegato alla Board!', const Color(0xFF00C6B8));
 
           // Pulizia controller per sicurezza
           _clearControllers();
@@ -135,7 +148,7 @@ class _SignInScreenState extends State<SignInScreen> {
                 builder: (context) => const PetTrackerNavigation()),
           );
         } else {
-          // Caso limite: registrazione ok ma login fallito, rimanda all'AuthScreen
+          // Registrazione OK, ma login fallito: rimanda all'AuthScreen
           if (!mounted) return;
           Navigator.pushReplacement(
             context,
@@ -143,12 +156,10 @@ class _SignInScreenState extends State<SignInScreen> {
           );
         }
       } else {
-        // Errore restituito dal server (es. dati duplicati)
-        _showSnackBar('Errore: Email o Username potrebbero essere già in uso.',
-            Colors.red);
+        // 4. Errore restituito dal server (es. dati duplicati o board inesistente)
+        _showSnackBar(registrationError, Colors.red);
       }
     } catch (e) {
-      // Gestione di eventuali eccezioni non previste
       _showSnackBar('Si è verificato un errore imprevisto: $e', Colors.red);
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -162,6 +173,7 @@ class _SignInScreenState extends State<SignInScreen> {
     _emailController.clear();
     _passwordController.clear();
     _confirmPassController.clear();
+    _boardIdController.clear();
   }
 
   void _showSnackBar(String message, Color color) {
@@ -182,6 +194,7 @@ class _SignInScreenState extends State<SignInScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPassController.dispose();
+    _boardIdController.dispose();
     super.dispose();
   }
 
@@ -299,7 +312,29 @@ class _SignInScreenState extends State<SignInScreen> {
                   Padding(
                     padding: const EdgeInsets.only(top: 8.0, left: 4.0),
                     child: Text(
-                      "Min. 8 caratteri: Maiuscola, Numero e Simbolo (es. @)",
+                      "Minimo 8 caratteri compresi di Maiuscola, Numero e Simbolo (es. @)",
+                      style: TextStyle(
+                          fontSize: 10 * scale, color: Colors.black38),
+                    ),
+                  ),
+
+                  SizedBox(height: 25 * scale),
+
+                  _buildTextField(
+                    _boardIdController,
+                    'Codice Board',
+                    Icons.memory_outlined, // Icona in tema con l'hardware
+                    scale,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly, // Permette solo numeri a tastiera
+                      LengthLimitingTextInputFormatter(15),   // Blocca la digitazione a 15 caratteri
+                    ],
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8.0, left: 4.0),
+                    child: Text(
+                      "Inserire esattamente 15 cifre numeriche",
                       style: TextStyle(
                           fontSize: 10 * scale, color: Colors.black38),
                     ),
@@ -371,7 +406,10 @@ class _SignInScreenState extends State<SignInScreen> {
 
   Widget _buildTextField(TextEditingController controller, String label,
       IconData icon, double scale,
-      {bool obscure = false, Widget? suffixIcon}) {
+      {bool obscure = false, 
+       Widget? suffixIcon, 
+       TextInputType? keyboardType,
+       List<TextInputFormatter>? inputFormatters}) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -386,6 +424,8 @@ class _SignInScreenState extends State<SignInScreen> {
       child: TextField(
         controller: controller,
         obscureText: obscure,
+        keyboardType: keyboardType,
+        inputFormatters: inputFormatters,
         decoration: InputDecoration(
           labelText: label,
           labelStyle: const TextStyle(color: Colors.black38, fontSize: 14),

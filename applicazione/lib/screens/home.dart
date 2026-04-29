@@ -540,6 +540,30 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
   }
 
   Future<void> _scaricaDatiIniziali() async {
+      // 1. Dati Utente
+      final user = await _usersRepo.getCurrentUser();
+      
+      // MODIFICA QUI: Chiamata alla nuova funzione di lettura
+      final statoAllarme = await _usersRepo.getAlarmFromBoard(); 
+
+      // 2. Dati Posizione
+      final tempoIniziale = await _positionsRepo.getLastTimestamp();
+      final zonaIniziale = await _calculateCurrentZone();
+
+      if (mounted) {
+        setState(() {
+          _displayUsername = user?.username ?? 'username';
+          // Aggiorniamo il ValueNotifier globale
+          isTrackingMode.value = statoAllarme; 
+          _ultimoAggiornamento = tempoIniziale;
+          _nomeZona = zonaIniziale;
+          _isLoading = false;
+        });
+      }
+  }
+
+  /* PRECEDENTE: non eliminarla, non si sa ancora se funziona la nuova
+  Future<void> _scaricaDatiIniziali() async {
     // 1. Dati Utente
     final user = await _usersRepo.getCurrentUser();
     final statoAllarme = await _usersRepo.getAlarmStatus();
@@ -557,7 +581,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
         _isLoading = false;
       });
     }
-  }
+  } */
 
   Future<String> _calculateCurrentZone() async {
     try {
@@ -754,14 +778,25 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
           Switch(
             value: isActive,
             activeColor: Colors.red,
+            // All'interno di _buildTrackingToggle -> Switch -> onChanged
             onChanged: (val) async {
+              // 1. Aggiornamento UI immediato (ottimistico)
               isTrackingMode.value = val;
-              bool successo = await _usersRepo.updateAlarm(val); //
+
+              // 2. Sincronizzazione con il database
+              bool successo = await _usersRepo.setBoardAlarm(val);
+
               if (!successo) {
+                // 3. Fallback in caso di errore
                 isTrackingMode.value = !val;
-                if (mounted)
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                      content: Text("Errore sincronizzazione allarme")));
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("Impossibile aggiornare l'allarme. Controlla la connessione. ⚠️"),
+                      backgroundColor: Colors.redAccent,
+                    ),
+                  );
+                }
               }
             },
           ),
