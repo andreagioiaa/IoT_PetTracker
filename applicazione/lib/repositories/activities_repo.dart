@@ -99,4 +99,46 @@ class ActivitiesRepository {
       return [];
     }
   }
+
+  /// Recupera l'ultimo stato ('s', 'p', 'n', ecc.) dell'attività più recente per la board
+  Future<String> getLatestActivityStatus(String boardId) async {
+    try {
+      // In getFirstListItem, il sort va inserito all'interno della mappa 'query'
+      final record = await _pb.collection('activities').getFirstListItem(
+            'board_id = "$boardId"',
+            query: {
+              'sort': '-created', // Ordina per data di creazione decrescente
+            },
+          );
+      
+      // Recuperiamo il valore del campo 'status'
+      return record.getStringValue('status');
+    } catch (e) {
+      // Se la collezione è vuota o il record non esiste, 
+      // restituiamo 'n' (normale) come fallback
+      print("⚠️ [activities_repo]: Nessuna attività trovata o errore: $e");
+      return 'n';
+    }
+  }
+
+  /// Sottoscrizione Real-time per monitorare i cambi di stato dell'attività
+  Future<void> subscribeToActivityUpdates(String boardId, Function(Map<String, dynamic>) onUpdate) async {
+    try {
+      // Ci iscriviamo ai cambiamenti della collezione filtrando per boardId
+      await _pb.collection('activities').subscribe("*", (e) {
+        if (e.record != null && e.record!.getStringValue('board_id') == boardId) {
+          onUpdate(e.record!.toJson());
+        }
+      });
+      print("📡 [activities_repo]: Sottoscrizione Real-time attività attiva");
+    } catch (e) {
+      print("🚨 [activities_repo]: Errore sottoscrizione: $e");
+    }
+  }
+
+  /// Rimuove la sottoscrizione alle attività
+  void unsubscribeFromActivities() {
+    _pb.collection('activities').unsubscribe("*");
+  }
+
 }

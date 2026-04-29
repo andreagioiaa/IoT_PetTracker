@@ -199,15 +199,17 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
 
   String? _currentBoardRecordId; // Salviamo l'ID interno di PocketBase
 
+  String _currentStatus = 'n'; // Variabile locale per lo stato attività (n, s, p)
+
   @override
   void initState() {
     super.initState();
-
-    // 1. Inizializzazione UI (Date e Calendario)
     _initializeDates();
-
-    // 2. Recupera la data di creazione della board per limitare il calendario (se fallisce, rimane la data di default del 2024)
     _recuperaDataCreazioneBoard();
+    
+    // Caricamento dati e attivazione ascoltatori
+    _scaricaDatiIniziali();
+    _attivaRealTimeStatus(); // Nuova funzione per la reattività dello status
 
     // 3. INIEZIONE DATI PRE-CARICATI (Dalla Splash)
     // Questo elimina il testo "Caricamento..." istantaneamente se i dati ci sono
@@ -311,12 +313,24 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     }
   }
 
+  // Sottoscrizione ai cambi di stato dell'attività
+  void _attivaRealTimeStatus() async {
+    final boardId = await _usersRepo.getBoardIdFromBoards();
+    if (boardId != null) {
+      await _activitiesRepo.subscribeToActivityUpdates(boardId, (data) {
+        if (mounted) {
+          setState(() {
+            _currentStatus = data['status'] ?? 'n';
+          });
+          debugPrint("📡 [HOME] Nuovo status ricevuto: $_currentStatus");
+        }
+      });
+    }
+  }
+
   @override
   void dispose() {
-    // 3. IMPORTANTISSIMO: Chiudere la sottoscrizione per evitare memory leak
-    if (_currentBoardRecordId != null) {
-      _usersRepo.unsubscribeFromBoard(_currentBoardRecordId!);
-    }
+    _activitiesRepo.unsubscribeFromActivities(); // Fondamentale disiscriversi!
     _streamSubscription?.cancel();
     _uiRefreshTimer?.cancel();
     super.dispose();
@@ -581,28 +595,40 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
       // 1. Recupero dati Utente (per il nome nel saluto)
       final user = await _usersRepo.getCurrentUser();
       
-      // 2. Recupero lo stato dell'allarme direttamente dalla Board associata
-      // Abbiamo spostato questa logica su 'boards' per coerenza col database 📡
+      // 2. RECUPERO ID BOARD (Essenziale per lo stato attività)
+      // Ci serve l'ID per sapere quale record di 'activities' monitorare
+      final boardId = await _usersRepo.getBoardIdFromBoards();
+
+      // 3. Recupero lo stato dell'allarme direttamente dalla Board
       final statoAllarme = await _usersRepo.getAlarmFromBoard(); 
 
-      // 3. Recupero dati iniziali di Posizione (Timestamp e Zona)
+      // 4. RECUPERO STATO OPERATIVO (Novità)
+      // Controlliamo se il cane è già in modalità ricerca (s/p)
+      String statusIniziale = 'n'; // Default: normale
+      if (boardId != null) {
+        statusIniziale = await _activitiesRepo.getLatestActivityStatus(boardId);
+      }
+
+      // 5. Recupero dati iniziali di Posizione (Timestamp e Zona)
       final tempoIniziale = await _positionsRepo.getLastTimestamp();
       final zonaIniziale = await _calculateCurrentZone();
 
       if (mounted) {
         setState(() {
-          // Aggiorniamo il nome visualizzato (fallback a 'Utente' se nullo)
+          // Aggiorniamo il nome visualizzato
           _displayUsername = user?.username ?? 'Utente';
           
-          // Sincronizziamo il ValueNotifier globale dell'allarme
-          // Questo farà cambiare correttamente il toggle nella UI
+          // Sincronizziamo il ValueNotifier globale dell'allarme (toggle)
           isTrackingMode.value = statoAllarme; 
           
-          // Aggiorniamo le informazioni temporali e geografiche
+          // AGGIORNIAMO LO STATO LOCALE (Blocca/Sblocca il toggle)
+          _currentStatus = statusIniziale;
+          
+          // Aggiorniamo le informazioni geografiche
           _ultimoAggiornamento = tempoIniziale;
           _nomeZona = zonaIniziale;
           
-          // Fermiamo il caricamento globale della dashboard
+          // Fermiamo il caricamento globale
           _isLoading = false;
         });
       }
@@ -613,7 +639,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
       }
     }
   }
-
+  
   /* PRECEDENTE: non eliminarla, non si sa ancora se funziona la nuova
   Future<void> _scaricaDatiIniziali() async {
     // 1. Dati Utente
@@ -796,57 +822,59 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
   }
 
   Widget _buildTrackingToggle(double scale, bool isActive) {
+    // BLOCCO CRITICO: Se l'allarme è OFF ma lo stato è 's' (search) o 'p' (sleep search)
+    // il tasto deve essere disabilitato (null nell'onChanged).
+    final bool isLocked = !isActive && (_currentStatus == 's' || _currentStatus == 'p');
+
     return Container(
-      padding:
-          EdgeInsets.symmetric(horizontal: 15 * scale, vertical: 5 * scale),
+      padding: EdgeInsets.symmetric(horizontal: 15 * scale, vertical: 5 * scale),
       decoration: BoxDecoration(
-          color: isActive
-              ? Colors.red.withOpacity(0.08)
-              : const Color(0xFF00C6B8).withOpacity(0.08),
+          color: isLocked 
+              ? Colors.grey.withOpacity(0.1) // Colore spento se bloccato
+              : (isActive ? Colors.red.withOpacity(0.08) : const Color(0xFF00C6B8).withOpacity(0.08)),
           borderRadius: BorderRadius.circular(15 * scale),
           border: Border.all(
-              color: isActive
-                  ? Colors.red.withOpacity(0.3)
-                  : const Color(0xFF00C6B8).withOpacity(0.3))),
+              color: isLocked 
+                  ? Colors.grey.withOpacity(0.3) 
+                  : (isActive ? Colors.red.withOpacity(0.3) : const Color(0xFF00C6B8).withOpacity(0.3)))),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Row(
             children: [
-              Icon(isActive ? Icons.verified_user : Icons.remove_moderator,
-                  color: isActive ? Colors.red : const Color(0xFF00C6B8),
+              Icon(
+                  isLocked ? Icons.lock_clock : (isActive ? Icons.verified_user : Icons.remove_moderator),
+                  color: isLocked ? Colors.grey : (isActive ? Colors.red : const Color(0xFF00C6B8)),
                   size: 24 * scale),
               SizedBox(width: 10 * scale),
-              Text(
-                  isActive
-                      ? "Allarme Antifuga ATTIVO"
-                      : "Allarme Antifuga SPENTO",
-                  style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14 * scale,
-                      color: isActive ? Colors.red : const Color(0xFF00C6B8))),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                      isActive ? "Allarme Antifuga ATTIVO" : "Allarme Antifuga SPENTO",
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14 * scale,
+                          color: isLocked ? Colors.grey : (isActive ? Colors.red : const Color(0xFF00C6B8)))),
+                  if (isLocked)
+                    Text("MODIFICA BLOCCATA: CANE FUORI ZONA", 
+                        style: TextStyle(fontSize: 10 * scale, color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                ],
+              ),
             ],
           ),
           Switch(
             value: isActive,
             activeColor: Colors.red,
-            // All'interno di _buildTrackingToggle -> Switch -> onChanged
-            onChanged: (val) async {
-              // 1. Aggiornamento UI immediato (ottimistico)
+            // Se isLocked è true, passiamo null a onChanged per disabilitare fisicamente lo Switch
+            onChanged: isLocked ? null : (val) async {
               isTrackingMode.value = val;
-
-              // 2. Sincronizzazione con il database
               bool successo = await _usersRepo.setBoardAlarm(val);
-
               if (!successo) {
-                // 3. Fallback in caso di errore
                 isTrackingMode.value = !val;
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Impossibile aggiornare l'allarme. Controlla la connessione. ⚠️"),
-                      backgroundColor: Colors.redAccent,
-                    ),
+                    const SnackBar(content: Text("Errore sincronizzazione allarme ⚠️")),
                   );
                 }
               }
