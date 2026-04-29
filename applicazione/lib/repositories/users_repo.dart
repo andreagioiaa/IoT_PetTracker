@@ -18,6 +18,7 @@ class UsersRepository {
             'user ~ "$userId"',
           );
 
+      
       return record.getStringValue('board');
     } catch (e) {
       debugPrint('🚨 Errore getBoardIdFromBoards: $e');
@@ -25,21 +26,20 @@ class UsersRepository {
     }
   }
 
-  /// Legge lo stato dell'allarme per la board associata all'utente
+  /// Legge lo stato dell'allarme dalla board associata all'utente
   Future<bool> getAlarmFromBoard() async {
     try {
       if (!pb.authStore.isValid || pb.authStore.model == null) return false;
       final userId = pb.authStore.model!.id;
 
-      // Poiché 'user' è un array (visto nello screenshot), usiamo l'operatore '~'
+      // Cerchiamo il record nella collezione 'boards' dove il campo 'user' contiene l'ID utente
       final record = await pb.collection('boards').getFirstListItem(
-        'user ~ "{:id}"',
-        query: {'id': userId},
+        'user ~ "$userId"',
       );
 
       return record.getBoolValue('alarm');
     } catch (e) {
-      print('🚨 [users_repo]: Errore lettura allarme: $e');
+      debugPrint('🚨 [users_repo]: Errore lettura allarme dalla board: $e');
       return false;
     }
   }
@@ -52,18 +52,19 @@ class UsersRepository {
 
       // 1. Troviamo il record della board tramite l'utente
       final record = await pb.collection('boards').getFirstListItem(
-        'user ~ "{:id}"',
-        query: {'id': userId},
+        'user ~ "$userId"',
       );
 
-      // 2. Aggiorniamo il record specifico
+      // 2. Aggiorniamo il campo 'alarm' su quel record specifico
       await pb.collection('boards').update(record.id, body: {
         'alarm': value,
       });
 
+      print("🚨 [user_repo] alarm DIVENTA: " + value.toString());
+
       return true;
     } catch (e) {
-      print('🚨 [users_repo]: Errore aggiornamento allarme: $e');
+      debugPrint('🚨 [users_repo]: Errore aggiornamento allarme sulla board: $e');
       return false;
     }
   }
