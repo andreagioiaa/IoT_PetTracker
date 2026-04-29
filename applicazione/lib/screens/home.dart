@@ -197,6 +197,8 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
   StreamSubscription? _streamSubscription;
   Timer? _uiRefreshTimer;
 
+  String? _currentBoardRecordId; // Salviamo l'ID interno di PocketBase
+
   @override
   void initState() {
     super.initState();
@@ -276,10 +278,45 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     _uiRefreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
       if (mounted) setState(() {});
     });
+  
+    _inizializzaRealTimeBoard();
+  }
+
+  Future<void> _inizializzaRealTimeBoard() async {
+    try {
+      if (!scambio.pb.authStore.isValid) return;
+      final userId = scambio.pb.authStore.model!.id;
+
+      // 1. Troviamo il record ID interno della board associata all'utente
+      final record = await scambio.pb.collection('boards').getFirstListItem(
+        'user ~ "$userId"',
+      );
+      
+      _currentBoardRecordId = record.id;
+
+      // 2. Avviamo la sottoscrizione real-time
+      await _usersRepo.subscribeToBoardUpdates(_currentBoardRecordId!, (data) {
+        final bool nuovoStatoAllarme = data['alarm'] ?? false;
+        
+        // Se lo stato sul DB è diverso da quello locale, aggiorniamo la UI
+        if (mounted && isTrackingMode.value != nuovoStatoAllarme) {
+          debugPrint("🔄 [HOME] Allarme aggiornato da un altro dispositivo: $nuovoStatoAllarme");
+          setState(() {
+            isTrackingMode.value = nuovoStatoAllarme;
+          });
+        }
+      });
+    } catch (e) {
+      debugPrint("🚨 [HOME] Errore inizializzazione Real-time: $e");
+    }
   }
 
   @override
   void dispose() {
+    // 3. IMPORTANTISSIMO: Chiudere la sottoscrizione per evitare memory leak
+    if (_currentBoardRecordId != null) {
+      _usersRepo.unsubscribeFromBoard(_currentBoardRecordId!);
+    }
     _streamSubscription?.cancel();
     _uiRefreshTimer?.cancel();
     super.dispose();

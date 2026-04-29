@@ -60,11 +60,11 @@ class UsersRepository {
         'alarm': value,
       });
 
-      print("🚨 [user_repo] alarm DIVENTA: " + value.toString());
+      print("🚨[user_repo] nuovo valore per \"alarm\" nella collection \"board\": " + value.toString());
 
       return true;
     } catch (e) {
-      debugPrint('🚨 [users_repo]: Errore aggiornamento allarme sulla board: $e');
+      debugPrint('🚨[users_repo]: Errore aggiornamento allarme sulla board: $e');
       return false;
     }
   }
@@ -283,5 +283,29 @@ Future<String?> register(String email, String password, String name,
       print('🚨 Errore Login Utente: $e');
       return false;
     }
+  }
+
+
+  /// Permette di sottoscriversi ai cambiamenti in tempo reale di una specifica board
+  /// Restituisce una funzione per annullare la sottoscrizione (unsubscribe)
+  Future<void> subscribeToBoardUpdates(String recordId, Function(Map<String, dynamic>) onUpdate) async {
+    try {
+      // Ci iscriviamo ai cambiamenti del record specifico nella collezione 'boards'
+      await pb.collection('boards').subscribe(recordId, (e) {
+        if (e.action == 'update' && e.record != null) {
+          // Passiamo i dati aggiornati alla callback
+          onUpdate(e.record!.toJson());
+        }
+      });
+      print("📡 [users_repo]: Sottoscrizione Real-time attiva per board: $recordId");
+    } catch (e) {
+      print("🚨 [users_repo]: Errore sottoscrizione Real-time: $e");
+    }
+  }
+
+  /// Utility per disiscriversi da un record specifico
+  void unsubscribeFromBoard(String recordId) {
+    pb.collection('boards').unsubscribe(recordId);
+    print("🔌 [users_repo]: Sottoscrizione rimossa per board: $recordId");
   }
 }
