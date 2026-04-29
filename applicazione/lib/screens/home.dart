@@ -540,26 +540,41 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
   }
 
   Future<void> _scaricaDatiIniziali() async {
-      // 1. Dati Utente
+    try {
+      // 1. Recupero dati Utente (per il nome nel saluto)
       final user = await _usersRepo.getCurrentUser();
       
-      // MODIFICA QUI: Chiamata alla nuova funzione di lettura
+      // 2. Recupero lo stato dell'allarme direttamente dalla Board associata
+      // Abbiamo spostato questa logica su 'boards' per coerenza col database 📡
       final statoAllarme = await _usersRepo.getAlarmFromBoard(); 
 
-      // 2. Dati Posizione
+      // 3. Recupero dati iniziali di Posizione (Timestamp e Zona)
       final tempoIniziale = await _positionsRepo.getLastTimestamp();
       final zonaIniziale = await _calculateCurrentZone();
 
       if (mounted) {
         setState(() {
-          _displayUsername = user?.username ?? 'username';
-          // Aggiorniamo il ValueNotifier globale
+          // Aggiorniamo il nome visualizzato (fallback a 'Utente' se nullo)
+          _displayUsername = user?.username ?? 'Utente';
+          
+          // Sincronizziamo il ValueNotifier globale dell'allarme
+          // Questo farà cambiare correttamente il toggle nella UI
           isTrackingMode.value = statoAllarme; 
+          
+          // Aggiorniamo le informazioni temporali e geografiche
           _ultimoAggiornamento = tempoIniziale;
           _nomeZona = zonaIniziale;
+          
+          // Fermiamo il caricamento globale della dashboard
           _isLoading = false;
         });
       }
+    } catch (e) {
+      debugPrint('🚨 [HOME] Errore durante il caricamento iniziale: $e');
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   /* PRECEDENTE: non eliminarla, non si sa ancora se funziona la nuova
