@@ -87,6 +87,7 @@ class PositionsRepository {
     }
   }
 
+  // Recupera la prima posizione legata a una specifica attività
   Future<Positions?> getFirstPositionForActivity(String activity) async {
     try {
       final result = await _pb.collection('positions').getFirstListItem(
@@ -96,6 +97,20 @@ class PositionsRepository {
     } catch (e) {
       // Se non ci sono posizioni per questa attività, ritorna null
       return null;
+    }
+  }
+
+  // Recupera TUTTE le posizioni legate a una specifica attività, ordinate per tempo
+  Future<List<Positions>> fetchPositionsForActivity(String activityId) async {
+    try {
+      final result = await _pb.collection('positions').getFullList(
+            filter: 'activity = "$activityId"', 
+            sort: 'timestamp',
+          );
+      return result.map((record) => Positions.fromRecord(record)).toList();
+    } catch (e) {
+      print('🛑 [PositionsRepository] Errore fetchPositionsForActivity: $e');
+      return [];
     }
   }
 }

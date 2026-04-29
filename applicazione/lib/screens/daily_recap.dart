@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:latlong2/latlong.dart';
 import '../repositories/activities_repo.dart';
-import '../repositories/positions_repo.dart';
 import '../services/authentication.dart' as scambio;
-import '../services/position_gps.dart';
 import '../repositories/users_repo.dart';
 import '../models/activities.dart';
+import 'activity_details.dart';
 
 class RecapScreen extends StatefulWidget {
   final DateTime dataSelezionata;
@@ -18,7 +16,6 @@ class RecapScreen extends StatefulWidget {
 
 class _RecapScreenState extends State<RecapScreen> {
   final ActivitiesRepository _activitiesRepo = ActivitiesRepository(scambio.pb);
-  final PositionsRepository _positionsRepo = PositionsRepository(scambio.pb);
   final UsersRepository _usersRepo = UsersRepository();
 
   bool _isLoading = true;
@@ -50,11 +47,8 @@ class _RecapScreenState extends State<RecapScreen> {
       final attivitaGrezze = await _activitiesRepo.fetchActivitiesByDate(
           boardId, widget.dataSelezionata);
 
-      // 2. Filtro: tengo solo quelle con status 's', 'w', 'i', 'v'
-      final statusValidi = ['s', 'w', 'i', 'v'];
-      var attivitaFiltrate = attivitaGrezze.where((act) {
-        return statusValidi.contains(act.status.toLowerCase());
-      }).toList();
+      // 2. Filtro centralizzato tramite il Repository delle attività utili da mostrare
+      var attivitaFiltrate = _activitiesRepo.filterValidActivities(attivitaGrezze);
 
       // 3. Ordinamento: Dalla più recente alla più vecchia
       attivitaFiltrate.sort((a, b) {
@@ -64,22 +58,11 @@ class _RecapScreenState extends State<RecapScreen> {
         return b.startTime!.compareTo(a.startTime!);
       });
 
-      // 4. CALCOLO DELLA ZONA PER LE ATTIVITA' CON STATUS 'i'
+      // 4. CALCOLO DEI TITOLI DELLE ATTIVITÀ
       for (var act in attivitaFiltrate) {
-        if (act.status.toLowerCase() == 'i') {
-          // Usa la chiave esterna per trovare la prima posizione di questa attività
-          final posizione = await _positionsRepo.getFirstPositionForActivity(act.id);
-          
-          if (posizione != null) {
-            // Calcola la zona passando LatLng al servizio GPS (che usa isPointInsidePolygon)
-            String nomeZona = await PositionGpsService.calcolaZonaDalPunto(
-              LatLng(posizione.lat, posizione.lon),
-            );
-            _nomiZoneCalcolate[act.id] = nomeZona;
-          } else {
-            _nomiZoneCalcolate[act.id] = "Zona sconosciuta";
-          }
-        }
+        // Ora il repo fa tutto il lavoro sporco per ogni stato!
+        String titolo = await _activitiesRepo.getActivityLabel(act);
+        _nomiZoneCalcolate[act.id] = titolo; 
       }
 
       if (mounted) {
@@ -96,39 +79,20 @@ class _RecapScreenState extends State<RecapScreen> {
 
   // Mappa di configurazione per UI (Testo, Colore, Icona)
   Map<String, dynamic> _getConfigForActivity(Activities attivita) {
+    // Ora la mappa contiene già il titolo perfetto per qualsiasi stato ('w', 'i', 's', ecc.)
+    String titolo = _nomiZoneCalcolate[attivita.id] ?? 'Sconosciuta';
+
     switch (attivita.status.toLowerCase()) {
       case 's':
-        return {
-          'titolo': 'Animale scappato',
-          'colore': Colors.red,
-          'icona': Icons.warning_amber_rounded
-        };
+        return {'titolo': titolo, 'colore': Colors.red, 'icona': Icons.warning_amber_rounded};
       case 'w':
-        return {
-          'titolo': 'In passeggiata',
-          'colore': const Color(0xFF00C6B8), // Teal principale
-          'icona': Icons.directions_walk
-        };
+        return {'titolo': titolo, 'colore': Colors.purple, 'icona': Icons.directions_walk};
       case 'i':
-        // Recupera il nome della zona calcolata nel ciclo for, se non c'è usa un fallback
-        String nomeZona = _nomiZoneCalcolate[attivita.id] ?? 'Nella zona';
-        return {
-          'titolo': nomeZona,
-          'colore': Colors.green,
-          'icona': Icons.home_rounded
-        };
+        return {'titolo': titolo, 'colore': Colors.green, 'icona': Icons.home_rounded};
       case 'v':
-        return {
-          'titolo': 'In veicolo',
-          'colore': Colors.blue,
-          'icona': Icons.directions_car
-        };
+        return {'titolo': titolo, 'colore': Colors.blue, 'icona': Icons.directions_car};
       default:
-        return {
-          'titolo': 'Sconosciuta',
-          'colore': Colors.grey,
-          'icona': Icons.help_outline
-        };
+        return {'titolo': titolo, 'colore': Colors.grey, 'icona': Icons.help_outline};
     }
   }
 
@@ -199,65 +163,81 @@ class _RecapScreenState extends State<RecapScreen> {
         ? formatOrario.format(attivita.endTime!)
         : "In corso";
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: colore.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icona, color: colore, size: 24),
+   return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ActivityDetailsScreen(
+              attivita: attivita,
+              titoloZona: titolo, // Passiamo il titolo (es. "Giardino") per l'AppBar
+              coloreStato: colore, // Passiamo il colore per la linea GPS
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    titolo,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Icon(Icons.access_time_rounded,
-                          size: 14, color: Colors.grey.shade500),
-                      const SizedBox(width: 6),
-                      Text(
-                        "$oraInizio - $oraFine",
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey.shade600,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+          ),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             ),
           ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: colore.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icona, color: colore, size: 24),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      titolo,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Icon(Icons.access_time_rounded,
+                            size: 14, color: Colors.grey.shade500),
+                        const SizedBox(width: 6),
+                        Text(
+                          "$oraInizio - $oraFine",
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey.shade600,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              // Aggiungiamo una piccola freccina per far capire che è cliccabile
+              const Icon(Icons.chevron_right, color: Colors.black26),
+            ],
+          ),
         ),
       ),
     );

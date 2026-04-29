@@ -1,4 +1,6 @@
 import 'package:pocketbase/pocketbase.dart';
+import 'package:latlong2/latlong.dart';
+import '../services/position_gps.dart';
 import '../models/activities.dart';
 
 class ActivitiesRepository {
@@ -139,6 +141,47 @@ class ActivitiesRepository {
   /// Rimuove la sottoscrizione alle attività
   void unsubscribeFromActivities() {
     _pb.collection('activities').unsubscribe("*");
+  }
+
+  /// Filtra una lista di attività mantenendo solo quelle da mostrare ('s', 'w', 'i', 'v')
+  List<Activities> filterValidActivities(List<Activities> attivitaGrezze) {
+    final statusValidi = ['s', 'w', 'i', 'v'];
+    return attivitaGrezze.where((act) {
+      return statusValidi.contains(act.status.toLowerCase());
+    }).toList();
+  }
+
+  /// Restituisce la stringa descrittiva dello stato dell'attività.
+  /// Se lo stato è 'i' (Inside), calcola e restituisce direttamente il nome della zona (es. "Giardino").
+  Future<String> getActivityLabel(Activities attivita) async {
+    switch (attivita.status.toLowerCase()) {
+      case 's':
+        return 'Animale scappato';
+      case 'w':
+        return 'In passeggiata';
+      case 'v':
+        return 'In veicolo';
+      case 'i':
+        try {
+          // Usa la chiave esterna per trovare la prima posizione di questa attività
+          final result = await _pb.collection('positions').getFirstListItem(
+                'activity = "${attivita.id}"',
+              );
+          
+          final lat = result.getDoubleValue('lat');
+          final lon = result.getDoubleValue('lon');
+          
+          // Calcola il nome della zona passando LatLng al servizio GPS
+          String nomeZona = await PositionGpsService.calcolaZonaDalPunto(
+            LatLng(lat, lon),
+          );
+          return nomeZona;
+        } catch (e) {
+          return 'Zona sconosciuta';
+        }
+      default:
+        return 'Sconosciuta';
+    }
   }
 
 }
