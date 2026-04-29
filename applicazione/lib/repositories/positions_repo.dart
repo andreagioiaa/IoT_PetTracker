@@ -86,4 +86,16 @@ class PositionsRepository {
       return [];
     }
   }
+
+  Future<Positions?> getFirstPositionForActivity(String activity) async {
+    try {
+      final result = await _pb.collection('positions').getFirstListItem(
+            'activity = "$activity"',
+          );
+      return Positions.fromRecord(result);
+    } catch (e) {
+      // Se non ci sono posizioni per questa attività, ritorna null
+      return null;
+    }
+  }
 }

@@ -8,6 +8,7 @@ class Activities {
   final DateTime? startTime;
   final DateTime? endTime;
   final bool isActive;
+  final String status;
 
   Activities({
     required this.id,
@@ -16,6 +17,7 @@ class Activities {
     this.startTime,
     this.endTime,
     required this.isActive,
+    required this.status,
   });
 
   // Crea un'istanza di Activities a partire da un RecordModel di PocketBase
@@ -32,6 +34,7 @@ class Activities {
           ? DateTime.parse(record.getStringValue('end_time')).toLocal()
           : null,
       isActive: record.getBoolValue('is_active'),
+      status: record.getStringValue('status'),
     );
   }
 
@@ -43,6 +46,7 @@ class Activities {
       'start_time': startTime?.toUtc().toIso8601String(),
       'end_time': endTime?.toUtc().toIso8601String(),
       'is_active': isActive,
+      'status': status,
     };
   }
 }
