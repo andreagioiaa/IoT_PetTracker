@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
 import 'package:intl/intl.dart';
+import 'package:latlong2/latlong.dart';
 import '../repositories/activities_repo.dart';
 import '../repositories/positions_repo.dart';
 import '../services/authentication.dart' as scambio;
-import "../repositories/users_repo.dart";
+import '../services/position_gps.dart';
+import '../repositories/users_repo.dart';
+import '../models/activities.dart';
 
 class RecapScreen extends StatefulWidget {
   final DateTime dataSelezionata;
@@ -19,109 +20,115 @@ class _RecapScreenState extends State<RecapScreen> {
   final ActivitiesRepository _activitiesRepo = ActivitiesRepository(scambio.pb);
   final PositionsRepository _positionsRepo = PositionsRepository(scambio.pb);
   final UsersRepository _usersRepo = UsersRepository();
-  final MapController _mapController = MapController();
 
   bool _isLoading = true;
-  List<LatLng> _routePoints = [];
-  Map<String, dynamic> _stats = {'steps': 0, 'km': "0.0", 'minutes': 0};
+  List<Activities> _listaAttivita = [];
+  
+  // Mappa per salvare i nomi delle zone calcolate. Chiave = activity.id, Valore = Nome Zona
+  final Map<String, String> _nomiZoneCalcolate = {};
 
   @override
   void initState() {
     super.initState();
-    _caricaDatiCompleti();
+    _caricaAttivitaGiornaliere();
   }
 
-  /// Funzione per adattare la telecamera al percorso trovato
-  void _fitBounds() {
-    if (_routePoints.isEmpty) return;
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Controllo critico: se c'è solo 1 punto, non usiamo fitCamera
-      if (_routePoints.length == 1) {
-        // Ci limitiamo a centrare la mappa sul punto con uno zoom fisso (es. 15.0)
-        _mapController.move(_routePoints.first, 15.0);
-      } else {
-        // Se ci sono più punti, calcoliamo i confini normalmente
-        final bounds = LatLngBounds.fromPoints(_routePoints);
-        _mapController.fitCamera(
-          CameraFit.bounds(
-            bounds: bounds,
-            padding: const EdgeInsets.all(50.0),
-          ),
-        );
-      }
-    });
-  }
-
-  Future<void> _caricaDatiCompleti() async {
+  Future<void> _caricaAttivitaGiornaliere() async {
     if (!mounted) return;
     setState(() => _isLoading = true);
 
     try {
-      // ⚠️ NOTA CRITICA: ID Board forzato per i test. Ricordati di renderlo dinamico.
-      String boardId = await _usersRepo.getBoardIdFromBoards() ?? "";
+      String? boardId = await _usersRepo.getBoardIdFromBoards();
 
-      if (boardId.isEmpty) {
-        print("⚠️[daily_recap]: Board ID non trovato, impossibile procedere.");
-        return; 
+      if (boardId == null || boardId.isEmpty) {
+        debugPrint("⚠️[daily_recap]: Board ID non trovato.");
+        if (mounted) setState(() => _isLoading = false);
+        return;
       }
 
-      // 1. Recupero Attività e calcolo statistiche
-      final attivita = await _activitiesRepo.fetchActivitiesByDate(
+      // 1. Recupero tutte le attività della giornata dal database
+      final attivitaGrezze = await _activitiesRepo.fetchActivitiesByDate(
           boardId, widget.dataSelezionata);
 
-      int passiTotali = 0;
-      Duration durataTotale = Duration.zero;
+      // 2. Filtro: tengo solo quelle con status 's', 'w', 'i', 'v'
+      final statusValidi = ['s', 'w', 'i', 'v'];
+      var attivitaFiltrate = attivitaGrezze.where((act) {
+        return statusValidi.contains(act.status.toLowerCase());
+      }).toList();
 
-      for (var act in attivita) {
-        passiTotali += act.totalSteps;
-        if (act.startTime != null) {
-          if (act.endTime != null) {
-            final diff = act.endTime!.difference(act.startTime!);
-            if (!diff.isNegative) durataTotale += diff;
-          } else if (act.isActive) {
-            // Gestione attività aperte nel passato o oggi
-            DateTime fineRef =
-                DateUtils.isSameDay(widget.dataSelezionata, DateTime.now())
-                    ? DateTime.now()
-                    : DateTime(
-                        widget.dataSelezionata.year,
-                        widget.dataSelezionata.month,
-                        widget.dataSelezionata.day,
-                        23,
-                        59,
-                        59);
-            final diff = fineRef.difference(act.startTime!);
-            if (!diff.isNegative) durataTotale += diff;
+      // 3. Ordinamento: Dalla più recente alla più vecchia
+      attivitaFiltrate.sort((a, b) {
+        if (a.startTime == null && b.startTime == null) return 0;
+        if (a.startTime == null) return 1;
+        if (b.startTime == null) return -1;
+        return b.startTime!.compareTo(a.startTime!);
+      });
+
+      // 4. CALCOLO DELLA ZONA PER LE ATTIVITA' CON STATUS 'i'
+      for (var act in attivitaFiltrate) {
+        if (act.status.toLowerCase() == 'i') {
+          // Usa la chiave esterna per trovare la prima posizione di questa attività
+          final posizione = await _positionsRepo.getFirstPositionForActivity(act.id);
+          
+          if (posizione != null) {
+            // Calcola la zona passando LatLng al servizio GPS (che usa isPointInsidePolygon)
+            String nomeZona = await PositionGpsService.calcolaZonaDalPunto(
+              LatLng(posizione.lat, posizione.lon),
+            );
+            _nomiZoneCalcolate[act.id] = nomeZona;
+          } else {
+            _nomiZoneCalcolate[act.id] = "Zona sconosciuta";
           }
         }
       }
 
-      // 2. Recupero Posizioni GPS
-      final posizioni =
-          await _positionsRepo.fetchPositionsByDate(widget.dataSelezionata);
-      print(
-          "📍 Punti GPS recuperati per il ${widget.dataSelezionata}: ${posizioni.length}");
-      final List<LatLng> points =
-          posizioni.map((p) => LatLng(p.lat, p.lon)).toList();
-
       if (mounted) {
         setState(() {
-          _stats = {
-            'steps': passiTotali,
-            'km': (passiTotali * 0.7 / 1000).toStringAsFixed(1),
-            'minutes': durataTotale.inMinutes,
-          };
-          _routePoints = points;
+          _listaAttivita = attivitaFiltrate;
           _isLoading = false;
         });
-
-        // Eseguiamo lo zoom se abbiamo dei punti
-        if (_routePoints.isNotEmpty) _fitBounds();
       }
     } catch (e) {
-      debugPrint("❌ Errore recap: $e");
+      debugPrint("❌ Errore caricamento note attività: $e");
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  // Mappa di configurazione per UI (Testo, Colore, Icona)
+  Map<String, dynamic> _getConfigForActivity(Activities attivita) {
+    switch (attivita.status.toLowerCase()) {
+      case 's':
+        return {
+          'titolo': 'Animale scappato',
+          'colore': Colors.red,
+          'icona': Icons.warning_amber_rounded
+        };
+      case 'w':
+        return {
+          'titolo': 'In passeggiata',
+          'colore': const Color(0xFF00C6B8), // Teal principale
+          'icona': Icons.directions_walk
+        };
+      case 'i':
+        // Recupera il nome della zona calcolata nel ciclo for, se non c'è usa un fallback
+        String nomeZona = _nomiZoneCalcolate[attivita.id] ?? 'Nella zona';
+        return {
+          'titolo': nomeZona,
+          'colore': Colors.green,
+          'icona': Icons.home_rounded
+        };
+      case 'v':
+        return {
+          'titolo': 'In veicolo',
+          'colore': Colors.blue,
+          'icona': Icons.directions_car
+        };
+      default:
+        return {
+          'titolo': 'Sconosciuta',
+          'colore': Colors.grey,
+          'icona': Icons.help_outline
+        };
     }
   }
 
@@ -129,96 +136,130 @@ class _RecapScreenState extends State<RecapScreen> {
   Widget build(BuildContext context) {
     String dataLabel =
         DateFormat('EEEE d MMMM', 'it_IT').format(widget.dataSelezionata);
+    dataLabel = dataLabel[0].toUpperCase() + dataLabel.substring(1);
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF7F8FA),
       appBar: AppBar(
-        title: Text("Recap $dataLabel"),
+        title: Text(
+          dataLabel,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+        ),
         backgroundColor: const Color(0xFFF7F8FA),
         elevation: 0,
+        centerTitle: true,
       ),
-      body: Column(
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xFF00C6B8)))
+          : _listaAttivita.isEmpty
+              ? _buildEmptyState()
+              : ListView.builder(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                  itemCount: _listaAttivita.length,
+                  itemBuilder: (context, index) {
+                    final attivita = _listaAttivita[index];
+                    return _buildNotaAttivita(attivita);
+                  },
+                ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _buildStatsHeader(),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: ClipRRect(
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(30)),
-                child: _buildMap(),
-              ),
-            ),
+          Icon(Icons.notes_rounded, size: 80, color: Colors.grey.shade300),
+          const SizedBox(height: 16),
+          const Text(
+            "Nessuna attività registrata\nin questa data.",
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 16, color: Colors.black45),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildStatsHeader() {
-    return Padding(
-      padding: const EdgeInsets.all(20.0),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 15)
-          ],
-        ),
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
+  Widget _buildNotaAttivita(Activities attivita) {
+    // Passiamo l'intero oggetto attività per poter leggere il suo ID
+    final config = _getConfigForActivity(attivita);
+    final String titolo = config['titolo'];
+    final Color colore = config['colore'];
+    final IconData icona = config['icona'];
+
+    final formatOrario = DateFormat('HH:mm');
+    String oraInizio = attivita.startTime != null
+        ? formatOrario.format(attivita.startTime!)
+        : "--:--";
+        
+    String oraFine = attivita.endTime != null
+        ? formatOrario.format(attivita.endTime!)
+        : "In corso";
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: colore.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icona, color: colore, size: 24),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildStat(
-                      "Passi", "${_stats['steps']}", Icons.pets, Colors.orange),
-                  _buildStat(
-                      "Km", "${_stats['km']}", Icons.straighten, Colors.blue),
-                  _buildStat("Minuti", "${_stats['minutes']}", Icons.timer,
-                      Colors.purple),
+                  Text(
+                    titolo,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Icon(Icons.access_time_rounded,
+                          size: 14, color: Colors.grey.shade500),
+                      const SizedBox(width: 6),
+                      Text(
+                        "$oraInizio - $oraFine",
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
-      ),
-    );
-  }
-
-  Widget _buildMap() {
-    return FlutterMap(
-      mapController: _mapController,
-      options: const MapOptions(
-        initialCenter: LatLng(45.941, 13.471), // Cormons default
-        initialZoom: 15.0,
-      ),
-      children: [
-        TileLayer(
-          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-          userAgentPackageName: 'com.pettracker.app',
+            ),
+          ],
         ),
-        if (_routePoints.isNotEmpty)
-          PolylineLayer(
-            polylines: [
-              Polyline(
-                points: _routePoints,
-                strokeWidth: 5.0,
-                color: const Color(0xFF00C6B8),
-              ),
-            ],
-          ),
-      ],
-    );
-  }
-
-  Widget _buildStat(String label, String value, IconData icon, Color color) {
-    return Column(
-      children: [
-        Icon(icon, color: color, size: 28),
-        const SizedBox(height: 8),
-        Text(value,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        Text(label,
-            style: const TextStyle(color: Colors.black38, fontSize: 12)),
-      ],
+      ),
     );
   }
 }
