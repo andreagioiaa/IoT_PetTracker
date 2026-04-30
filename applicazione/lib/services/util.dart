@@ -1,34 +1,52 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
-// ritorna l'orario corretto sulla base UTC del nostro DB PocketBase (ora è corretta e ultimata: NON TOCCARE!)
+// Calcola e correggere l'orario UTC
+DateTime? _correggiFusoOrario(DateTime? orario) {
+  if (orario == null) return null;
+
+  final oraLocale = DateTime.now();
+  DateTime dataReale = orario;
+
+  // Se il dato è nel futuro (es. -69 min) significa che è stato inviato in UTC e dobbiamo correggerlo
+  // Sottrae 2 ore per tornare all'orario reale della board
+  if (oraLocale.difference(orario).inMinutes < -30) {
+    dataReale = orario.subtract(const Duration(hours: 2));
+  }
+
+  return dataReale;
+}
+
+// Ritorna l'orario in formato relativo (es. "10 min fa", "Adesso")
 String formattaOra(DateTime? ultimoInvio) {
   if (ultimoInvio == null) return "N.D.";
 
+  final dataReale = _correggiFusoOrario(ultimoInvio)!;
   final oraLocale = DateTime.now();
-
-  // Se il dato è nel futuro (es. -69 min), sappiamo che Flutter ha aggiunto 2 ore di troppo.
-  // Sottraiamo 2 ore per tornare all'orario reale della board.
-  DateTime dataReale = ultimoInvio;
-  if (oraLocale.difference(ultimoInvio).inMinutes < -30) {
-    dataReale = ultimoInvio.subtract(const Duration(hours: 2));
-  }
-
   final differenza = oraLocale.difference(dataReale);
 
   if (differenza.isNegative) return "Adesso";
   if (differenza.inSeconds < 60) return "Adesso";
   if (differenza.inMinutes < 60) return "${differenza.inMinutes} min fa";
-  if (differenza.inHours < 24) return "${differenza.inHours} ore fa";
+  if (differenza.inHours < 24) return "${differenza.inHours} h fa";
 
   return "${dataReale.day}/${dataReale.month}/${dataReale.year}";
 }
 
-// ritorna le dimensioni di scale dello schermo
+// Ritorna l'orario in formato digitale esatto (es. "14:30")
+String formattaOrarioEsatto(DateTime? orario) {
+  final dataReale = _correggiFusoOrario(orario);
+  if (dataReale == null) return "--:--";
+  
+  return DateFormat('HH:mm').format(dataReale);
+}
+
+// Ritorna le dimensioni di scale dello schermo
 double dimensioniSchermo(BuildContext context){
   return (MediaQuery.of(context).size.height / 800).clamp(0.7, 1.2);
 }
 
-
+// Formatta i minuti in ore e minuti (es. 125 min -> "2h 5m")
 String formattaTempoMinuti(int minuti) {
   if (minuti == 0) return "0 min";
   if (minuti < 60) return "$minuti min";
@@ -71,8 +89,7 @@ funzione che torna un   Map<String, dynamic> _dailyStats = {
   }
 */
 
-// Aggiungi questo alla fine di util.dart (o dove preferisci)
-
+// Classe per calcolare le statistiche giornaliere (passi, km, minuti) da una lista di attività
 class DailyStats {
   // Singleton pattern
   static final DailyStats _instance = DailyStats._internal();
@@ -105,7 +122,7 @@ class DailyStats {
     _aggiornaValori(tempPassi, durataTotale);
   }
 
-  /// Calcola le statistiche da una SINGOLA attività (usato in activity_details.dart)
+  // Calcola le statistiche da una SINGOLA attività 
   void elaboraSingolaAttivita(dynamic attivita) {
     int tempPassi = attivita.totalSteps;
     Duration durata = Duration.zero;
@@ -120,7 +137,7 @@ class DailyStats {
     _aggiornaValori(tempPassi, durata);
   }
 
-  /// Metodo interno per centralizzare l'assegnazione
+  // Metodo interno per centralizzare l'assegnazione
   void _aggiornaValori(int passi, Duration durata) {
     passiTotali = passi;
     double calcoloKm = (passi * _moltiplicatorePassiKm) / 1000;
@@ -128,7 +145,7 @@ class DailyStats {
     minutiTotali = durata.inMinutes;
   }
 
-  /// Ritorna una mappa per compatibilità rapida
+  // Ritorna una mappa per compatibilità rapida
   Map<String, dynamic> toMap() {
     return {
       'steps': passiTotali,
@@ -136,4 +153,6 @@ class DailyStats {
       'minutes': minutiTotali,
     };
   }
+
+
 }

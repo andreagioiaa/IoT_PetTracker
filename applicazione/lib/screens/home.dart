@@ -794,7 +794,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
                           fontSize: 14 * scale,
                           color: isLocked ? Colors.grey : (isActive ? Colors.red : const Color(0xFF00C6B8)))),
                   if (isLocked)
-                    Text("MODIFICA BLOCCATA: CANE FUORI ZONA", 
+                    Text("MODIFICA BLOCCATA: CANE SCAPPATO", 
                         style: TextStyle(fontSize: 10 * scale, color: Colors.redAccent, fontWeight: FontWeight.bold)),
                 ],
               ),

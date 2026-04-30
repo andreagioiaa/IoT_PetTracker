@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../services/util.dart';
 import '../repositories/activities_repo.dart';
 import '../services/authentication.dart' as scambio;
 import '../repositories/users_repo.dart';
@@ -18,39 +19,86 @@ class _RecapScreenState extends State<RecapScreen> {
   final ActivitiesRepository _activitiesRepo = ActivitiesRepository(scambio.pb);
   final UsersRepository _usersRepo = UsersRepository();
 
+  // --- STATO DELLA PAGINA ---
   bool _isLoading = true;
   List<Activities> _listaAttivita = [];
-  
-  // Mappa per salvare i nomi delle zone calcolate. Chiave = activity.id, Valore = Nome Zona
   final Map<String, String> _nomiZoneCalcolate = {};
+  
+  // Memorizza il BoardID per il Real-Time
+  String? _boardId; 
+
+  // --- LOGICA FILTRI ---
+  final Map<String, String> _filtriDisponibili = {
+    's': 'Scappato',
+    'w': 'Passeggiate',
+    'i': 'Zone sicure',
+    'v': 'In viaggio'
+  };
+  
+  Set<String> _filtriAttivi = {'s', 'w', 'i', 'v'}; 
 
   @override
   void initState() {
     super.initState();
-    _caricaAttivitaGiornaliere();
+    _inizializzaPagina();
   }
+
+  // --- GESTIONE REAL-TIME ---
+  Future<void> _inizializzaPagina() async {
+    // 1. Carica le attività attuali
+    await _caricaAttivitaGiornaliere();
+    
+    // 2. Attiva l'ascoltatore in tempo reale se abbiamo trovato il Board ID
+    if (_boardId != null) {
+      _attivaRealTimeAttivita();
+    }
+  }
+
+  void _attivaRealTimeAttivita() async {
+    // Attivare subito il Real-Time, altrimenti dopo averlo recuperato durante il caricamento
+    await _activitiesRepo.subscribeToActivityUpdates(_boardId!, (data) {
+      // Se arriva un aggiornamento dal server ricarichiamo la lista
+      if (mounted) {
+        bool isOggi = DateUtils.isSameDay(widget.dataSelezionata, DateTime.now());
+        if (isOggi) {
+          debugPrint("📡 [daily_recap]: Aggiornamento Real-Time ricevuto. Ricarico la lista...");
+          _caricaAttivitaGiornaliere(); 
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    // Rimuove Real-Time quando si esce dalla pagina
+    _activitiesRepo.unsubscribeFromActivities();
+    super.dispose();
+  }
+  // -------------------------
 
   Future<void> _caricaAttivitaGiornaliere() async {
     if (!mounted) return;
-    setState(() => _isLoading = true);
+    
+    // Mostra il caricamento solo se la lista è vuota (primo avvio)
+    // Se è un aggiornamento Real-Time, aggiorna in background
+    if (_listaAttivita.isEmpty) {
+      setState(() => _isLoading = true);
+    }
 
     try {
-      String? boardId = await _usersRepo.getBoardIdFromBoards();
+      _boardId ??= await _usersRepo.getBoardIdFromBoards();
 
-      if (boardId == null || boardId.isEmpty) {
+      if (_boardId == null || _boardId!.isEmpty) {
         debugPrint("⚠️[daily_recap]: Board ID non trovato.");
         if (mounted) setState(() => _isLoading = false);
         return;
       }
 
-      // 1. Recupero tutte le attività della giornata dal database
       final attivitaGrezze = await _activitiesRepo.fetchActivitiesByDate(
-          boardId, widget.dataSelezionata);
+          _boardId!, widget.dataSelezionata);
 
-      // 2. Filtro centralizzato tramite il Repository delle attività utili da mostrare
       var attivitaFiltrate = _activitiesRepo.filterValidActivities(attivitaGrezze);
 
-      // 3. Ordinamento: Dalla più recente alla più vecchia
       attivitaFiltrate.sort((a, b) {
         if (a.startTime == null && b.startTime == null) return 0;
         if (a.startTime == null) return 1;
@@ -58,9 +106,7 @@ class _RecapScreenState extends State<RecapScreen> {
         return b.startTime!.compareTo(a.startTime!);
       });
 
-      // 4. CALCOLO DEI TITOLI DELLE ATTIVITÀ
       for (var act in attivitaFiltrate) {
-        // Ora il repo fa tutto il lavoro sporco per ogni stato!
         String titolo = await _activitiesRepo.getActivityLabel(act);
         _nomiZoneCalcolate[act.id] = titolo; 
       }
@@ -77,16 +123,15 @@ class _RecapScreenState extends State<RecapScreen> {
     }
   }
 
-  // Mappa di configurazione per UI (Testo, Colore, Icona)
+  // Restituisce titolo, colore e icona in base allo stato dell'attività
   Map<String, dynamic> _getConfigForActivity(Activities attivita) {
-    // Ora la mappa contiene già il titolo perfetto per qualsiasi stato ('w', 'i', 's', ecc.)
     String titolo = _nomiZoneCalcolate[attivita.id] ?? 'Sconosciuta';
 
     switch (attivita.status.toLowerCase()) {
       case 's':
         return {'titolo': titolo, 'colore': Colors.red, 'icona': Icons.warning_amber_rounded};
       case 'w':
-        return {'titolo': titolo, 'colore': Colors.purple, 'icona': Icons.directions_walk};
+        return {'titolo': titolo, 'colore': const Color(0xFF00C6B8), 'icona': Icons.directions_walk};
       case 'i':
         return {'titolo': titolo, 'colore': Colors.green, 'icona': Icons.home_rounded};
       case 'v':
@@ -98,89 +143,168 @@ class _RecapScreenState extends State<RecapScreen> {
 
   @override
   Widget build(BuildContext context) {
-    String dataLabel =
-        DateFormat('EEEE d MMMM', 'it_IT').format(widget.dataSelezionata);
+    String dataLabel = DateFormat('EEEE d MMMM', 'it_IT').format(widget.dataSelezionata);
     dataLabel = dataLabel[0].toUpperCase() + dataLabel.substring(1);
+
+    double scale = dimensioniSchermo(context);
+
+    List<Activities> attivitaDaMostrare = _listaAttivita.where((act) {
+      return _filtriAttivi.contains(act.status.toLowerCase());
+    }).toList();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FA),
       appBar: AppBar(
         title: Text(
           dataLabel,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18 * scale),
         ),
-        backgroundColor: const Color(0xFFF7F8FA),
+        backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
       ),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFF00C6B8)))
-          : _listaAttivita.isEmpty
-              ? _buildEmptyState()
-              : ListView.builder(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-                  itemCount: _listaAttivita.length,
-                  itemBuilder: (context, index) {
-                    final attivita = _listaAttivita[index];
-                    return _buildNotaAttivita(attivita);
-                  },
-                ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+      body: Column(
         children: [
-          Icon(Icons.notes_rounded, size: 80, color: Colors.grey.shade300),
-          const SizedBox(height: 16),
-          const Text(
-            "Nessuna attività registrata\nin questa data.",
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 16, color: Colors.black45),
+          _buildPannelloFiltri(scale),
+          
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator(color: Color(0xFF00C6B8)))
+                : _listaAttivita.isEmpty
+                    ? _buildEmptyState("Nessuna attività registrata\nin questa data.", scale)
+                    : attivitaDaMostrare.isEmpty
+                        ? _buildEmptyState("Nessuna attività corrisponde\nai filtri selezionati.", scale)
+                        : ListView.builder(
+                            padding: EdgeInsets.symmetric(horizontal: 16 * scale, vertical: 10 * scale),
+                            itemCount: attivitaDaMostrare.length,
+                            itemBuilder: (context, index) {
+                              final attivita = attivitaDaMostrare[index];
+                              return _buildNotaAttivita(attivita, scale);
+                            },
+                          ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildNotaAttivita(Activities attivita) {
-    // Passiamo l'intero oggetto attività per poter leggere il suo ID
+  Widget _buildPannelloFiltri(double scale) {
+    bool tutteAttive = _filtriAttivi.length == _filtriDisponibili.length;
+
+    return Container(
+      width: double.infinity,
+      color: Colors.white,
+      padding: EdgeInsets.only(bottom: 10 * scale),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.symmetric(horizontal: 16 * scale),
+        child: Row(
+          children: [
+            _buildSingoloFiltro(
+              etichetta: "Tutte", 
+              selezionato: tutteAttive, 
+              scale: scale,
+              onTap: (selezionato) {
+                setState(() {
+                  if (selezionato) {
+                    _filtriAttivi = Set.from(_filtriDisponibili.keys);
+                  } else {
+                    _filtriAttivi.clear();
+                  }
+                });
+              }
+            ),
+            
+            ..._filtriDisponibili.entries.map((entry) {
+              return _buildSingoloFiltro(
+                etichetta: entry.value,
+                selezionato: _filtriAttivi.contains(entry.key),
+                scale: scale,
+                onTap: (selezionato) {
+                  setState(() {
+                    if (selezionato) {
+                      _filtriAttivi.add(entry.key);
+                    } else {
+                      _filtriAttivi.remove(entry.key);
+                    }
+                  });
+                }
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSingoloFiltro({required String etichetta, required bool selezionato, required double scale, required Function(bool) onTap}) {
+    return Padding(
+      padding: EdgeInsets.only(right: 8 * scale),
+      child: FilterChip(
+        label: Text(etichetta, style: TextStyle(fontSize: 13 * scale, fontWeight: selezionato ? FontWeight.bold : FontWeight.normal)),
+        selected: selezionato,
+        onSelected: onTap,
+        selectedColor: const Color(0xFF00C6B8).withOpacity(0.15),
+        checkmarkColor: const Color(0xFF009B90),
+        backgroundColor: const Color(0xFFF7F8FA),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20 * scale),
+          side: BorderSide(
+            color: selezionato ? const Color(0xFF00C6B8) : Colors.grey.shade300,
+            width: 1.5,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(String messaggio, double scale) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.notes_rounded, size: 80 * scale, color: Colors.grey.shade300),
+          SizedBox(height: 16 * scale),
+          Text(
+            messaggio,
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 16 * scale, color: Colors.black45),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNotaAttivita(Activities attivita, double scale) {
     final config = _getConfigForActivity(attivita);
     final String titolo = config['titolo'];
     final Color colore = config['colore'];
     final IconData icona = config['icona'];
 
-    final formatOrario = DateFormat('HH:mm');
-    String oraInizio = attivita.startTime != null
-        ? formatOrario.format(attivita.startTime!)
-        : "--:--";
-        
+    // Formatta orari
+    String oraInizio = formattaOrarioEsatto(attivita.startTime);
     String oraFine = attivita.endTime != null
-        ? formatOrario.format(attivita.endTime!)
+        ? formattaOrarioEsatto(attivita.endTime)
         : "In corso";
 
-   return GestureDetector(
+    return GestureDetector(
       onTap: () {
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => ActivityDetailsScreen(
               attivita: attivita,
-              titoloZona: titolo, // Passiamo il titolo (es. "Giardino") per l'AppBar
-              coloreStato: colore, // Passiamo il colore per la linea GPS
+              titoloZona: titolo, 
+              coloreStato: colore, 
             ),
           ),
         );
       },
       child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
+        margin: EdgeInsets.only(bottom: 16 * scale),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(16 * scale),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.04),
@@ -190,41 +314,41 @@ class _RecapScreenState extends State<RecapScreen> {
           ],
         ),
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: EdgeInsets.all(16.0 * scale),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: EdgeInsets.all(12 * scale),
                 decoration: BoxDecoration(
                   color: colore.withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(icona, color: colore, size: 24),
+                child: Icon(icona, color: colore, size: 24 * scale),
               ),
-              const SizedBox(width: 16),
+              SizedBox(width: 16 * scale),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       titolo,
-                      style: const TextStyle(
-                        fontSize: 16,
+                      style: TextStyle(
+                        fontSize: 16 * scale,
                         fontWeight: FontWeight.bold,
                         color: Colors.black87,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    SizedBox(height: 6 * scale),
                     Row(
                       children: [
                         Icon(Icons.access_time_rounded,
-                            size: 14, color: Colors.grey.shade500),
-                        const SizedBox(width: 6),
+                            size: 14 * scale, color: Colors.grey.shade500),
+                        SizedBox(width: 6 * scale),
                         Text(
                           "$oraInizio - $oraFine",
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: 14 * scale,
                             color: Colors.grey.shade600,
                             fontWeight: FontWeight.w500,
                           ),
@@ -234,8 +358,7 @@ class _RecapScreenState extends State<RecapScreen> {
                   ],
                 ),
               ),
-              // Aggiungiamo una piccola freccina per far capire che è cliccabile
-              const Icon(Icons.chevron_right, color: Colors.black26),
+              Icon(Icons.chevron_right, color: Colors.black26, size: 24 * scale),
             ],
           ),
         ),

@@ -102,7 +102,7 @@ class ActivitiesRepository {
     }
   }
 
-  /// Recupera l'ultimo stato ('s', 'p', 'n', ecc.) dell'attività più recente per la board
+  /// Recupera l'ultimo stato dell'attività più recente per la board
   Future<String> getLatestActivityStatus(String boardId) async {
     try {
       // In getFirstListItem, il sort va inserito all'interno della mappa 'query'
@@ -160,7 +160,7 @@ class ActivitiesRepository {
       case 'w':
         return 'In passeggiata';
       case 'v':
-        return 'In veicolo';
+        return 'In viaggio';
       case 'i':
         try {
           // Usa la chiave esterna per trovare la prima posizione di questa attività
@@ -177,7 +177,7 @@ class ActivitiesRepository {
           );
           return nomeZona;
         } catch (e) {
-          return 'Zona sconosciuta';
+          return 'Zona sicura sconosciuta';
         }
       default:
         return 'Sconosciuta';
