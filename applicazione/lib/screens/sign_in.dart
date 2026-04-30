@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:pet_tracker/services/util.dart';
 import 'login.dart';
 import 'home.dart';
 import "../repositories/users_repo.dart";
@@ -201,7 +202,7 @@ class _SignInScreenState extends State<SignInScreen> {
   @override
   Widget build(BuildContext context) {
     double screenHeight = MediaQuery.of(context).size.height;
-    double scale = (screenHeight / 800).clamp(0.7, 1.1);
+    double scale = dimensioniSchermo(context);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FA),

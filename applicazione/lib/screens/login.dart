@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pet_tracker/services/util.dart';
 import 'home.dart';
 import 'sign_in.dart';
 import "../repositories/users_repo.dart";
@@ -89,7 +90,8 @@ class _AuthScreenState extends State<AuthScreen> {
   @override
   Widget build(BuildContext context) {
     double screenHeight = MediaQuery.of(context).size.height;
-    double scale = (screenHeight / 800).clamp(0.7, 1.1);
+    // double scale = (screenHeight / 800).clamp(0.7, 1.1);
+    double scale = dimensioniSchermo(context);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FA),

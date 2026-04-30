@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:pet_tracker/services/util.dart';
 import 'dart:async';
 import '../models/activities.dart';
 import '../repositories/positions_repo.dart';
@@ -138,8 +139,8 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    double scale = (MediaQuery.of(context).size.height / 800).clamp(0.7, 1.2);
-
+    double scale = dimensioniSchermo(context);
+    
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FA),
       appBar: AppBar(

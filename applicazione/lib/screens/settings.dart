@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:pet_tracker/services/util.dart';
 import '../services/authentication.dart' as scambio;
 import './globals/app_state.dart';
 import "../repositories/users_repo.dart";
@@ -84,8 +85,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    double screenHeight = MediaQuery.of(context).size.height;
-    double scale = (screenHeight / 800).clamp(0.7, 1.2);
+    double scale = dimensioniSchermo(context);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FA),

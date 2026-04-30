@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:pet_tracker/services/util.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_compass/flutter_compass.dart';
 import 'dart:async';
@@ -265,7 +266,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
   @override
   Widget build(BuildContext context) {
     double screenWidth = MediaQuery.of(context).size.width;
-    double scale = (screenWidth / 400).clamp(0.75, 1.1);
+    double scale = dimensioniSchermo(context);
     final isSmallScreen = screenWidth < 360;
 
     double compassRotation = 0.0;

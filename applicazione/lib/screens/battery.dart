@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pet_tracker/services/util.dart';
 import 'dart:math';
 import 'dart:async';
 import "../repositories/battery_data_repo.dart";
@@ -121,8 +122,7 @@ class _BatteryScreenState extends State<BatteryScreen>
     Widget centerWidget;
     double estimatedDays = 0.0;
 
-    double screenHeight = MediaQuery.of(context).size.height;
-    double scale = (screenHeight / 800).clamp(0.7, 1.2);
+    double scale = dimensioniSchermo(context);
 
     if (_isCharging) {
       // VISUALIZZAZIONE "IN CARICA"

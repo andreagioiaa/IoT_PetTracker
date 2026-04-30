@@ -655,8 +655,8 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
 
   @override
   Widget build(BuildContext context) {
+    double scale = dimensioniSchermo(context);
     double screenHeight = MediaQuery.of(context).size.height;
-    double scale = (screenHeight / 800).clamp(0.65, 1.2);
 
     return Scaffold(
       body: Stack(

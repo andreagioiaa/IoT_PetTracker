@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 String formattaUltimoAggiornamento(DateTime? ultimoInvio) {
   if (ultimoInvio == null) return "N.D.";
 
@@ -18,4 +20,9 @@ String formattaUltimoAggiornamento(DateTime? ultimoInvio) {
   if (differenza.inHours < 24) return "${differenza.inHours} ore fa";
 
   return "${dataReale.day}/${dataReale.month}/${dataReale.year}";
+}
+
+
+double dimensioniSchermo(BuildContext context){
+  return (MediaQuery.of(context).size.height / 800).clamp(0.7, 1.2);
 }
