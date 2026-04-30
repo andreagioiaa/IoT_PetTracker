@@ -252,7 +252,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
           });
         }
       } catch (e) {
-        debugPrint('❌ [HOME] Errore stream: $e');
+        debugPrint('❌ [home.dart] Errore stream: $e');
       }
     });
 
@@ -283,14 +283,14 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
         
         // Se lo stato sul DB è diverso da quello locale, aggiorniamo la UI
         if (mounted && isTrackingMode.value != nuovoStatoAllarme) {
-          debugPrint("🔄 [HOME] Allarme aggiornato da un altro dispositivo: $nuovoStatoAllarme");
+          debugPrint("🔄 [home.dart] Allarme aggiornato da un altro dispositivo: $nuovoStatoAllarme");
           setState(() {
             isTrackingMode.value = nuovoStatoAllarme;
           });
         }
       });
     } catch (e) {
-      debugPrint("🚨 [HOME] Errore inizializzazione Real-time: $e");
+      debugPrint("🚨 [home.dart] Errore inizializzazione Real-time: $e");
     }
   }
 
@@ -303,7 +303,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
           setState(() {
             _currentStatus = data['status'] ?? 'n';
           });
-          debugPrint("📡 [HOME] Nuovo status ricevuto: $_currentStatus");
+          debugPrint("📡 [home.dart] Nuovo status ricevuto: $_currentStatus");
         }
       });
     }
@@ -318,27 +318,14 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
   }
 
   void _elaboraAttivita(List<dynamic> attivita) {
-    int passiTotali = 0;
-    Duration durataTotale = Duration.zero;
-
-    for (var act in attivita) {
-      passiTotali += (act.totalSteps as int);
-      if (act.startTime != null && act.endTime != null) {
-        durataTotale += act.endTime!.difference(act.startTime!);
+      // --- MODIFICA QUI ---
+      DailyStats().elaboraListaAttivita(attivita);
+      
+      if(mounted){
+          setState((){
+              _dailyStats = DailyStats().toMap();
+          });
       }
-    }
-
-    double kmTotali = (passiTotali * 0.7) / 1000;
-
-    if (mounted) {
-      setState(() {
-        _dailyStats = {
-          'steps': passiTotali,
-          'km': kmTotali.toStringAsFixed(1),
-          'minutes': durataTotale.inMinutes,
-        };
-      });
-    }
   }
 
   // Variabile per la data attualmente visualizzata (inizialmente oggi)
@@ -499,51 +486,34 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     }
   }
 
+  // home.dart
+
   Future<void> _scaricaDatiAttivita(DateTime data) async {
-    // Usiamo la variabile specifica, non quella globale della pagina
     setState(() => _isActivityLoading = true);
 
     try {
-      // 1. Recuperiamo il boardId interrogando la collezione 'boards'
       final String? boardId = await _usersRepo.getBoardIdFromBoards();
 
       if (boardId == null || boardId.isEmpty) {
-        debugPrint(
-            "⚠️ Nessuna board trovata per questo account nella collezione 'boards'.");
+        debugPrint("⚠️ Nessuna board trovata per questo account nella collezione 'boards'.");
         if (mounted) setState(() => _isActivityLoading = false);
         return;
       }
 
-      // 2. Procediamo con il recupero delle attività usando l'ID trovato
-      final attivita =
-          await _activitiesRepo.fetchActivitiesByDate(boardId, data);
+      final attivita = await _activitiesRepo.fetchActivitiesByDate(boardId, data);
 
-      int passiTotali = 0;
-      Duration durataTotale = Duration.zero;
-
-      for (var act in attivita) {
-        passiTotali += act.totalSteps;
-        if (act.startTime != null && act.endTime != null) {
-          durataTotale += act.endTime!.difference(act.startTime!);
-        } else if (act.isActive && act.startTime != null) {
-          durataTotale += DateTime.now().difference(act.startTime!);
-        }
-      }
-
-      double kmTotali = (passiTotali * 0.7) / 1000;
+      // --- MODIFICA QUI: Uso l'oggetto centralizzato ---
+      DailyStats().elaboraListaAttivita(attivita);
 
       if (mounted) {
         setState(() {
-          _dailyStats = {
-            'steps': passiTotali,
-            'km': kmTotali.toStringAsFixed(1),
-            'minutes': durataTotale.inMinutes,
-          };
-          _isActivityLoading = false; // Fine caricamento specifico
+          // Aggiorno _dailyStats usando il toMap() per compatibilità con il resto della UI
+          _dailyStats = DailyStats().toMap();
+          _isActivityLoading = false; 
         });
       }
     } catch (e) {
-      debugPrint("❌ Errore scaricamento attività: $e");
+      debugPrint("❌ [home.dart] Errore scaricamento attività: $e");
       if (mounted) setState(() => _isActivityLoading = false);
     }
   }
@@ -554,20 +524,6 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
       setState(() {
         _minDataSelezionabile = dataCreazione;
       });
-    }
-  }
-
-  String _formattaTempo(int minutiTotali) {
-    if (minutiTotali == 0) return "0 min";
-    if (minutiTotali < 60) return "$minutiTotali min";
-
-    final int ore = minutiTotali ~/ 60; // Divide e prende solo l'intero
-    final int minuti = minutiTotali % 60; // Prende il resto (i minuti)
-
-    if (minuti == 0) {
-      return "${ore}h"; // Es: "2h"
-    } else {
-      return "${ore}h ${minuti}m"; // Es: "1h 30m"
     }
   }
 
@@ -1002,7 +958,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
                           Icons.straighten, Colors.blue, scale),
                       _buildCompactStat(
                           "Durata",
-                          _formattaTempo(_dailyStats['minutes']
+                          formattaTempoMinuti(_dailyStats['minutes']
                               as int), // Usa la nuova funzione
                           Icons.timer,
                           Colors.purple,

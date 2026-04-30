@@ -50,30 +50,15 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
   }
 
   void _calcolaStatistiche() {
-    // Calcolo Tempo
-    Duration durata = Duration.zero;
-    if (widget.attivita.startTime != null && widget.attivita.endTime != null) {
-      durata = widget.attivita.endTime!.difference(widget.attivita.startTime!);
-    } else if (widget.attivita.startTime != null) {
-      // Se l'attività è ancora in corso
-      durata = DateTime.now().difference(widget.attivita.startTime!);
-    }
-    
-    // Calcolo Passi e Km
-    _minutiTotali = durata.inMinutes;
-    _passiTotali = widget.attivita.totalSteps;
-    double km = (_passiTotali * 0.7) / 1000;
-    _kmTotali = km.toStringAsFixed(1);
+    DailyStats().elaboraSingolaAttivita(widget.attivita);
+
+    // Recupero i dati calcolati e li assegno alle variabili di stato della pagina
+    _passiTotali = DailyStats().passiTotali;
+    _kmTotali = DailyStats().kmTotali;
+    _minutiTotali = DailyStats().minutiTotali;
   }
 
-  String _formattaTempo(int minuti) {
-    if (minuti == 0) return "0 min";
-    if (minuti < 60) return "$minuti min";
-    final int ore = minuti ~/ 60;
-    final int minRestanti = minuti % 60;
-    if (minRestanti == 0) return "${ore}h";
-    return "${ore}h ${minRestanti}m";
-  }
+  
 
   Future<void> _caricaPercorso() async {
     final posizioni = await _positionsRepo.fetchPositionsForActivity(widget.attivita.id);
@@ -284,7 +269,7 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
                 children: [
                   _buildCompactStat("Passi", "$_passiTotali", Icons.pets, Colors.orange, scale),
                   _buildCompactStat("Km", _kmTotali, Icons.straighten, Colors.blue, scale),
-                  _buildCompactStat("Durata", _formattaTempo(_minutiTotali), Icons.timer, Colors.purple, scale),
+                  _buildCompactStat("Durata", formattaTempoMinuti(_minutiTotali), Icons.timer, Colors.purple, scale),
                 ],
               ),
             ),
