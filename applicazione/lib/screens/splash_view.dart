@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:latlong2/latlong.dart';
+import 'package:pet_tracker/models/activities.dart';
 import 'login.dart';
 import 'home.dart';
 import '../models/positions.dart';
@@ -41,8 +42,9 @@ class SplashScreen extends StatefulWidget {
       final activities = results[2];
 
       String zona = "Posizione sconosciuta";
+
       if (pos != null) {
-        zona = await geofenceRepo.getZoneForPoint(LatLng(pos.lat, pos.lon));
+        zona = await activitiesRepo.getActivityStatus(boardId);
       }
 
       return {

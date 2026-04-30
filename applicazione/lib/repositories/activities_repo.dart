@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:pocketbase/pocketbase.dart';
 import 'package:latlong2/latlong.dart';
 import '../services/position_gps.dart';
@@ -102,26 +103,35 @@ class ActivitiesRepository {
     }
   }
 
-  /// Recupera l'ultimo stato dell'attività più recente per la board
-  Future<String> getLatestActivityStatus(String boardId) async {
+  /// Recupera l'ultimo oggetto Activities completo per la board
+  /// Recupera l'ultimo oggetto Activities completo per la board
+  /// Recupera l'ultimo oggetto Activities completo per la board
+  Future<Activities?> getLastActivity(String boardId) async {
     try {
-      // In getFirstListItem, il sort va inserito all'interno della mappa 'query'
-      final record = await _pb.collection('activities').getFirstListItem(
-            'board_id = "$boardId"',
-            query: {
-              'sort': '-created', // Ordina per data di creazione decrescente
-            },
+      // 1. Usiamo getList: qui 'sort', 'page' e 'perPage' sono parametri definiti.
+      // 2. Ordiniamo per '-start_time' per avere la più recente (visto nello screenshot).
+      final result = await _pb.collection('activities').getList(
+            page: 1,
+            perPage: 1,
+            filter: 'board_id = "$boardId"',
+            sort: '-start_time', 
           );
       
-      // Recuperiamo il valore del campo 'status'
-      return record.getStringValue('status');
+      // 3. Verifichiamo se la lista contiene almeno un elemento
+      if (result.items.isNotEmpty) {
+        return Activities.fromRecord(result.items.first);
+      }
+      
+      print("⚠️ [activities_repo]: Nessuna attività trovata per board $boardId.");
+      return null;
     } catch (e) {
-      // Se la collezione è vuota o il record non esiste, 
-      // restituiamo 'n' (normale) come fallback
-      print("⚠️ [activities_repo]: Nessuna attività trovata o errore: $e");
-      return 'n';
+      print("🚨 [activities_repo]: Errore critico in getLastActivity: $e");
+      return null;
     }
   }
+  
+
+  
 
   /// Sottoscrizione Real-time per monitorare i cambi di stato dell'attività
   Future<void> subscribeToActivityUpdates(String boardId, Function(Map<String, dynamic>) onUpdate) async {
@@ -154,6 +164,7 @@ class ActivitiesRepository {
   /// Restituisce la stringa descrittiva dello stato dell'attività.
   /// Se lo stato è 'i' (Inside), calcola e restituisce direttamente il nome della zona (es. "Giardino").
   Future<String> getActivityLabel(Activities attivita) async {
+    print("[activities_repo]: tento di prendere l'ActivityLabel dell'ultima attività");
     switch (attivita.status.toLowerCase()) {
       case 's':
         return 'Animale scappato';
@@ -161,6 +172,8 @@ class ActivitiesRepository {
         return 'In passeggiata';
       case 'v':
         return 'In viaggio';
+      case 'a':
+        return "Sleep: in viaggio";
       case 'i':
         try {
           // Usa la chiave esterna per trovare la prima posizione di questa attività
@@ -184,4 +197,85 @@ class ActivitiesRepository {
     }
   }
 
+
+  /*
+  /// Recupera l'etichetta di stato dell'attività più recente.
+  /// Combina il recupero dell'attività e la decodifica della sua zona/etichetta.
+  Future<String> getActivityStatus(String boardId) async {
+    try {
+      // 1. Recuperiamo l'ultima attività in modo asincrono.
+      // Usiamo 'this.' in modo esplicito (opzionale ma chiaro) per chiamare un metodo della stessa classe.
+      final Activities? ultimaAttivita = await this.getLastActivity(boardId);
+
+      // 2. Barriera di sicurezza (Null Safety): se l'attività non esiste o c'è stato un errore
+      if (ultimaAttivita == null) {
+        print("⚠️ [activities_repo]: Nessuna attività trovata per la board $boardId.");
+        return 'Nessuna attività'; // Fallback da mostrare nella UI
+      }
+
+      // 3. Se arriviamo qui, 'ultimaAttivita' esiste ed è un oggetto concreto.
+      // Passiamo l'oggetto a getActivityLabel e attendiamo la decodifica (che potrebbe richiedere il GPS).
+      final String etichetta = await this.getActivityLabel(ultimaAttivita);
+      
+      return etichetta;
+      
+    } catch (e) {
+      // Gestione di eventuali eccezioni non previste durante il flusso
+      print("🚨 [activities_repo]: Errore critico in getActivityStatus: $e");
+      return 'Stato sconosciuto'; // Fallback per la UI in caso di errore di sistema
+    }
+  }*/
+
+  /// Recupera l'etichetta testuale (es. "In viaggio", "Giardino") dell'ultima attività
+  Future<String> getActivityStatus(String boardId) async {
+    try {
+      // Richiamiamo la funzione che abbiamo appena corretto
+      final Activities? ultimaAttivita = await getLastActivity(boardId);
+
+      if (ultimaAttivita == null) {
+        return 'Nessuna attività';
+      }
+
+      // Passiamo l'oggetto reale a getActivityLabel per la decodifica
+      return await getActivityLabel(ultimaAttivita);
+    } catch (e) {
+      print("🚨 [activities_repo]: Errore in getActivityStatus: $e");
+      return 'Stato sconosciuto';
+    }
+  }
+  
+
+  // Restituisce titolo, colore e icona in base allo stato dell'attività
+  Map<String, dynamic> getConfigForActivity(Activities attivita, String titolo) {
+    switch (attivita.status.toLowerCase()) {
+      case 's':
+        return {'titolo': titolo, 'colore': Colors.red, 'icona': Icons.warning_amber_rounded};
+      case 'w':
+        return {'titolo': titolo, 'colore': const Color(0xFF00C6B8), 'icona': Icons.directions_walk};
+      case 'i':
+        return {'titolo': titolo, 'colore': Colors.green, 'icona': Icons.home_rounded};
+      case 'v':
+        return {'titolo': titolo, 'colore': Colors.blue, 'icona': Icons.directions_car};
+      default:
+        return {'titolo': titolo, 'colore': Colors.grey, 'icona': Icons.help_outline};
+    }
+  }
+
+  Future<String> getLatestActivityStatus(String boardId) async {
+    try {
+      final result = await _pb.collection('activities').getList(
+            page: 1,
+            perPage: 1,
+            filter: 'board_id = "$boardId"',
+            sort: '-start_time',
+          );
+      
+      if (result.items.isNotEmpty) {
+        return result.items.first.getStringValue('status');
+      }
+      return 'n'; 
+    } catch (e) {
+      return 'n';
+    }
+  }
 }

@@ -241,9 +241,10 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     _streamSubscription =
         _positionsRepo.positionsStream.listen((nuovaPos) async {
       try {
-        // Usiamo il metodo del repository per mantenere pulita la UI
-        String nuovaZona = await PositionGpsService.calcolaZonaDalPunto(
-            LatLng(nuovaPos.lat, nuovaPos.lon));
+        // RIPULITO: Non interroghiamo più il GPS puro ignorando lo stato dell'animale.
+        // Utilizziamo la funzione unificata _calculateCurrentZone().
+        String nuovaZona = await _calculateCurrentZone();
+        
         if (mounted) {
           setState(() {
             _ultimoAggiornamento = nuovaPos.timestamp;
@@ -545,7 +546,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
       if (boardId != null) {
         statusIniziale = await _activitiesRepo.getLatestActivityStatus(boardId);
       }
-
+      
       // 5. Recupero dati iniziali di Posizione (Timestamp e Zona)
       final tempoIniziale = await _positionsRepo.getLastTimestamp();
       final zonaIniziale = await _calculateCurrentZone();
@@ -600,11 +601,16 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
 
   Future<String> _calculateCurrentZone() async {
     try {
-      final pos = await _positionsRepo.getLatestPosition();
-      if (pos == null) return "Posizione sconosciuta";
-      return await PositionGpsService.calcolaZonaDalPunto(
-          LatLng(pos.lat, pos.lon));
+      // 1. Recuperiamo il boardId
+      final boardId = await _usersRepo.getBoardIdFromBoards();
+      if (boardId == null) return "Errore: Nessuna board";
+      
+      // 2. Invece di calcolare il GPS puro, chiediamo al repository 
+      // qual è l'etichetta corretta in base all'ATTIVITA' CORRENTE.
+      // Questo invocherà la nostra nuova funzione sicura!
+      return await _activitiesRepo.getActivityStatus(boardId);
     } catch (e) {
+      debugPrint("❌ Errore in _calculateCurrentZone: $e");
       return "Errore rilevamento";
     }
   }
