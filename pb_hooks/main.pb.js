@@ -49,105 +49,104 @@ onRecordAfterCreateSuccess((e) => {
         } catch (err) { console.log("-> battery_data ERRORE: " + err); }
 
         // ── 2. ACTIVITY ──────────────────────────────────────────────────────
-        // Strategia di ricerca:
-        //   1. Prima cerca un'activity is_active=true (stato attivo o trip-sleep "a")
-        //   2. Se non trovata, cerca l'ultima chiusa (is_active=false) — potrebbe
-        //      essere un risveglio da sleep (d/p/z) o un dedup per micro-gap
-        //
-        // CASISTICHE:
-        //   A. Stesso stato, sveglio          → aggiorna end_time + steps
-        //   B. Sleep, stesso stato             → is_active=false, status→sleep
-        //   C. Sleep, trip                     → is_active=true, status→"a"
-        //   D. Sveglio, era in sleep, uguale   → riattiva stessa activity (no nuova)
-        //   E. Sveglio, era in sleep, diverso  → chiudi con stato attivo, apri nuova
-        //   F. Sveglio, stato diverso attivo   → chiudi vecchia, apri nuova
+        // activeActivity è valorizzata in tutti i path così la sezione
+        // posizioni può sempre legarla correttamente.
         let activeActivity = null;
 
         try {
-            // ── Cerca activity corrente: prima attiva, poi ultima chiusa ─────
+            // Recupera l'activity attiva corrente (se esiste)
             const activeList = e.app.findRecordsByFilter(
                 "activities", "board_id = {:id} && is_active = true", "-id", 1, 0, { id: boardId }
+                //"activities", "board_id = {:id}", "-end_time", 1, 0, { id: boardId }
             );
-            let currentActivity   = activeList.length > 0 ? activeList[0] : null;
-            let currentIsFromSleep = false; // flag: currentActivity proviene da sessione sleep chiusa
+            let currentActivity = activeList.length > 0 ? activeList[0] : null;
+            console.log(`[currentActivity] ` + currentActivity);
 
-            if (!currentActivity) {
-                // Nessuna attiva: cerca l'ultima chiusa (potrebbe essere sleep o dedup)
-                const closedList = e.app.findRecordsByFilter(
-                    "activities", "board_id = {:id} && is_active = false", "-end_time", 1, 0, { id: boardId }
-                );
-                if (closedList.length > 0) {
-                    currentActivity    = closedList[0];
-                    currentIsFromSleep = true;
-                }
-            }
+            // Status precedente (attivo o sleep)
+            const prevStatus = currentActivity ? currentActivity.getString("status") : null;
+            console.log(`[STATUS] ` + prevStatus);
 
-            const prevStatus     = currentActivity ? currentActivity.getString("status") : null;
-            const isCurSleep     = prevStatus ? utils.SLEEP_STATES.has(prevStatus) : false;
-            const curActiveStatus = (prevStatus && isCurSleep)
-                ? (utils.SLEEP_TO_ACTIVE[prevStatus] ?? prevStatus)
-                : prevStatus;
-
-            // Calcola nuovo status attivo (priorità: trip → inside → alarm)
+            // ── CALCOLA NUOVO STATUS ─────────────────────────────────────────
+            // computeStatus gestisce internamente trip, inside e alarm.
+            // Viene chiamato sia per sleep che per sveglio: in caso di sleep
+            // il risultato attivo viene poi convertito in sleep.
             const newActiveStatus = utils.computeStatus(
                 e.app, boardId, lat, lon, trip, steps, prevStatus
             );
 
-            console.log(`[STATUS] prev="${prevStatus}" curActive="${curActiveStatus}" new="${newActiveStatus}" sleep=${sleep} fromSleep=${currentIsFromSleep}`);
-
-            // ════════════════════════════════════════════════════════════════
-            // CASO SLEEP
-            // ════════════════════════════════════════════════════════════════
+            // ── CASO SLEEP ───────────────────────────────────────────────────
             if (sleep) {
                 const sleepStatus = utils.ACTIVE_TO_SLEEP[newActiveStatus] ?? "z";
+
+                // Caso speciale: trip-sleep (animale sul veicolo che dorme).
+                // La sessione rimane is_active=true in modo da continuare a
+                // ricevere posizioni GPS; cambiamo solo lo status in "a".
                 const isTripSleep = newActiveStatus === "v";
 
-                if (currentActivity && !currentIsFromSleep) {
-                    // Activity attiva presente
+                if (currentActivity) {
+                    const curStatus = currentActivity.getString("status");
+
                     if (isTripSleep) {
-                        // CASO C: trip-sleep → rimane is_active=true con status "a"
-                        if (prevStatus !== "a") {
+                        // Aggiorna status → "a" solo se non lo era già
+                        if (curStatus !== "a") {
                             currentActivity.set("status",   "a");
                             currentActivity.set("end_time", timestamp);
                             e.app.save(currentActivity);
                             console.log(`[SLEEP+TRIP] board=${boardId} status → "a"`);
                         } else {
+                            // Già in trip-sleep: aggiorna solo end_time
                             currentActivity.set("end_time", timestamp);
                             e.app.save(currentActivity);
                         }
-                        activeActivity = currentActivity;
+                        activeActivity = currentActivity; // mantieni per posizioni
                     } else {
-                        // CASO B: sleep normale → chiudi con status sleep
+                        // Sleep normale: chiudi l'activity attiva
+                        // NON azzeriamo activeActivity così la posizione viene
+                        // comunque salvata con il riferimento alla sessione chiusa.
                         currentActivity.set("is_active", false);
                         currentActivity.set("end_time",  timestamp);
                         currentActivity.set("status",    sleepStatus);
                         e.app.save(currentActivity);
-                        activeActivity = currentActivity; // mantieni ref per posizioni
-                        console.log(`[SLEEP] board=${boardId} chiusa | status="${sleepStatus}"`);
+                        activeActivity = currentActivity;
+                        console.log(`[SLEEP] board=${boardId} activity chiusa | status="${sleepStatus}"`);
                     }
                 } else {
-                    // Nessuna activity attiva: in sleep non creiamo nulla
+                    // Nessuna activity attiva in sleep: non creiamo nulla,
+                    // ma teniamo activeActivity=null (nessuna posizione da salvare).
                     console.log(`[SLEEP] board=${boardId} nessuna activity attiva, skip`);
                 }
-
-            // ════════════════════════════════════════════════════════════════
-            // CASO SVEGLIO
-            // ════════════════════════════════════════════════════════════════
+            // ── CASO SVEGLIO ─────────────────────────────────────────────────
             } else {
-                if (currentActivity && !currentIsFromSleep) {
-                    // ── Activity attiva trovata ───────────────────────────────
+                if (currentActivity) {
+                    const curStatus = currentActivity.getString("status");
+                    const isCurSleep = utils.SLEEP_STATES.has(curStatus);
+                    
+                    // Normalizza status sleep corrente → attivo per confronto
+                    const curActiveStatus = isCurSleep
+                        ? (utils.SLEEP_TO_ACTIVE[curStatus] ?? curStatus)
+                        : curStatus;
+
                     if (newActiveStatus === curActiveStatus) {
-                        // CASO A: stesso stato (o risveglio trip-sleep "a"→"v")
-                        currentActivity.set("status",      newActiveStatus);
+                        // Stesso stato: aggiorna la sessione esistente
+                        currentActivity.set("status",      newActiveStatus); // risveglia da sleep
                         currentActivity.set("total_steps", currentActivity.getInt("total_steps") + steps);
                         currentActivity.set("end_time",    timestamp);
+                        currentActivity.set("is_active", true); // in caso fosse dormiente ma si sveglia senza cambiare stato (es. "d" → "i")
                         e.app.save(currentActivity);
                         activeActivity = currentActivity;
-                        console.log(`[AGGIORNA] board=${boardId} status="${newActiveStatus}" end_time aggiornato`);
+                        console.log(`[RIPRESA] stessa azione`);
+
                     } else {
-                        // CASO F: cambio stato attivo→attivo → chiudi e apri nuova
+                        // Cambio di stato: chiudi la sessione corrente e aprine una nuova
                         currentActivity.set("is_active", false);
                         currentActivity.set("end_time",  timestamp);
+                        
+                        // FIX: Se era dormiente ma si sveglia in un altro stato, 
+                        // salviamo la vecchia activity con il suo stato attivo originale
+                        if (isCurSleep) {
+                            currentActivity.set("status", curActiveStatus);
+                        }
+
                         e.app.save(currentActivity);
 
                         const colA = e.app.findCollectionByNameOrId("activities");
@@ -160,86 +159,77 @@ onRecordAfterCreateSuccess((e) => {
                         recA.set("total_steps", steps);
                         e.app.save(recA);
                         activeActivity = recA;
-                        console.log(`[CAMBIO] board=${boardId} "${prevStatus}" → "${newActiveStatus}"`);
+                        console.log(`[ACTIVITY] board=${boardId} cambio stato "${curStatus}" → "${newActiveStatus}"`);
                     }
-
-                } else if (currentActivity && currentIsFromSleep) {
-                    // ── Ultima activity è chiusa (sleep o micro-gap) ──────────
-                    const closedAtStr = currentActivity.getString("end_time");
-                    const endTimeNorm = closedAtStr.replace(" ", "T");
-                    const diffSec     = (new Date(timestamp) - new Date(endTimeNorm)) / 1000;
-
-                    const isSameState = curActiveStatus === newActiveStatus
-                        || (prevStatus === "a" && newActiveStatus === "v"); // risveglio trip-sleep
-
-                    if (isCurSleep && isSameState) {
-                        // CASO D: risveglio dallo stesso stato → riattiva stessa activity
-                        currentActivity.set("is_active",   true);
-                        currentActivity.set("status",      newActiveStatus);
-                        currentActivity.set("total_steps", currentActivity.getInt("total_steps") + steps);
-                        currentActivity.set("end_time",    timestamp);
-                        e.app.save(currentActivity);
-                        activeActivity = currentActivity;
-                        console.log(`[RISVEGLIO] board=${boardId} riattivata "${prevStatus}" → "${newActiveStatus}"`);
-
-                    } else if (isCurSleep && !isSameState) {
-                        // CASO E: risveglio con cambio stato
-                        // Chiudi la sessione sleep con il suo stato attivo (non sleep)
-                        currentActivity.set("status",   curActiveStatus);
-                        currentActivity.set("end_time", timestamp);
-                        e.app.save(currentActivity);
-
-                        // Apri nuova sessione con il nuovo stato attivo
-                        const colA = e.app.findCollectionByNameOrId("activities");
-                        const recA = new Record(colA);
-                        recA.set("board_id",    boardId);
-                        recA.set("start_time",  timestamp);
-                        recA.set("end_time",    timestamp);
-                        recA.set("is_active",   true);
-                        recA.set("status",      newActiveStatus);
-                        recA.set("total_steps", steps);
-                        e.app.save(recA);
-                        activeActivity = recA;
-                        console.log(`[RISVEGLIO+CAMBIO] board=${boardId} "${prevStatus}"→"${curActiveStatus}" chiusa, nuova "${newActiveStatus}"`);
-
-                    } else if (!isCurSleep && !isNaN(diffSec) && diffSec >= 0 && diffSec < utils.SESSION_DEDUP_SEC && isSameState) {
-                        // CASO dedup: micro-gap su sessione non-sleep → riattiva
-                        currentActivity.set("is_active",   true);
-                        currentActivity.set("status",      newActiveStatus);
-                        currentActivity.set("total_steps", currentActivity.getInt("total_steps") + steps);
-                        currentActivity.set("end_time",    timestamp);
-                        e.app.save(currentActivity);
-                        activeActivity = currentActivity;
-                        console.log(`[DEDUP] board=${boardId} riattivata (${diffSec.toFixed(1)}s, "${prevStatus}"→"${newActiveStatus}")`);
-
-                    } else {
-                        // Nessuna riattivazione possibile: crea nuova sessione
-                        const colA = e.app.findCollectionByNameOrId("activities");
-                        const recA = new Record(colA);
-                        recA.set("board_id",    boardId);
-                        recA.set("start_time",  timestamp);
-                        recA.set("end_time",    timestamp);
-                        recA.set("is_active",   true);
-                        recA.set("status",      newActiveStatus);
-                        recA.set("total_steps", steps);
-                        e.app.save(recA);
-                        activeActivity = recA;
-                        console.log(`[NUOVA] board=${boardId} nuova sessione | status="${newActiveStatus}"`);
-                    }
-
                 } else {
-                    // Nessuna activity in DB: prima sessione in assoluto
-                    const colA = e.app.findCollectionByNameOrId("activities");
-                    const recA = new Record(colA);
-                    recA.set("board_id",    boardId);
-                    recA.set("start_time",  timestamp);
-                    recA.set("end_time",    timestamp);
-                    recA.set("is_active",   true);
-                    recA.set("status",      newActiveStatus);
-                    recA.set("total_steps", steps);
-                    e.app.save(recA);
-                    activeActivity = recA;
-                    console.log(`[PRIMA SESSIONE] board=${boardId} | status="${newActiveStatus}"`);
+                    // Nessuna activity attiva: controlla le sessioni chiuse di recente
+                    const recentClosed = e.app.findRecordsByFilter(
+                        "activities", "board_id = {:id} && is_active = false", "-id", 1, 0, { id: boardId }
+                    );
+
+                    if (recentClosed.length > 0) {
+                        const closed       = recentClosed[0];
+                        const closedAtStr  = closed.getString("end_time");
+                        const closedStatus = closed.getString("status");
+                        
+                        const isClosedSleep = utils.SLEEP_STATES.has(closedStatus);
+                        
+                        // Normalizza status sleep → attivo
+                        const closedActive = isClosedSleep
+                            ? (utils.SLEEP_TO_ACTIVE[closedStatus] ?? closedStatus)
+                            : closedStatus;
+
+                        const endTimeNorm = closedAtStr.replace(" ", "T");
+                        const diffSec     = (new Date(timestamp) - new Date(endTimeNorm)) / 1000;
+
+                        // Valuta se l'attività compatibile riparte
+                        const sameOrCompatible = (closedActive === newActiveStatus) || (closedStatus === "a" && newActiveStatus === "v");
+
+                        let shouldReactivate = false;
+
+                        // FIX: Se la sessione era chiusa perché dormiva E si risveglia nello stesso stato
+                        // bypassiamo il limite di tempo e riattiviamo (riprende la stessa azione)
+                        if (isClosedSleep && sameOrCompatible) {
+                            shouldReactivate = true;
+                        } 
+                        // Se non dormiva, ma è un micro-gap, applichiamo il dedup normale
+                        else if (!isNaN(diffSec) && diffSec >= 0 && diffSec < utils.SESSION_DEDUP_SEC && sameOrCompatible) {
+                            shouldReactivate = true;
+                        }
+
+                        if (shouldReactivate) {
+                            closed.set("is_active",   true);
+                            closed.set("end_time",    timestamp);
+                            closed.set("status",      newActiveStatus);
+                            closed.set("total_steps", closed.getInt("total_steps") + steps);
+                            e.app.save(closed);
+                            activeActivity = closed;
+                            console.log(`[RISVEGLIO/DEDUP] board=${boardId} sessione riattivata ("${closedStatus}"→"${newActiveStatus}")`);
+                        } else {
+                            // FIX: Se cambia stato (es. "p" -> "v" o "w"), non la riattiviamo.
+                            // Prima di crearne una nuova, cambiamo il vecchio stato sleep nella sua versione attiva.
+                            if (isClosedSleep) {
+                                closed.set("status", closedActive);
+                                e.app.save(closed);
+                                console.log(`[POST-SLEEP UPDATE] board=${boardId} sessione chiusa corretta ("${closedStatus}" → "${closedActive}")`);
+                            }
+                        }
+                    }
+
+                    // Nessuna sessione riattivabile: crea una nuova
+                    if (!activeActivity) {
+                        const colA = e.app.findCollectionByNameOrId("activities");
+                        const recA = new Record(colA);
+                        recA.set("board_id",    boardId);
+                        recA.set("start_time",  timestamp);
+                        recA.set("end_time",    timestamp);
+                        recA.set("is_active",   true);
+                        recA.set("status",      newActiveStatus);
+                        recA.set("total_steps", steps);
+                        e.app.save(recA);
+                        activeActivity = recA;
+                        console.log(`[ACTIVITY] board=${boardId} nuova sessione | status="${newActiveStatus}"`);
+                    }
                 }
             }
 
@@ -346,7 +336,6 @@ onRecordAfterUpdateSuccess((e) => {
     }
 }, "activities");
 
-
 // ═══════════════════════════════════════════════════════════════
 //  CRON: Watchdog inattività — chiude sessioni appese
 //
@@ -400,5 +389,105 @@ cronAdd("watchdog_device_silence", "* * * * *", () => {
         });
     } catch (err) {
         console.log("[WATCHDOG ERRORE] " + err);
+    }
+});
+// ═══════════════════════════════════════════════════════════════
+//  CRON: Mezzanotte — spezza le sessioni sleep per giorno
+//
+//  Alla mezzanotte ogni sessione sleep aperta (is_active=false,
+//  status in d/p/z) viene:
+//    1. Chiusa con lo status attivo corrispondente (d→i, p→s, z→w)
+//    2. Riaperta immediatamente con lo stesso status sleep
+//
+//  Questo garantisce che ogni giorno abbia le proprie sessioni
+//  e che le statistiche giornaliere siano corrette.
+//  "a" (trip-sleep) è is_active=true → gestito dal watchdog, non qui.
+// ═══════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════
+//  CRON: Mezzanotte — spezza le sessioni sleep per giorno
+//
+//  Gestisce tutti gli stati sleep alla mezzanotte:
+//    d/p/z (is_active=false) → chiude con stato attivo, riapre con sleep
+//    a     (is_active=true)  → chiude con "v" + is_active=false,
+//                              riapre con "a" + is_active=true
+// ═══════════════════════════════════════════════════════════════
+
+cronAdd("midnight_sleep_split", "0 0 * * *", () => {
+    const utils = require(`${__hooks}/utils.js`);
+
+    const SLEEP_TO_ACTIVE_MAP = { d: "i", p: "s", z: "w", a: "v" };
+
+    const midnight = new Date();
+    midnight.setSeconds(0);
+    midnight.setMilliseconds(0);
+    const midnightISO = midnight.toISOString();
+
+    console.log(`[MIDNIGHT] Avvio split sessioni sleep — ${midnightISO}`);
+
+    try {
+        // d/p/z → is_active=false | a → is_active=true
+        const sleepActivities = $app.findRecordsByFilter(
+            "activities",
+            "(is_active = false && (status = 'd' || status = 'p' || status = 'z')) || (is_active = true && status = 'a')",
+            "", 0, 0
+        );
+
+        if (!sleepActivities || sleepActivities.length === 0) {
+            console.log("[MIDNIGHT] Nessuna sessione sleep da spezzare");
+            return;
+        }
+
+        // Teniamo solo l'ultima sessione per board_id
+        const latestByBoard = {};
+        sleepActivities.forEach(activity => {
+            const boardId    = activity.getString("board_id");
+            const endTimeStr = activity.getString("end_time").replace(" ", "T");
+            const endTime    = new Date(endTimeStr);
+
+            if (!latestByBoard[boardId] || endTime > latestByBoard[boardId].endTime) {
+                latestByBoard[boardId] = { activity, endTime };
+            }
+        });
+
+        Object.entries(latestByBoard).forEach(([boardId, { activity }]) => {
+            try {
+                const sleepStatus  = activity.getString("status");
+                const activeStatus = SLEEP_TO_ACTIVE_MAP[sleepStatus];
+
+                if (!activeStatus) {
+                    console.log(`[MIDNIGHT] board=${boardId} status="${sleepStatus}" non mappato, skip`);
+                    return;
+                }
+
+                const isTripSleep = sleepStatus === "a";
+
+                // 1. Chiudi sessione corrente con stato ATTIVO e is_active=false
+                activity.set("status",    activeStatus);
+                activity.set("end_time",  midnightISO);
+                activity.set("is_active", false);
+                $app.save(activity);
+                console.log(`[MIDNIGHT] board=${boardId} "${sleepStatus}"→"${activeStatus}" chiusa`);
+
+                // 2. Nuova sessione con stesso stato SLEEP
+                //    "a" rimane is_active=true perché il viaggio è ancora in corso
+                const col  = $app.findCollectionByNameOrId("activities");
+                const newA = new Record(col);
+                newA.set("board_id",    boardId);
+                newA.set("start_time",  midnightISO);
+                newA.set("end_time",    midnightISO);
+                newA.set("is_active",   isTripSleep);
+                newA.set("status",      sleepStatus);
+                newA.set("total_steps", 0);
+                $app.save(newA);
+                console.log(`[MIDNIGHT] board=${boardId} nuova "${sleepStatus}" is_active=${isTripSleep}`);
+
+            } catch (err) {
+                console.log(`[MIDNIGHT] board=${boardId} ERRORE: ` + err);
+            }
+        });
+
+    } catch (err) {
+        console.log("[MIDNIGHT ERRORE] " + err);
     }
 });
