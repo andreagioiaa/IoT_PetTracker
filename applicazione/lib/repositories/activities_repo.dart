@@ -104,8 +104,6 @@ class ActivitiesRepository {
   }
 
   /// Recupera l'ultimo oggetto Activities completo per la board
-  /// Recupera l'ultimo oggetto Activities completo per la board
-  /// Recupera l'ultimo oggetto Activities completo per la board
   Future<Activities?> getLastActivity(String boardId) async {
     try {
       // 1. Usiamo getList: qui 'sort', 'page' e 'perPage' sono parametri definiti.
@@ -294,6 +292,22 @@ class ActivitiesRepository {
       case 'v':
         return {'titolo': titolo, 'colore': Colors.blue, 'icona': Icons.directions_car};
       case 'a':
+        return {'titolo': titolo, 'colore': Colors.blue, 'icona': Icons.directions_car};
+      default:
+        return {'titolo': titolo, 'colore': Colors.grey, 'icona': Icons.help_outline};
+    }
+  }
+
+  // Restituisce titolo, colore e icona in base allo stato dell'attività
+  Map<String, dynamic> getConfigForActivityDR(Activities attivita, String titolo) {
+    switch (attivita.status.toLowerCase()) {
+      case 's' || 'p':
+        return {'titolo': titolo, 'colore': Colors.red, 'icona': Icons.warning_amber_rounded};
+      case 'w' || 'z':
+        return {'titolo': titolo, 'colore': const Color(0xFF00C6B8), 'icona': Icons.directions_walk};
+      case 'i' || 'd':
+        return {'titolo': titolo, 'colore': Colors.green, 'icona': Icons.home_rounded};
+      case 'v' || 'a':
         return {'titolo': titolo, 'colore': Colors.blue, 'icona': Icons.directions_car};
       default:
         return {'titolo': titolo, 'colore': Colors.grey, 'icona': Icons.help_outline};

@@ -110,7 +110,7 @@ class _RecapScreenState extends State<RecapScreen> {
         String titolo = await _activitiesRepo.getActivityLabel(act);
         _nomiZoneCalcolate[act.id] = titolo; 
       }
-
+      
       if (mounted) {
         setState(() {
           _listaAttivita = attivitaFiltrate;
@@ -123,23 +123,7 @@ class _RecapScreenState extends State<RecapScreen> {
     }
   }
 
-  // Restituisce titolo, colore e icona in base allo stato dell'attività
-  Map<String, dynamic> _getConfigForActivity(Activities attivita) {
-    String titolo = _nomiZoneCalcolate[attivita.id] ?? 'Sconosciuta';
-
-    switch (attivita.status.toLowerCase()) {
-      case 's':
-        return {'titolo': titolo, 'colore': Colors.red, 'icona': Icons.warning_amber_rounded};
-      case 'w':
-        return {'titolo': titolo, 'colore': const Color(0xFF00C6B8), 'icona': Icons.directions_walk};
-      case 'i':
-        return {'titolo': titolo, 'colore': Colors.green, 'icona': Icons.home_rounded};
-      case 'v':
-        return {'titolo': titolo, 'colore': Colors.blue, 'icona': Icons.directions_car};
-      default:
-        return {'titolo': titolo, 'colore': Colors.grey, 'icona': Icons.help_outline};
-    }
-  }
+  
 
   @override
   Widget build(BuildContext context) {
@@ -276,7 +260,7 @@ class _RecapScreenState extends State<RecapScreen> {
   }
 
   Widget _buildNotaAttivita(Activities attivita, double scale) {
-    final config = _getConfigForActivity(attivita);
+    final config = _activitiesRepo.getConfigForActivityDR(attivita, _nomiZoneCalcolate[attivita.id] ?? 'Sconosciuta');
     final String titolo = config['titolo'];
     final Color colore = config['colore'];
     final IconData icona = config['icona'];
