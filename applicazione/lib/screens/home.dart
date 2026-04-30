@@ -163,7 +163,14 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
   late String currentMonthName;
 
   DateTime? _ultimoAggiornamento;
-  String _nomeZona = "Ricerca in corso...";
+
+  // Sostituisci _nomeZona con questa variabile
+  Map<String, dynamic> _configZona = {
+    'titolo': 'Ricerca in corso...',
+    'colore': Colors.grey,
+    'icona': Icons.location_on
+  };
+
   String _displayUsername = "Caricamento...";
 
   // Per il caricamento iniziale di tutta la pagina
@@ -197,7 +204,8 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     if (widget.preloadedData != null) {
       _displayUsername = widget.preloadedData!['username'];
 
-      _nomeZona = widget.preloadedData!['zone'];
+      // Estraiamo la mappa completa dalla splash
+      _configZona = widget.preloadedData!['zone'];
 
       final pos = widget.preloadedData!['lastPosition'];
       if (pos != null) _ultimoAggiornamento = pos.timestamp;
@@ -230,8 +238,8 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     // Reagisce quando cambi le impostazioni dei Geofence
     geofenceUpdateSignal.addListener(() async {
       if (_ultimoAggiornamento != null) {
-        String nuovaZona = await _calculateCurrentZone();
-        if (mounted) setState(() => _nomeZona = nuovaZona);
+        Map<String, dynamic> nuovaZona = await _calculateCurrentZone();
+        if (mounted) setState(() => _configZona = nuovaZona);
       }
     });
 
@@ -241,14 +249,12 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     _streamSubscription =
         _positionsRepo.positionsStream.listen((nuovaPos) async {
       try {
-        // RIPULITO: Non interroghiamo più il GPS puro ignorando lo stato dell'animale.
-        // Utilizziamo la funzione unificata _calculateCurrentZone().
-        String nuovaZona = await _calculateCurrentZone();
+        Map<String, dynamic> nuovaZona = await _calculateCurrentZone();
         
         if (mounted) {
           setState(() {
             _ultimoAggiornamento = nuovaPos.timestamp;
-            _nomeZona = nuovaZona;
+            _configZona = nuovaZona;
             _isLoading = false;
           });
         }
@@ -564,7 +570,8 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
           
           // Aggiorniamo le informazioni geografiche
           _ultimoAggiornamento = tempoIniziale;
-          _nomeZona = zonaIniziale;
+          _configZona = zonaIniziale;
+          _isLoading = false;
           
           // Fermiamo il caricamento globale
           _isLoading = false;
@@ -599,19 +606,26 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     }
   } */
 
-  Future<String> _calculateCurrentZone() async {
+  // Modifica la firma e il ritorno di _calculateCurrentZone
+  Future<Map<String, dynamic>> _calculateCurrentZone() async {
     try {
-      // 1. Recuperiamo il boardId
       final boardId = await _usersRepo.getBoardIdFromBoards();
-      if (boardId == null) return "Errore: Nessuna board";
+      if (boardId == null) {
+        return {
+          'titolo': "Errore: Nessuna board",
+          'colore': Colors.grey,
+          'icona': Icons.error_outline
+        };
+      }
       
-      // 2. Invece di calcolare il GPS puro, chiediamo al repository 
-      // qual è l'etichetta corretta in base all'ATTIVITA' CORRENTE.
-      // Questo invocherà la nostra nuova funzione sicura!
       return await _activitiesRepo.getActivityStatus(boardId);
     } catch (e) {
       debugPrint("❌ Errore in _calculateCurrentZone: $e");
-      return "Errore rilevamento";
+      return {
+        'titolo': "Errore rilevamento",
+        'colore': Colors.grey,
+        'icona': Icons.error_outline
+      };
     }
   }
 
@@ -655,10 +669,13 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
                   ValueListenableBuilder<bool>(
                     valueListenable: isTrackingMode,
                     builder: (context, isTracking, child) {
-                      String displayZone = _nomeZona;
-                      Color zoneColor = Colors.black;
-                      IconData locationIcon = Icons.location_on;
-                      if (_nomeZona == "Fuori zona sicura") {
+                      // Estraiamo i valori direttamente dalla nostra _configZona!
+                      String displayZone = _configZona['titolo'] ?? 'Sconosciuta';
+                      Color zoneColor = _configZona['colore'] ?? Colors.black;
+                      IconData locationIcon = _configZona['icona'] ?? Icons.location_on;
+                      
+                      // Mantengo la logica legacy per l'allarme hardcoded, nel caso fosse ancora necessaria
+                      if (displayZone == "Fuori zona sicura") {
                         if (isTracking) {
                           displayZone = "ALLARME: È USCITO!";
                           zoneColor = Colors.red;
@@ -669,6 +686,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
                           locationIcon = Icons.directions_walk;
                         }
                       }
+                      
                       return Column(
                         children: [
                           _buildDynamicPositionCard(

@@ -174,6 +174,10 @@ class ActivitiesRepository {
         return 'In viaggio';
       case 'a':
         return "Sleep: in viaggio";
+      case 'z':
+        return "Sleep: in camminata";
+      case 'd':
+        return "Sleep: a casa";
       case 'i':
         try {
           // Usa la chiave esterna per trovare la prima posizione di questa attività
@@ -226,6 +230,7 @@ class ActivitiesRepository {
     }
   }*/
 
+  /*
   /// Recupera l'etichetta testuale (es. "In viaggio", "Giardino") dell'ultima attività
   Future<String> getActivityStatus(String boardId) async {
     try {
@@ -242,6 +247,34 @@ class ActivitiesRepository {
       print("🚨 [activities_repo]: Errore in getActivityStatus: $e");
       return 'Stato sconosciuto';
     }
+  }*/
+
+  /// Recupera l'etichetta testuale e la configurazione UI (titolo, colore, icona)
+  Future<Map<String, dynamic>> getActivityStatus(String boardId) async {
+    try {
+      final Activities? ultimaAttivita = await getLastActivity(boardId);
+
+      if (ultimaAttivita == null) {
+        return {
+          'titolo': 'Nessuna attività',
+          'colore': Colors.grey,
+          'icona': Icons.help_outline
+        };
+      }
+
+      // Passiamo l'oggetto reale a getActivityLabel per la decodifica del titolo
+      String titoloAttivita = await getActivityLabel(ultimaAttivita);
+      
+      // Ritorniamo la mappa completa passando l'attività e il titolo ricavato
+      return getConfigForActivity(ultimaAttivita, titoloAttivita);
+    } catch (e) {
+      print("🚨 [activities_repo]: Errore in getActivityStatus: $e");
+      return {
+        'titolo': 'Stato sconosciuto',
+        'colore': Colors.grey,
+        'icona': Icons.error_outline
+      };
+    }
   }
   
 
@@ -252,9 +285,15 @@ class ActivitiesRepository {
         return {'titolo': titolo, 'colore': Colors.red, 'icona': Icons.warning_amber_rounded};
       case 'w':
         return {'titolo': titolo, 'colore': const Color(0xFF00C6B8), 'icona': Icons.directions_walk};
+      case 'z':
+        return {'titolo': titolo, 'colore': const Color(0xFF00C6B8), 'icona': Icons.directions_walk};
       case 'i':
         return {'titolo': titolo, 'colore': Colors.green, 'icona': Icons.home_rounded};
+      case 'z':
+        return {'titolo': titolo, 'colore': Colors.green, 'icona': Icons.home_rounded};
       case 'v':
+        return {'titolo': titolo, 'colore': Colors.blue, 'icona': Icons.directions_car};
+      case 'a':
         return {'titolo': titolo, 'colore': Colors.blue, 'icona': Icons.directions_car};
       default:
         return {'titolo': titolo, 'colore': Colors.grey, 'icona': Icons.help_outline};

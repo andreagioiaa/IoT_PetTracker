@@ -41,10 +41,15 @@ class SplashScreen extends StatefulWidget {
       final pos = results[1] as Positions?;
       final activities = results[2];
 
-      String zona = "Posizione sconosciuta";
+      // Inizializziamo una mappa di default
+      Map<String, dynamic> configZona = {
+        'titolo': 'Posizione sconosciuta',
+        'colore': Colors.grey,
+        'icona': Icons.help_outline
+      };
 
       if (pos != null) {
-        zona = await activitiesRepo.getActivityStatus(boardId);
+        configZona = await activitiesRepo.getActivityStatus(boardId);
       }
 
       return {
@@ -52,7 +57,7 @@ class SplashScreen extends StatefulWidget {
         'alarm': alarm ?? false,
         'lastPosition': pos,
         'activities': activities,
-        'zone': zona,
+        'zone': configZona, // Qui passiamo la mappa
         'boardId': boardId,
       };
     } catch (e) {
@@ -63,7 +68,11 @@ class SplashScreen extends StatefulWidget {
         'alarm': false,
         'lastPosition': null,
         'activities': [],
-        'zone': "Errore connessione",
+        'zone': {
+          'titolo': 'Errore connessione',
+          'colore': Colors.grey,
+          'icona': Icons.error_outline
+        }, // Fallback mappa
         'boardId': null,
       };
     }
