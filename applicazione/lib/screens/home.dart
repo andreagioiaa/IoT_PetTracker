@@ -1088,7 +1088,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
           Icon(Icons.sync, color: coloreStato, size: 18 * scale),
           const SizedBox(width: 8),
           Text(
-              "Ultimo aggiornamento: ${formattaUltimoAggiornamento(ultimoInvio)}",
+              "Ultimo aggiornamento: ${formattaOra(ultimoInvio)}",
               style: TextStyle(
                   color: coloreStato,
                   fontWeight: FontWeight.bold,

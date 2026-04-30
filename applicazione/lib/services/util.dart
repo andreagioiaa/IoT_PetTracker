@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-String formattaUltimoAggiornamento(DateTime? ultimoInvio) {
+// ritorna l'orario corretto sulla base UTC del nostro DB PocketBase (ora è corretta e ultimata: NON TOCCARE!)
+String formattaOra(DateTime? ultimoInvio) {
   if (ultimoInvio == null) return "N.D.";
 
   final oraLocale = DateTime.now();
@@ -22,7 +23,7 @@ String formattaUltimoAggiornamento(DateTime? ultimoInvio) {
   return "${dataReale.day}/${dataReale.month}/${dataReale.year}";
 }
 
-
+// ritorna le dimensioni di scale dello schermo
 double dimensioniSchermo(BuildContext context){
   return (MediaQuery.of(context).size.height / 800).clamp(0.7, 1.2);
 }
