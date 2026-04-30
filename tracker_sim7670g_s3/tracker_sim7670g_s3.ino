@@ -411,8 +411,13 @@ void loop() {
   }
   else {
     if (millis() - lastActivityTime > SLEEP_TIMEOUT) {
-      Serial.println("[SYSTEM] Timeout inattività. Invio stato 'Sleep' e chiusura.");
+      lastActivityTime = millis();
+      step.lastSession = step.session - lastSessionStepsCount;
+      lastSessionStepsCount = step.session;
+      
       String ts = getTimestamp();
+
+      Serial.println("[SYSTEM] Timeout inattività. Invio stato 'Sleep' e chiusura.");
       inviaDati(gps.lat, gps.lon, bat, ts, step, true, false);
       enterDeepSleep();
     } else {
@@ -442,4 +447,5 @@ void loop() {
       }
     }
   delay(5000);
+  }
 }
