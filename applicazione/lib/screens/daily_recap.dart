@@ -283,9 +283,11 @@ class _RecapScreenState extends State<RecapScreen> {
 
     // Formatta orari
     String oraInizio = formattaOrarioEsatto(attivita.startTime);
-    String oraFine = attivita.endTime != null
-        ? formattaOrarioEsatto(attivita.endTime)
-        : "In corso";
+    
+    // Se l'attività è ancora attiva, mostriamo "In corso..." altrimenti l'orario di fine (oppure "N.D." se non disponibile)
+    String oraFine = attivita.isActive 
+        ? "In corso..." 
+        : (attivita.endTime != null ? formattaOrarioEsatto(attivita.endTime) : "N.D.");
 
     return GestureDetector(
       onTap: () {
