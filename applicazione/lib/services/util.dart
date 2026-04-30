@@ -27,3 +27,4 @@ String formattaOra(DateTime? ultimoInvio) {
 double dimensioniSchermo(BuildContext context){
   return (MediaQuery.of(context).size.height / 800).clamp(0.7, 1.2);
 }
+
