@@ -38,7 +38,7 @@ RTC_DATA_ATTR int   lastValidPercent = 0;
 RTC_DATA_ATTR float lastLat = 0.0f;
 RTC_DATA_ATTR float lastLon = 0.0f;
 RTC_DATA_ATTR char  lastGpsDate[7] = "";
-RTC_DATA_ATTR char  lastGpsTime[7] = ""; 
+RTC_DATA_ATTR char  lastGpsTime[7] = "";
 RTC_DATA_ATTR bool  hasGpsFix = false;
 RTC_DATA_ATTR char  global_board_id[16] = "UNKNOWN";
 RTC_DATA_ATTR uint32_t stepCountAtWakeup = 0;
@@ -51,7 +51,7 @@ bool isNetworkConnected = false;
 //  MODEM / RETE (Configurazione VERY MOBILE)
 // ═══════════════════════════════════════════════
 const char* pb_url = "https://harvey-chairless-shenna.ngrok-free.dev/api/collections/data_sent_raw/records";
-const char* apn    = "internet.it"; // APN di Very Mobile "internet.it"
+const char* apn    = "internet.it";
 
 HardwareSerial modem(1);
 
@@ -108,7 +108,7 @@ String formatCoordinate(float val, bool isLat) {
 }
 
 String getModemIMEI() {
-  sendAT("AT+CGSN", 500); // Flush serial
+  sendAT("AT+CGSN", 500);
   String resp = sendAT("AT+CGSN", 2000);
   resp.replace("AT+CGSN", ""); resp.replace("OK", ""); resp.replace("ERROR", ""); resp.trim();
   return (resp.length() >= 15) ? resp.substring(0, 15) : "UNKNOWN_IMEI";
@@ -121,11 +121,10 @@ BatInfo leggiBatteria() {
   BatInfo bat = {0.0f, 0, false};
   pinMode(BAT_ADC_EN, OUTPUT);
   digitalWrite(BAT_ADC_EN, HIGH);
-  delay(50);
+  delay(50); // Stabilizzazione partitore ADC
   uint32_t mv = 0;
   for (int i = 0; i < 10; i++) {
     mv += analogReadMilliVolts(PIN_ADC_BAT);
-    delay(2);
   }
   mv /= 10;
   float vFisico = (mv * 2.0f) / 1000.0f;
@@ -139,7 +138,7 @@ BatInfo leggiBatteria() {
     bat.voltage = lastValidVoltage;
     bat.percent = lastValidPercent;
   }
-  digitalWrite(BAT_ADC_EN, LOW); // Spegni ADC subito dopo la lettura
+  digitalWrite(BAT_ADC_EN, LOW);
   return bat;
 }
 
@@ -148,20 +147,17 @@ BatInfo leggiBatteria() {
 // ═══════════════════════════════════════════════
 bool connectToNetworkFast() {
   Serial.println("[NET] Configurazione Rapida ISP...");
-  
-  // 1. Forza modalità LTE (Cat-1) per saltare la scansione lenta del 2G/3G
-  sendAT("AT+CNMP=38", 1000); 
-  
-  // 2. Imposta l'APN 
+
+  sendAT("AT+CNMP=38", 1000);
+
   String apnCmd = "AT+CGDCONT=1,\"IP\",\"" + String(apn) + "\"";
   sendAT(apnCmd.c_str(), 1000);
-  
-  // 3. Avvia il contesto dati
+
   sendAT("AT+CNACT=0,1", 1000);
 
   Serial.println("[NET] Attesa registrazione rete...");
   unsigned long startWait = millis();
-  
+
   while (millis() - startWait < NET_TIMEOUT) {
     String resp = sendAT("AT+CEREG?", 1000);
     if (resp.indexOf("0,1") != -1 || resp.indexOf("0,5") != -1) {
@@ -170,7 +166,7 @@ bool connectToNetworkFast() {
     }
     Serial.print(".");
   }
-  
+
   Serial.println("\n[NET] Timeout rete! Segnale assente o troppo debole.");
   return false;
 }
@@ -195,16 +191,16 @@ GpsData getGpsData() {
   GpsData gps = {0.0f, 0.0f, false};
   String raw = sendAT("AT+CGNSSINFO", 1500);
   if (raw.indexOf("+CGNSSINFO:") == -1 || raw.indexOf(",,,,") != -1) return gps;
-  
+
   int pos = raw.indexOf(':');
   for (int i = 0; i < 5; i++) pos = raw.indexOf(',', pos + 1);
   int p6 = raw.indexOf(',', pos + 1);
   int p7 = raw.indexOf(',', p6 + 1);
   int p8 = raw.indexOf(',', p7 + 1);
-  
+
   float lat = raw.substring(pos + 1, p6).toFloat();
   float lon = raw.substring(p7 + 1, p8).toFloat();
-  
+
   if (lat != 0 && lon != 0) {
     gps.lat = lat; gps.lon = lon; gps.valid = true;
   }
@@ -216,9 +212,9 @@ String getTimestamp() {
   int q1 = r.indexOf('"'), q2 = r.lastIndexOf('"');
   if (q1 == -1 || q2 == -1 || q2 <= q1) return "1970-01-01T00:00:00.000Z";
   String raw = r.substring(q1 + 1, q2);
-  int hh = raw.substring(9, 11).toInt() + 2; // Correzione UTC+2
+  int hh = raw.substring(9, 11).toInt();
   if (hh >= 24) hh -= 24;
-  
+
   String iso = "20" + raw.substring(0, 2) + "-" + raw.substring(3, 5) + "-" + raw.substring(6, 8) + "T";
   iso += (hh < 10 ? "0" : "") + String(hh) + ":" + raw.substring(12, 14) + ":" + raw.substring(15, 17) + ".000Z";
   return iso;
@@ -248,16 +244,14 @@ void inviaDati(float l_lat, float l_lon, const BatInfo& bat, const String& times
   sendAT(("AT+HTTPPARA=\"URL\",\"" + String(pb_url) + "\"").c_str(), 1000);
   sendAT("AT+HTTPPARA=\"CONTENT\",\"application/json\"", 1000);
   sendAT("AT+HTTPPARA=\"USERDATA\",\"ngrok-skip-browser-warning: 1\"", 1);
-  
+
   String dataCmd = "AT+HTTPDATA=" + String(json.length()) + ",5000";
   sendAT(dataCmd.c_str(), 500);
   modem.print(json);
-  delay(500);
 
   String res = sendAT("AT+HTTPACTION=1", 10000);
   Serial.print("[HTTP] "); Serial.println(res);
   sendAT("AT+HTTPTERM", 1000);
-  delay(2000);
 }
 
 // ═══════════════════════════════════════════════
@@ -265,19 +259,18 @@ void inviaDati(float l_lat, float l_lon, const BatInfo& bat, const String& times
 // ═══════════════════════════════════════════════
 void enterDeepSleep() {
   Serial.println("\n[POWER] Spegnimento moduli e Deep Sleep...");
-  
-  sendAT("AT+CGNSSPWR=0"); // Spegne GPS (30mA)
-  sendAT("AT+CPOWD=1");    // Spegnimento sicuro modem (Salva celle rete)
-  delay(1000); 
 
-  digitalWrite(PIN_EN, LOW);     // Togli alimentazione Modem
-  digitalWrite(BAT_ADC_EN, LOW); // Togli alimentazione partitore ADC
+  sendAT("AT+CGNSSPWR=0");
+  sendAT("AT+CPOWD=1");
+  delay(500); // Attesa spegnimento sicuro modem
 
-  // Svuota buffer interrupt accelerometro
+  digitalWrite(PIN_EN, LOW);
+  digitalWrite(BAT_ADC_EN, LOW);
+
   uint16_t status;
-  do { 
-    accelerometer.getInterruptStatus(&status); 
-    delay(50);
+  do {
+    accelerometer.getInterruptStatus(&status);
+    delay(50); // Polling debounce hardware
   } while (digitalRead(WAKEUP_PIN) == HIGH);
 
   esp_sleep_enable_ext0_wakeup(WAKEUP_PIN, 1);
@@ -307,6 +300,34 @@ StepData readStepData(uint32_t lastSessionSteps) {
 }
 
 // ═══════════════════════════════════════════════
+//  VERIFICA GPS E INVIO
+// ═══════════════════════════════════════════════
+bool sendIfGpsValid(const GpsData& gps, const BatInfo& bat, const String& ts,
+                    const StepData& step, bool isSleeping, bool isTrip) {
+  if (!gps.valid) {
+    Serial.println("[SYS] GPS non valido, pacchetto saltato.");
+    return false;
+  }
+
+  Serial.print("[GPS] Lat: "); Serial.print(gps.lat, 6);
+  Serial.print(" | Lon: "); Serial.println(gps.lon, 6);
+
+  lastLat = gps.lat; lastLon = gps.lon; hasGpsFix = true;
+
+  String r = sendAT("AT+CCLK?", 500);
+  int q1 = r.indexOf('"');
+  if (q1 != -1) {
+    String rawDate = r.substring(q1+7,q1+9)+r.substring(q1+4,q1+6)+r.substring(q1+1,q1+3);
+    String rawTime = r.substring(q1+10,q1+12)+r.substring(q1+13,q1+15)+r.substring(q1+16,q1+18);
+    strncpy(lastGpsDate, rawDate.c_str(), 6);
+    strncpy(lastGpsTime, rawTime.c_str(), 6);
+  }
+
+  inviaDati(gps.lat, gps.lon, bat, ts, step, isSleeping, isTrip);
+  return true;
+}
+
+// ═══════════════════════════════════════════════
 //  SETUP
 // ═══════════════════════════════════════════════
 void setup() {
@@ -322,43 +343,35 @@ void setup() {
   analogSetAttenuation(ADC_11db);
 
   pinMode(MODEM_PWRKEY, OUTPUT);
-  digitalWrite(MODEM_PWRKEY, LOW);  delay(1000);
-  digitalWrite(MODEM_PWRKEY, HIGH); delay(3000);
+  digitalWrite(MODEM_PWRKEY, LOW);  delay(1000); // Timing hardware avvio modem
+  digitalWrite(MODEM_PWRKEY, HIGH); delay(2000); // Attesa boot modem
   modem.begin(115200, SERIAL_8N1, MODEM_RX, MODEM_TX);
-  delay(2000);
+  delay(1000); // Stabilizzazione UART
 
-  // Identificazione Board
   if (strcmp(global_board_id, "UNKNOWN") == 0) {
     String imei = getModemIMEI();
     if (imei != "UNKNOWN_IMEI") imei.toCharArray(global_board_id, 16);
   }
 
-  // Connessione Rapida alla Rete
   isNetworkConnected = connectToNetworkFast();
 
-  // Se non c'è rete, inutile restare accesi a sprecare batteria
   if (!isNetworkConnected) {
     Serial.println("[SYS] Rete non disponibile. Ritorno in Deep Sleep immediato.");
     enterDeepSleep();
   }
 
   Serial.println("[GPS] Configurazione antenna e costellazioni...");
-  
-  // 1. Reset e Alimentazione Antenna
-  sendAT("AT+CGNSSPWR=0", 500);      // Assicurati che sia spento prima di configurare
-  sendAT("AT+CVAUXV=3000", 500);     // Imposta il voltaggio ausiliario a 3.0V
-  sendAT("AT+CVAUXS=1", 500);        // Attiva l'uscita di alimentazione per l'antenna
-  // 2. Selezione Costellazioni (GPS + GLONASS + GALILEO)
-  // Questo comando aumenta drasticamente il numero di satelliti visibili in Italia
-  sendAT("AT+CGNSCFG=11", 500);      
-  // 3. Comandi specifici Lilygo per il routing del segnale
-  sendAT("AT+CGDRT=4,1", 500); 
+
+  sendAT("AT+CGNSSPWR=0", 500);
+  sendAT("AT+CVAUXV=3000", 500);
+  sendAT("AT+CVAUXS=1", 500);
+  sendAT("AT+CGNSCFG=11", 500);
+  sendAT("AT+CGDRT=4,1", 500);
   sendAT("AT+CGSETV=4,1", 500);
-  // 4. Accensione finale
   sendAT("AT+CGNSSPWR=1", 1000);
 
-  if (hasGpsFix) iniettaGps(); // Iniezione dati salvati in RTC
-  
+  if (hasGpsFix) iniettaGps();
+
   Serial.println("[GPS] Modulo alimentato e in ascolto.");
 
   lastActivityTime = millis();
@@ -370,82 +383,32 @@ void setup() {
 // ═══════════════════════════════════════════════
 void loop() {
   static uint32_t lastSessionStepsCount = 0;
-  StepData step = readStepData(lastSessionStepsCount);
-  BatInfo bat = leggiBatteria();
 
-  // Fix GPS Rapido (con timeout)
+  StepData step = readStepData(lastSessionStepsCount);
+  BatInfo   bat  = leggiBatteria();
+
   GpsData gps;
   unsigned long gpsStart = millis();
   Serial.println("[GPS] Ricerca segnale...");
-  while(!gps.valid && (millis() - gpsStart < GPS_TIMEOUT)) { 
+  while (!gps.valid && (millis() - gpsStart < GPS_TIMEOUT)) {
     gps = getGpsData();
-    if (!gps.valid) delay(1000);
   }
 
-  // Se ci siamo mossi
+  step.lastSession      = step.session - lastSessionStepsCount;
+  lastSessionStepsCount = step.session;
+  String ts             = getTimestamp();
+
   if (step.hasNewSteps) {
     lastActivityTime = millis();
-    step.lastSession = step.session - lastSessionStepsCount;
-    lastSessionStepsCount = step.session;
-    
-    String ts = getTimestamp();
-    
-    // Salva le coordinate per la prossima accensione
-    if(gps.valid) {
-      Serial.println("[GPS] GPS valido, Lat: "); Serial.print(gps.lat, 6); Serial.print(" | Lon: "); Serial.println(gps.lon, 6);
-      lastLat = gps.lat; 
-      lastLon = gps.lon; 
-      hasGpsFix = true;
-      String r = sendAT("AT+CCLK?", 500);
-      int q1 = r.indexOf('"');
-      if (q1 != -1) {
-        String rawDate = r.substring(q1 + 7, q1 + 9) + r.substring(q1 + 4, q1 + 6) + r.substring(q1 + 1, q1 + 3);
-        String rawTime = r.substring(q1 + 10, q1 + 12) + r.substring(q1 + 13, q1 + 15) + r.substring(q1 + 16, q1 + 18);
-        strncpy(lastGpsDate, rawDate.c_str(), 6);
-        strncpy(lastGpsTime, rawTime.c_str(), 6);
-      }
-      inviaDati(gps.lat, gps.lon, bat, ts, step, false, false);
-    }else{
-      Serial.println("[SYS] Movimento rilevato ma GPS NON valido. Pacchetto saltato.");
-    }
-  }
-  else {
-    if (millis() - lastActivityTime > SLEEP_TIMEOUT) {
-      lastActivityTime = millis();
-      step.lastSession = step.session - lastSessionStepsCount;
-      lastSessionStepsCount = step.session;
-      
-      String ts = getTimestamp();
+    sendIfGpsValid(gps, bat, ts, step, false, false);
 
-      Serial.println("[SYSTEM] Timeout inattività. Invio stato 'Sleep' e chiusura.");
-      inviaDati(gps.lat, gps.lon, bat, ts, step, true, false);
-      enterDeepSleep();
-    } else {
-      lastActivityTime = millis();
-      step.lastSession = step.session - lastSessionStepsCount;
-      lastSessionStepsCount = step.session;
-      
-      String ts = getTimestamp();
-      
-      // Salva le coordinate per la prossima accensione
-      if(gps.valid) {
-        Serial.println("[GPS] GPS valido, Lat: "); Serial.print(gps.lat, 6); Serial.print(" | Lon: "); Serial.println(gps.lon, 6);
-        lastLat = gps.lat; 
-        lastLon = gps.lon; 
-        hasGpsFix = true;
-        String r = sendAT("AT+CCLK?", 500);
-        int q1 = r.indexOf('"');
-        if (q1 != -1) {
-          String rawDate = r.substring(q1 + 7, q1 + 9) + r.substring(q1 + 4, q1 + 6) + r.substring(q1 + 1, q1 + 3);
-          String rawTime = r.substring(q1 + 10, q1 + 12) + r.substring(q1 + 13, q1 + 15) + r.substring(q1 + 16, q1 + 18);
-          strncpy(lastGpsDate, rawDate.c_str(), 6);
-          strncpy(lastGpsTime, rawTime.c_str(), 6);
-        }
-        inviaDati(gps.lat, gps.lon, bat, ts, step, false, true);
-      }else{
-        Serial.println("[SYS] Movimento rilevato ma GPS NON valido. Pacchetto saltato.");
-      }
-    }
-  delay(5000);
+  } else if (millis() - lastActivityTime > SLEEP_TIMEOUT) {
+    Serial.println("[SYS] Timeout inattività → Deep Sleep.");
+    sendIfGpsValid(gps, bat, ts, step, true, false);
+    enterDeepSleep();
+
+  } else {
+    sendIfGpsValid(gps, bat, ts, step, false, true);
   }
+  delay(5000);
 }
