@@ -901,19 +901,37 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
                 color: Colors.transparent,
                 child: InkWell(
                   borderRadius: BorderRadius.circular(50),
-                  onTap: _isActivityLoading
+                  onTap: (_isActivityLoading ||
+                          _dataSelezionata.isBefore(_minDataSelezionabile) ||
+                          DateUtils.isSameDay(
+                              _dataSelezionata, _minDataSelezionabile))
                       ? null
                       : () {
+                          // Calcoliamo il giorno precedente
+                          DateTime nuovaData = _dataSelezionata
+                              .subtract(const Duration(days: 1));
+
+                          // Controllo extra per sicurezza
+                          if (nuovaData.isBefore(_minDataSelezionabile) &&
+                              !DateUtils.isSameDay(
+                                  nuovaData, _minDataSelezionabile)) return;
+
                           setState(() {
-                            _dataSelezionata = _dataSelezionata
-                                .subtract(const Duration(days: 1));
+                            _dataSelezionata = nuovaData;
                           });
                           _scaricaDatiAttivita(_dataSelezionata);
                         },
                   child: Padding(
                     padding: EdgeInsets.all(8.0 * scale),
                     child: Icon(Icons.chevron_left,
-                        color: Colors.black54, size: 28 * scale),
+                        color: (_isActivityLoading ||
+                                _dataSelezionata
+                                    .isBefore(_minDataSelezionabile) ||
+                                DateUtils.isSameDay(
+                                    _dataSelezionata, _minDataSelezionabile))
+                            ? Colors.black12
+                            : Colors.black54,
+                        size: 28 * scale),
                   ),
                 ),
               ),
@@ -964,19 +982,36 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
                 color: Colors.transparent,
                 child: InkWell(
                   borderRadius: BorderRadius.circular(50),
-                  onTap: _isActivityLoading
+                  onTap: (_isActivityLoading ||
+                          DateUtils.isSameDay(
+                              _dataSelezionata, DateTime.now()) ||
+                          _dataSelezionata.isAfter(DateTime.now()))
                       ? null
                       : () {
+                          // Calcoliamo il giorno successivo
+                          DateTime nuovaData =
+                              _dataSelezionata.add(const Duration(days: 1));
+
+                          // Controllo extra per evitare giorni futuri
+                          if (nuovaData.isAfter(DateTime.now()) &&
+                              !DateUtils.isSameDay(nuovaData, DateTime.now()))
+                            return;
+
                           setState(() {
-                            _dataSelezionata =
-                                _dataSelezionata.add(const Duration(days: 1));
+                            _dataSelezionata = nuovaData;
                           });
                           _scaricaDatiAttivita(_dataSelezionata);
                         },
                   child: Padding(
                     padding: EdgeInsets.all(8.0 * scale),
                     child: Icon(Icons.chevron_right,
-                        color: Colors.black54, size: 28 * scale),
+                        color: (_isActivityLoading ||
+                                DateUtils.isSameDay(
+                                    _dataSelezionata, DateTime.now()) ||
+                                _dataSelezionata.isAfter(DateTime.now()))
+                            ? Colors.black12
+                            : Colors.black54,
+                        size: 28 * scale),
                   ),
                 ),
               ),

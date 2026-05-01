@@ -31,7 +31,7 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
 
   bool _isLoading = true;
   bool _isSatellite = true;
-  
+
   List<LatLng> _routePoints = [];
   LatLng? _userLocation;
   StreamSubscription<Position>? _userLocationStream;
@@ -58,14 +58,13 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
     _minutiTotali = DailyStats().minutiTotali;
   }
 
-  
-
   Future<void> _caricaPercorso() async {
-    final posizioni = await _positionsRepo.fetchPositionsForActivity(widget.attivita.id);
-    
+    final posizioni =
+        await _positionsRepo.fetchPositionsForActivity(widget.attivita.id);
+
     if (posizioni.isNotEmpty) {
       _routePoints = posizioni.map((p) => LatLng(p.lat, p.lon)).toList();
-      
+
       // Calcola i limiti della mappa per inquadrare tutto il percorso
       if (_routePoints.isNotEmpty) {
         final bounds = LatLngBounds.fromPoints(_routePoints);
@@ -73,13 +72,14 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
         Future.delayed(const Duration(milliseconds: 300), () {
           if (mounted) {
             _mapController.fitCamera(
-              CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(50.0)),
+              CameraFit.bounds(
+                  bounds: bounds, padding: const EdgeInsets.all(50.0)),
             );
           }
         });
       }
     }
-    
+
     if (mounted) {
       setState(() => _isLoading = false);
     }
@@ -90,9 +90,11 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
     if (!serviceEnabled) return;
 
     LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.whileInUse || permission == LocationPermission.always) {
+    if (permission == LocationPermission.whileInUse ||
+        permission == LocationPermission.always) {
       _userLocationStream = Geolocator.getPositionStream(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, distanceFilter: 5),
+        locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high, distanceFilter: 5),
       ).listen((Position pos) {
         if (mounted) {
           setState(() {
@@ -109,7 +111,8 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
     super.dispose();
   }
 
-  Widget _miniFAB(IconData icon, Color color, VoidCallback onPressed, {Color iconColor = Colors.white}) {
+  Widget _miniFAB(IconData icon, Color color, VoidCallback onPressed,
+      {Color iconColor = Colors.white}) {
     return SizedBox(
       width: 45,
       height: 45,
@@ -125,11 +128,12 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     double scale = dimensioniSchermo(context);
-    
+
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FA),
       appBar: AppBar(
-        title: Text(widget.titoloZona, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        title: Text(widget.titoloZona,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
         backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
@@ -141,7 +145,9 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
-              initialCenter: _routePoints.isNotEmpty ? _routePoints.first : const LatLng(41.8719, 12.5674),
+              initialCenter: _routePoints.isNotEmpty
+                  ? _routePoints.first
+                  : const LatLng(41.8719, 12.5674),
               initialZoom: 16.0,
             ),
             children: [
@@ -168,8 +174,8 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
                   if (_userLocation != null)
                     Marker(
                       point: _userLocation!,
-                      width: 40,
-                      height: 40,
+                      width: 20 * scale,
+                      height: 20 * scale,
                       child: Container(
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
@@ -202,7 +208,8 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
                               shape: BoxShape.circle,
                               color: widget.coloreStato,
                             ),
-                            child: const Icon(Icons.pets, color: Colors.white, size: 14),
+                            child: const Icon(Icons.pets,
+                                color: Colors.white, size: 14),
                           ),
                         ],
                       ),
@@ -213,7 +220,8 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
           ),
 
           if (_isLoading)
-            const Center(child: CircularProgressIndicator(color: Color(0xFF00C6B8))),
+            const Center(
+                child: CircularProgressIndicator(color: Color(0xFF00C6B8))),
 
           // PANNELLO BOTTONI MAPPA (Destra)
           Positioned(
@@ -224,20 +232,25 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
               children: [
                 _miniFAB(Icons.pets, Colors.white, () {
                   if (_routePoints.isNotEmpty) {
-                     final bounds = LatLngBounds.fromPoints(_routePoints);
-                     _mapController.fitCamera(CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(50.0)));
+                    final bounds = LatLngBounds.fromPoints(_routePoints);
+                    _mapController.fitCamera(CameraFit.bounds(
+                        bounds: bounds, padding: const EdgeInsets.all(50.0)));
                   }
                 }, iconColor: widget.coloreStato),
                 const SizedBox(height: 10),
                 _miniFAB(
                   Icons.smartphone,
-                  hasLocationPermission.value ? Colors.white : Colors.grey[300]!,
+                  hasLocationPermission.value
+                      ? Colors.white
+                      : Colors.grey[300]!,
                   () {
                     if (_userLocation != null) {
                       _mapController.move(_userLocation!, 18.0);
                     }
                   },
-                  iconColor: hasLocationPermission.value ? Colors.blueAccent : Colors.grey[600]!,
+                  iconColor: hasLocationPermission.value
+                      ? Colors.blueAccent
+                      : Colors.grey[600]!,
                 ),
                 const SizedBox(height: 10),
                 _miniFAB(
@@ -261,15 +274,25 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(24 * scale),
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 20, offset: const Offset(0, 10))
+                  BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10))
                 ],
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _buildCompactStat("Passi", "$_passiTotali", Icons.pets, Colors.orange, scale),
-                  _buildCompactStat("Km", _kmTotali, Icons.straighten, Colors.blue, scale),
-                  _buildCompactStat("Durata", formattaTempoMinuti(_minutiTotali), Icons.timer, Colors.purple, scale),
+                  _buildCompactStat("Passi", "$_passiTotali", Icons.pets,
+                      Colors.orange, scale),
+                  _buildCompactStat(
+                      "Km", _kmTotali, Icons.straighten, Colors.blue, scale),
+                  _buildCompactStat(
+                      "Durata",
+                      formattaTempoMinuti(_minutiTotali),
+                      Icons.timer,
+                      Colors.purple,
+                      scale),
                 ],
               ),
             ),
@@ -279,7 +302,8 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
     );
   }
 
-  Widget _buildCompactStat(String label, String value, IconData icon, Color color, double scale) {
+  Widget _buildCompactStat(
+      String label, String value, IconData icon, Color color, double scale) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -288,8 +312,11 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
             radius: 20 * scale,
             child: Icon(icon, color: color, size: 22 * scale)),
         SizedBox(height: 8 * scale),
-        Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16 * scale)),
-        Text(label, style: TextStyle(color: Colors.black45, fontSize: 12 * scale)),
+        Text(value,
+            style:
+                TextStyle(fontWeight: FontWeight.bold, fontSize: 16 * scale)),
+        Text(label,
+            style: TextStyle(color: Colors.black45, fontSize: 12 * scale)),
       ],
     );
   }
