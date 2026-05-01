@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-import 'package:latlong2/latlong.dart';
-import 'package:pet_tracker/models/activities.dart';
 import 'login.dart';
 import 'home.dart';
 import '../models/positions.dart';
 import '../repositories/users_repo.dart';
 import '../repositories/positions_repo.dart';
 import '../repositories/activities_repo.dart';
-import '../repositories/geofences_repo.dart';
 import '../services/authentication.dart' as scambio;
 
 class SplashScreen extends StatefulWidget {
@@ -20,7 +17,6 @@ class SplashScreen extends StatefulWidget {
     final usersRepo = UsersRepository();
     final positionsRepo = PositionsRepository(scambio.pb);
     final activitiesRepo = ActivitiesRepository(scambio.pb);
-    final geofenceRepo = GeofenceRepository(scambio.pb);
 
     try {
       final user = await usersRepo.getCurrentUser();

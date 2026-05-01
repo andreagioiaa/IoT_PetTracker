@@ -23,9 +23,9 @@ class _RecapScreenState extends State<RecapScreen> {
   bool _isLoading = true;
   List<Activities> _listaAttivita = [];
   final Map<String, String> _nomiZoneCalcolate = {};
-  
+
   // Memorizza il BoardID per il Real-Time
-  String? _boardId; 
+  String? _boardId;
 
   // --- LOGICA FILTRI ---
   final Map<String, String> _filtriDisponibili = {
@@ -34,8 +34,8 @@ class _RecapScreenState extends State<RecapScreen> {
     'i': 'Zone sicure',
     'v': 'In viaggio'
   };
-  
-  Set<String> _filtriAttivi = {'s', 'w', 'i', 'v'}; 
+
+  Set<String> _filtriAttivi = {'s', 'w', 'i', 'v'};
 
   @override
   void initState() {
@@ -47,7 +47,7 @@ class _RecapScreenState extends State<RecapScreen> {
   Future<void> _inizializzaPagina() async {
     // 1. Carica le attività attuali
     await _caricaAttivitaGiornaliere();
-    
+
     // 2. Attiva l'ascoltatore in tempo reale se abbiamo trovato il Board ID
     if (_boardId != null) {
       _attivaRealTimeAttivita();
@@ -59,10 +59,12 @@ class _RecapScreenState extends State<RecapScreen> {
     await _activitiesRepo.subscribeToActivityUpdates(_boardId!, (data) {
       // Se arriva un aggiornamento dal server ricarichiamo la lista
       if (mounted) {
-        bool isOggi = DateUtils.isSameDay(widget.dataSelezionata, DateTime.now());
+        bool isOggi =
+            DateUtils.isSameDay(widget.dataSelezionata, DateTime.now());
         if (isOggi) {
-          debugPrint("📡 [daily_recap]: Aggiornamento Real-Time ricevuto. Ricarico la lista...");
-          _caricaAttivitaGiornaliere(); 
+          debugPrint(
+              "📡 [daily_recap]: Aggiornamento Real-Time ricevuto. Ricarico la lista...");
+          _caricaAttivitaGiornaliere();
         }
       }
     });
@@ -77,8 +79,9 @@ class _RecapScreenState extends State<RecapScreen> {
   // -------------------------
 
   Future<void> _caricaAttivitaGiornaliere() async {
+    // Verifica se il widget è ancora montato prima di aggiornare lo stato
     if (!mounted) return;
-    
+
     // Mostra il caricamento solo se la lista è vuota (primo avvio)
     // Se è un aggiornamento Real-Time, aggiorna in background
     if (_listaAttivita.isEmpty) {
@@ -94,23 +97,22 @@ class _RecapScreenState extends State<RecapScreen> {
         return;
       }
 
+      // La query restituisce tutte le attività in ordine
       final attivitaGrezze = await _activitiesRepo.fetchActivitiesByDate(
           _boardId!, widget.dataSelezionata);
 
-      var attivitaFiltrate = _activitiesRepo.filterValidActivities(attivitaGrezze);
+      // Applica i filtri delle attività valide
+      var attivitaFiltrate =
+          _activitiesRepo.filterValidActivities(attivitaGrezze);
 
-      attivitaFiltrate.sort((a, b) {
-        if (a.startTime == null && b.startTime == null) return 0;
-        if (a.startTime == null) return 1;
-        if (b.startTime == null) return -1;
-        return b.startTime!.compareTo(a.startTime!);
-      });
-
+      // Calcola i nomi delle zone per ogni attività (in parallelo)
       for (var act in attivitaFiltrate) {
-        String titolo = await _activitiesRepo.getActivityLabel(act);
-        _nomiZoneCalcolate[act.id] = titolo; 
+        String titolo =
+            await _activitiesRepo.getActivityLabel(act, isDailyRecap: true);
+        _nomiZoneCalcolate[act.id] = titolo;
       }
-      
+
+      // Aggiorna lo stato solo se il widget è costruito
       if (mounted) {
         setState(() {
           _listaAttivita = attivitaFiltrate;
@@ -123,17 +125,26 @@ class _RecapScreenState extends State<RecapScreen> {
     }
   }
 
-  
-
   @override
   Widget build(BuildContext context) {
-    String dataLabel = DateFormat('EEEE d MMMM', 'it_IT').format(widget.dataSelezionata);
+    // Formatta la data in italiano (es. "Lunedì 5 Giugno")
+    String dataLabel =
+        DateFormat('EEEE d MMMM', 'it_IT').format(widget.dataSelezionata);
     dataLabel = dataLabel[0].toUpperCase() + dataLabel.substring(1);
 
     double scale = dimensioniSchermo(context);
 
+    // Applica i filtri alla lista completa per ottenere solo le attività da mostrare
     List<Activities> attivitaDaMostrare = _listaAttivita.where((act) {
-      return _filtriAttivi.contains(act.status.toLowerCase());
+      String stato = act.status.toLowerCase();
+
+      // Associa lo stato deep sleep al suo corrispondente attivo
+      if (stato == 'p') stato = 's';
+      if (stato == 'z') stato = 'w';
+      if (stato == 'd') stato = 'i';
+      if (stato == 'a') stato = 'v';
+
+      return _filtriAttivi.contains(stato);
     }).toList();
 
     return Scaffold(
@@ -150,16 +161,20 @@ class _RecapScreenState extends State<RecapScreen> {
       body: Column(
         children: [
           _buildPannelloFiltri(scale),
-          
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: Color(0xFF00C6B8)))
+                ? const Center(
+                    child: CircularProgressIndicator(color: Color(0xFF00C6B8)))
                 : _listaAttivita.isEmpty
-                    ? _buildEmptyState("Nessuna attività registrata\nin questa data.", scale)
+                    ? _buildEmptyState(
+                        "Nessuna attività registrata\nin questa data.", scale)
                     : attivitaDaMostrare.isEmpty
-                        ? _buildEmptyState("Nessuna attività corrisponde\nai filtri selezionati.", scale)
+                        ? _buildEmptyState(
+                            "Nessuna attività corrisponde\nai filtri selezionati.",
+                            scale)
                         : ListView.builder(
-                            padding: EdgeInsets.symmetric(horizontal: 16 * scale, vertical: 10 * scale),
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 16 * scale, vertical: 10 * scale),
                             itemCount: attivitaDaMostrare.length,
                             itemBuilder: (context, index) {
                               final attivita = attivitaDaMostrare[index];
@@ -185,35 +200,32 @@ class _RecapScreenState extends State<RecapScreen> {
         child: Row(
           children: [
             _buildSingoloFiltro(
-              etichetta: "Tutte", 
-              selezionato: tutteAttive, 
-              scale: scale,
-              onTap: (selezionato) {
-                setState(() {
-                  if (selezionato) {
-                    _filtriAttivi = Set.from(_filtriDisponibili.keys);
-                  } else {
-                    _filtriAttivi.clear();
-                  }
-                });
-              }
-            ),
-            
-            ..._filtriDisponibili.entries.map((entry) {
-              return _buildSingoloFiltro(
-                etichetta: entry.value,
-                selezionato: _filtriAttivi.contains(entry.key),
+                etichetta: "Tutte",
+                selezionato: tutteAttive,
                 scale: scale,
                 onTap: (selezionato) {
                   setState(() {
                     if (selezionato) {
-                      _filtriAttivi.add(entry.key);
+                      _filtriAttivi = Set.from(_filtriDisponibili.keys);
                     } else {
-                      _filtriAttivi.remove(entry.key);
+                      _filtriAttivi.clear();
                     }
                   });
-                }
-              );
+                }),
+            ..._filtriDisponibili.entries.map((entry) {
+              return _buildSingoloFiltro(
+                  etichetta: entry.value,
+                  selezionato: _filtriAttivi.contains(entry.key),
+                  scale: scale,
+                  onTap: (selezionato) {
+                    setState(() {
+                      if (selezionato) {
+                        _filtriAttivi.add(entry.key);
+                      } else {
+                        _filtriAttivi.remove(entry.key);
+                      }
+                    });
+                  });
             }),
           ],
         ),
@@ -221,11 +233,18 @@ class _RecapScreenState extends State<RecapScreen> {
     );
   }
 
-  Widget _buildSingoloFiltro({required String etichetta, required bool selezionato, required double scale, required Function(bool) onTap}) {
+  Widget _buildSingoloFiltro(
+      {required String etichetta,
+      required bool selezionato,
+      required double scale,
+      required Function(bool) onTap}) {
     return Padding(
       padding: EdgeInsets.only(right: 8 * scale),
       child: FilterChip(
-        label: Text(etichetta, style: TextStyle(fontSize: 13 * scale, fontWeight: selezionato ? FontWeight.bold : FontWeight.normal)),
+        label: Text(etichetta,
+            style: TextStyle(
+                fontSize: 13 * scale,
+                fontWeight: selezionato ? FontWeight.bold : FontWeight.normal)),
         selected: selezionato,
         onSelected: onTap,
         selectedColor: const Color(0xFF00C6B8).withOpacity(0.15),
@@ -247,7 +266,8 @@ class _RecapScreenState extends State<RecapScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.notes_rounded, size: 80 * scale, color: Colors.grey.shade300),
+          Icon(Icons.notes_rounded,
+              size: 80 * scale, color: Colors.grey.shade300),
           SizedBox(height: 16 * scale),
           Text(
             messaggio,
@@ -260,18 +280,21 @@ class _RecapScreenState extends State<RecapScreen> {
   }
 
   Widget _buildNotaAttivita(Activities attivita, double scale) {
-    final config = _activitiesRepo.getConfigForActivityDR(attivita, _nomiZoneCalcolate[attivita.id] ?? 'Sconosciuta');
+    final config = _activitiesRepo.getConfigForActivity(
+        attivita, _nomiZoneCalcolate[attivita.id] ?? 'Sconosciuta');
     final String titolo = config['titolo'];
     final Color colore = config['colore'];
     final IconData icona = config['icona'];
 
     // Formatta orari
     String oraInizio = formattaOrarioEsatto(attivita.startTime);
-    
+
     // Se l'attività è ancora attiva, mostriamo "In corso..." altrimenti l'orario di fine (oppure "N.D." se non disponibile)
-    String oraFine = attivita.isActive 
-        ? "In corso..." 
-        : (attivita.endTime != null ? formattaOrarioEsatto(attivita.endTime) : "N.D.");
+    String oraFine = attivita.isActive
+        ? "In corso..."
+        : (attivita.endTime != null
+            ? formattaOrarioEsatto(attivita.endTime)
+            : "N.D.");
 
     return GestureDetector(
       onTap: () {
@@ -280,8 +303,8 @@ class _RecapScreenState extends State<RecapScreen> {
           MaterialPageRoute(
             builder: (context) => ActivityDetailsScreen(
               attivita: attivita,
-              titoloZona: titolo, 
-              coloreStato: colore, 
+              titoloZona: titolo,
+              coloreStato: colore,
             ),
           ),
         );
@@ -341,10 +364,32 @@ class _RecapScreenState extends State<RecapScreen> {
                         ),
                       ],
                     ),
+                    if (attivita.anomaly == true) ...[
+                      SizedBox(height: 6 * scale),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.warning_amber_rounded,
+                              size: 14 * scale, color: Colors.orange.shade700),
+                          SizedBox(width: 6 * scale),
+                          Expanded(
+                            child: Text(
+                              "Tracciamento parziale (GPS instabile)",
+                              style: TextStyle(
+                                fontSize: 10 * scale,
+                                color: Colors.orange.shade700,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right, color: Colors.black26, size: 24 * scale),
+              Icon(Icons.chevron_right,
+                  color: Colors.black26, size: 24 * scale),
             ],
           ),
         ),

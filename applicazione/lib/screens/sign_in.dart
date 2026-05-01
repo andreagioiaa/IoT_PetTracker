@@ -43,7 +43,7 @@ class _SignInScreenState extends State<SignInScreen> {
         username.isEmpty ||
         email.isEmpty ||
         password.isEmpty ||
-        confirmPass.isEmpty||
+        confirmPass.isEmpty ||
         boardId.isEmpty) {
       return "Tutti i campi sono obbligatori.";
     }
@@ -137,7 +137,8 @@ class _SignInScreenState extends State<SignInScreen> {
 
         if (loggedIn) {
           if (!mounted) return;
-          _showSnackBar('Account creato e collegato alla Board!', const Color(0xFF00C6B8));
+          _showSnackBar('Account creato e collegato alla Board!',
+              const Color(0xFF00C6B8));
 
           // Pulizia controller per sicurezza
           _clearControllers();
@@ -291,7 +292,7 @@ class _SignInScreenState extends State<SignInScreen> {
                   _buildTextField(
                     _confirmPassController,
                     'Conferma Password',
-                    Icons.lock_reset_outlined,
+                    Icons.lock_outline,
                     scale,
                     obscure: _obscureConfirmPassword,
                     suffixIcon: IconButton(
@@ -328,8 +329,10 @@ class _SignInScreenState extends State<SignInScreen> {
                     scale,
                     keyboardType: TextInputType.number,
                     inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly, // Permette solo numeri a tastiera
-                      LengthLimitingTextInputFormatter(15),   // Blocca la digitazione a 15 caratteri
+                      FilteringTextInputFormatter
+                          .digitsOnly, // Permette solo numeri a tastiera
+                      LengthLimitingTextInputFormatter(
+                          15), // Blocca la digitazione a 15 caratteri
                     ],
                   ),
                   Padding(
@@ -407,10 +410,10 @@ class _SignInScreenState extends State<SignInScreen> {
 
   Widget _buildTextField(TextEditingController controller, String label,
       IconData icon, double scale,
-      {bool obscure = false, 
-       Widget? suffixIcon, 
-       TextInputType? keyboardType,
-       List<TextInputFormatter>? inputFormatters}) {
+      {bool obscure = false,
+      Widget? suffixIcon,
+      TextInputType? keyboardType,
+      List<TextInputFormatter>? inputFormatters}) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,

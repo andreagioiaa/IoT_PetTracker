@@ -112,31 +112,31 @@ class ActivitiesRepository {
             page: 1,
             perPage: 1,
             filter: 'board_id = "$boardId"',
-            sort: '-start_time', 
+            sort: '-start_time',
           );
-      
+
       // 3. Verifichiamo se la lista contiene almeno un elemento
       if (result.items.isNotEmpty) {
         return Activities.fromRecord(result.items.first);
       }
-      
-      print("⚠️ [activities_repo]: Nessuna attività trovata per board $boardId.");
+
+      print(
+          "⚠️ [activities_repo]: Nessuna attività trovata per board $boardId.");
       return null;
     } catch (e) {
       print("🚨 [activities_repo]: Errore critico in getLastActivity: $e");
       return null;
     }
   }
-  
-
-  
 
   /// Sottoscrizione Real-time per monitorare i cambi di stato dell'attività
-  Future<void> subscribeToActivityUpdates(String boardId, Function(Map<String, dynamic>) onUpdate) async {
+  Future<void> subscribeToActivityUpdates(
+      String boardId, Function(Map<String, dynamic>) onUpdate) async {
     try {
       // Ci iscriviamo ai cambiamenti della collezione filtrando per boardId
       await _pb.collection('activities').subscribe("*", (e) {
-        if (e.record != null && e.record!.getStringValue('board_id') == boardId) {
+        if (e.record != null &&
+            e.record!.getStringValue('board_id') == boardId) {
           onUpdate(e.record!.toJson());
         }
       });
@@ -151,25 +151,37 @@ class ActivitiesRepository {
     _pb.collection('activities').unsubscribe("*");
   }
 
-  /// Filtra una lista di attività mantenendo solo quelle da mostrare ('s', 'w', 'i', 'v')
+  // Filtra le attività restituite mantenendo solo quelle con status valido
   List<Activities> filterValidActivities(List<Activities> attivitaGrezze) {
-    final statusValidi = ['s', 'w', 'i', 'v'];
+    final statusValidi = ['s', 'w', 'i', 'v', 'p', 'z', 'd', 'a'];
     return attivitaGrezze.where((act) {
       return statusValidi.contains(act.status.toLowerCase());
     }).toList();
   }
 
-  /// Restituisce la stringa descrittiva dello stato dell'attività.
-  /// Se lo stato è 'i' (Inside), calcola e restituisce direttamente il nome della zona (es. "Giardino").
-  Future<String> getActivityLabel(Activities attivita) async {
-    print("[activities_repo]: tento di prendere l'ActivityLabel dell'ultima attività");
-    switch (attivita.status.toLowerCase()) {
+  /// Restituisce la stringa descrittiva dello stato dell'attività
+  /// Se isDailyRecap è true, associa i deep sleep ai corrispettivi attivi
+  /// Se lo stato è 'i' (Inside), calcola e restituisce direttamente il nome della zona (es. "Giardino")
+  Future<String> getActivityLabel(Activities attivita,
+      {bool isDailyRecap = false}) async {
+    String stato = attivita.status.toLowerCase();
+
+    // Se siamo nel Daily Recap, "mascheriamo" lo stato trasformandolo nel suo equivalente attivo
+    if (isDailyRecap) {
+      if (stato == 'p') stato = 's';
+      if (stato == 'z') stato = 'w';
+      if (stato == 'd') stato = 'i';
+      if (stato == 'a') stato = 'v';
+    }
+
+    switch (stato) {
       case 's':
         return 'Animale scappato';
       case 'w':
         return 'In passeggiata';
       case 'v':
         return 'In viaggio';
+      // Questi casi verranno letti SOLO dalla Home
       case 'a':
         return "Sleep: in viaggio";
       case 'z':
@@ -178,19 +190,13 @@ class ActivitiesRepository {
         return "Sleep: a casa";
       case 'i':
         try {
-          // Usa la chiave esterna per trovare la prima posizione di questa attività
           final result = await _pb.collection('positions').getFirstListItem(
                 'activity = "${attivita.id}"',
               );
-          
           final lat = result.getDoubleValue('lat');
           final lon = result.getDoubleValue('lon');
-          
-          // Calcola il nome della zona passando LatLng al servizio GPS
-          String nomeZona = await PositionGpsService.calcolaZonaDalPunto(
-            LatLng(lat, lon),
-          );
-          return nomeZona;
+
+          return await PositionGpsService.calcolaZonaDalPunto(LatLng(lat, lon));
         } catch (e) {
           return 'Zona sicura sconosciuta';
         }
@@ -198,7 +204,6 @@ class ActivitiesRepository {
         return 'Sconosciuta';
     }
   }
-
 
   /*
   /// Recupera l'etichetta di stato dell'attività più recente.
@@ -262,7 +267,7 @@ class ActivitiesRepository {
 
       // Passiamo l'oggetto reale a getActivityLabel per la decodifica del titolo
       String titoloAttivita = await getActivityLabel(ultimaAttivita);
-      
+
       // Ritorniamo la mappa completa passando l'attività e il titolo ricavato
       return getConfigForActivity(ultimaAttivita, titoloAttivita);
     } catch (e) {
@@ -274,43 +279,53 @@ class ActivitiesRepository {
       };
     }
   }
-  
 
   // Restituisce titolo, colore e icona in base allo stato dell'attività
-  Map<String, dynamic> getConfigForActivity(Activities attivita, String titolo) {
+  Map<String, dynamic> getConfigForActivity(
+      Activities attivita, String titolo) {
     switch (attivita.status.toLowerCase()) {
       case 's':
-        return {'titolo': titolo, 'colore': Colors.red, 'icona': Icons.warning_amber_rounded};
+        return {
+          'titolo': titolo,
+          'colore': Colors.red,
+          'icona': Icons.warning_amber_rounded
+        };
       case 'w':
-        return {'titolo': titolo, 'colore': const Color(0xFF00C6B8), 'icona': Icons.directions_walk};
+        return {
+          'titolo': titolo,
+          'colore': const Color(0xFF00C6B8),
+          'icona': Icons.directions_walk
+        };
       case 'z':
-        return {'titolo': titolo, 'colore': const Color(0xFF00C6B8), 'icona': Icons.directions_walk};
+        return {
+          'titolo': titolo,
+          'colore': const Color(0xFF00C6B8),
+          'icona': Icons.directions_walk
+        };
       case 'i':
-        return {'titolo': titolo, 'colore': Colors.green, 'icona': Icons.home_rounded};
-      case 'z':
-        return {'titolo': titolo, 'colore': Colors.green, 'icona': Icons.home_rounded};
+        return {
+          'titolo': titolo,
+          'colore': Colors.green,
+          'icona': Icons.home_rounded
+        };
       case 'v':
-        return {'titolo': titolo, 'colore': Colors.blue, 'icona': Icons.directions_car};
+        return {
+          'titolo': titolo,
+          'colore': Colors.blue,
+          'icona': Icons.directions_car
+        };
       case 'a':
-        return {'titolo': titolo, 'colore': Colors.blue, 'icona': Icons.directions_car};
+        return {
+          'titolo': titolo,
+          'colore': Colors.blue,
+          'icona': Icons.directions_car
+        };
       default:
-        return {'titolo': titolo, 'colore': Colors.grey, 'icona': Icons.help_outline};
-    }
-  }
-
-  // Restituisce titolo, colore e icona in base allo stato dell'attività
-  Map<String, dynamic> getConfigForActivityDR(Activities attivita, String titolo) {
-    switch (attivita.status.toLowerCase()) {
-      case 's' || 'p':
-        return {'titolo': titolo, 'colore': Colors.red, 'icona': Icons.warning_amber_rounded};
-      case 'w' || 'z':
-        return {'titolo': titolo, 'colore': const Color(0xFF00C6B8), 'icona': Icons.directions_walk};
-      case 'i' || 'd':
-        return {'titolo': titolo, 'colore': Colors.green, 'icona': Icons.home_rounded};
-      case 'v' || 'a':
-        return {'titolo': titolo, 'colore': Colors.blue, 'icona': Icons.directions_car};
-      default:
-        return {'titolo': titolo, 'colore': Colors.grey, 'icona': Icons.help_outline};
+        return {
+          'titolo': titolo,
+          'colore': Colors.grey,
+          'icona': Icons.help_outline
+        };
     }
   }
 
@@ -322,11 +337,11 @@ class ActivitiesRepository {
             filter: 'board_id = "$boardId"',
             sort: '-start_time',
           );
-      
+
       if (result.items.isNotEmpty) {
         return result.items.first.getStringValue('status');
       }
-      return 'n'; 
+      return 'n';
     } catch (e) {
       return 'n';
     }

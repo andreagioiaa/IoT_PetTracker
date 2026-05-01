@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:latlong2/latlong.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:pet_tracker/repositories/activities_repo.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -60,8 +59,6 @@ class PetTrackerApp extends StatelessWidget {
     );
   }
 }
-
-
 
 Color getColoreStato(DateTime? ultimoInvio) {
   if (ultimoInvio == null) return Colors.grey;
@@ -187,14 +184,15 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
 
   String? _currentBoardRecordId; // Salviamo l'ID interno di PocketBase
 
-  String _currentStatus = 'n'; // Variabile locale per lo stato attività (n, s, p)
+  String _currentStatus =
+      'n'; // Variabile locale per lo stato attività (n, s, p)
 
   @override
   void initState() {
     super.initState();
     _initializeDates();
     _recuperaDataCreazioneBoard();
-    
+
     // Caricamento dati e attivazione ascoltatori
     _scaricaDatiIniziali();
     _attivaRealTimeStatus(); // Nuova funzione per la reattività dello status
@@ -250,7 +248,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
         _positionsRepo.positionsStream.listen((nuovaPos) async {
       try {
         Map<String, dynamic> nuovaZona = await _calculateCurrentZone();
-        
+
         if (mounted) {
           setState(() {
             _ultimoAggiornamento = nuovaPos.timestamp;
@@ -268,7 +266,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     _uiRefreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
       if (mounted) setState(() {});
     });
-  
+
     _inizializzaRealTimeBoard();
   }
 
@@ -279,18 +277,19 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
 
       // 1. Troviamo il record ID interno della board associata all'utente
       final record = await scambio.pb.collection('boards').getFirstListItem(
-        'user ~ "$userId"',
-      );
-      
+            'user ~ "$userId"',
+          );
+
       _currentBoardRecordId = record.id;
 
       // 2. Avviamo la sottoscrizione real-time
       await _usersRepo.subscribeToBoardUpdates(_currentBoardRecordId!, (data) {
         final bool nuovoStatoAllarme = data['alarm'] ?? false;
-        
+
         // Se lo stato sul DB è diverso da quello locale, aggiorniamo la UI
         if (mounted && isTrackingMode.value != nuovoStatoAllarme) {
-          debugPrint("🔄 [home.dart] Allarme aggiornato da un altro dispositivo: $nuovoStatoAllarme");
+          debugPrint(
+              "🔄 [home.dart] Allarme aggiornato da un altro dispositivo: $nuovoStatoAllarme");
           setState(() {
             isTrackingMode.value = nuovoStatoAllarme;
           });
@@ -325,14 +324,14 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
   }
 
   void _elaboraAttivita(List<dynamic> attivita) {
-      // --- MODIFICA QUI ---
-      DailyStats().elaboraListaAttivita(attivita);
-      
-      if(mounted){
-          setState((){
-              _dailyStats = DailyStats().toMap();
-          });
-      }
+    // --- MODIFICA QUI ---
+    DailyStats().elaboraListaAttivita(attivita);
+
+    if (mounted) {
+      setState(() {
+        _dailyStats = DailyStats().toMap();
+      });
+    }
   }
 
   // Variabile per la data attualmente visualizzata (inizialmente oggi)
@@ -502,12 +501,14 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
       final String? boardId = await _usersRepo.getBoardIdFromBoards();
 
       if (boardId == null || boardId.isEmpty) {
-        debugPrint("⚠️ Nessuna board trovata per questo account nella collezione 'boards'.");
+        debugPrint(
+            "⚠️ Nessuna board trovata per questo account nella collezione 'boards'.");
         if (mounted) setState(() => _isActivityLoading = false);
         return;
       }
 
-      final attivita = await _activitiesRepo.fetchActivitiesByDate(boardId, data);
+      final attivita =
+          await _activitiesRepo.fetchActivitiesByDate(boardId, data);
 
       // --- MODIFICA QUI: Uso l'oggetto centralizzato ---
       DailyStats().elaboraListaAttivita(attivita);
@@ -516,7 +517,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
         setState(() {
           // Aggiorno _dailyStats usando il toMap() per compatibilità con il resto della UI
           _dailyStats = DailyStats().toMap();
-          _isActivityLoading = false; 
+          _isActivityLoading = false;
         });
       }
     } catch (e) {
@@ -538,13 +539,13 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     try {
       // 1. Recupero dati Utente (per il nome nel saluto)
       final user = await _usersRepo.getCurrentUser();
-      
+
       // 2. RECUPERO ID BOARD (Essenziale per lo stato attività)
       // Ci serve l'ID per sapere quale record di 'activities' monitorare
       final boardId = await _usersRepo.getBoardIdFromBoards();
 
       // 3. Recupero lo stato dell'allarme direttamente dalla Board
-      final statoAllarme = await _usersRepo.getAlarmFromBoard(); 
+      final statoAllarme = await _usersRepo.getAlarmFromBoard();
 
       // 4. RECUPERO STATO OPERATIVO (Novità)
       // Controlliamo se il cane è già in modalità ricerca (s/p)
@@ -552,7 +553,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
       if (boardId != null) {
         statusIniziale = await _activitiesRepo.getLatestActivityStatus(boardId);
       }
-      
+
       // 5. Recupero dati iniziali di Posizione (Timestamp e Zona)
       final tempoIniziale = await _positionsRepo.getLastTimestamp();
       final zonaIniziale = await _calculateCurrentZone();
@@ -561,18 +562,18 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
         setState(() {
           // Aggiorniamo il nome visualizzato
           _displayUsername = user?.username ?? 'Utente';
-          
+
           // Sincronizziamo il ValueNotifier globale dell'allarme (toggle)
-          isTrackingMode.value = statoAllarme; 
-          
+          isTrackingMode.value = statoAllarme;
+
           // AGGIORNIAMO LO STATO LOCALE (Blocca/Sblocca il toggle)
           _currentStatus = statusIniziale;
-          
+
           // Aggiorniamo le informazioni geografiche
           _ultimoAggiornamento = tempoIniziale;
           _configZona = zonaIniziale;
           _isLoading = false;
-          
+
           // Fermiamo il caricamento globale
           _isLoading = false;
         });
@@ -584,7 +585,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
       }
     }
   }
-  
+
   /* PRECEDENTE: non eliminarla, non si sa ancora se funziona la nuova
   Future<void> _scaricaDatiIniziali() async {
     // 1. Dati Utente
@@ -617,7 +618,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
           'icona': Icons.error_outline
         };
       }
-      
+
       return await _activitiesRepo.getActivityStatus(boardId);
     } catch (e) {
       debugPrint("❌ Errore in _calculateCurrentZone: $e");
@@ -670,10 +671,12 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
                     valueListenable: isTrackingMode,
                     builder: (context, isTracking, child) {
                       // Estraiamo i valori direttamente dalla nostra _configZona!
-                      String displayZone = _configZona['titolo'] ?? 'Sconosciuta';
+                      String displayZone =
+                          _configZona['titolo'] ?? 'Sconosciuta';
                       Color zoneColor = _configZona['colore'] ?? Colors.black;
-                      IconData locationIcon = _configZona['icona'] ?? Icons.location_on;
-                      
+                      IconData locationIcon =
+                          _configZona['icona'] ?? Icons.location_on;
+
                       // Mantengo la logica legacy per l'allarme hardcoded, nel caso fosse ancora necessaria
                       if (displayZone == "Fuori zona sicura") {
                         if (isTracking) {
@@ -686,7 +689,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
                           locationIcon = Icons.directions_walk;
                         }
                       }
-                      
+
                       return Column(
                         children: [
                           _buildDynamicPositionCard(
@@ -785,41 +788,62 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
   Widget _buildTrackingToggle(double scale, bool isActive) {
     // BLOCCO CRITICO: Se l'allarme è OFF ma lo stato è 's' (search) o 'p' (sleep search)
     // il tasto deve essere disabilitato (null nell'onChanged).
-    final bool isLocked = !isActive && (_currentStatus == 's' || _currentStatus == 'p');
+    final bool isLocked =
+        !isActive && (_currentStatus == 's' || _currentStatus == 'p');
 
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 15 * scale, vertical: 5 * scale),
+      padding:
+          EdgeInsets.symmetric(horizontal: 15 * scale, vertical: 5 * scale),
       decoration: BoxDecoration(
-          color: isLocked 
+          color: isLocked
               ? Colors.grey.withOpacity(0.1) // Colore spento se bloccato
-              : (isActive ? Colors.red.withOpacity(0.08) : const Color(0xFF00C6B8).withOpacity(0.08)),
+              : (isActive
+                  ? Colors.red.withOpacity(0.08)
+                  : const Color(0xFF00C6B8).withOpacity(0.08)),
           borderRadius: BorderRadius.circular(15 * scale),
           border: Border.all(
-              color: isLocked 
-                  ? Colors.grey.withOpacity(0.3) 
-                  : (isActive ? Colors.red.withOpacity(0.3) : const Color(0xFF00C6B8).withOpacity(0.3)))),
+              color: isLocked
+                  ? Colors.grey.withOpacity(0.3)
+                  : (isActive
+                      ? Colors.red.withOpacity(0.3)
+                      : const Color(0xFF00C6B8).withOpacity(0.3)))),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Row(
             children: [
               Icon(
-                  isLocked ? Icons.lock_clock : (isActive ? Icons.verified_user : Icons.remove_moderator),
-                  color: isLocked ? Colors.grey : (isActive ? Colors.red : const Color(0xFF00C6B8)),
+                  isLocked
+                      ? Icons.lock_clock
+                      : (isActive
+                          ? Icons.verified_user
+                          : Icons.remove_moderator),
+                  color: isLocked
+                      ? Colors.grey
+                      : (isActive ? Colors.red : const Color(0xFF00C6B8)),
                   size: 24 * scale),
               SizedBox(width: 10 * scale),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                      isActive ? "Allarme Antifuga ATTIVO" : "Allarme Antifuga SPENTO",
+                      isActive
+                          ? "Allarme Antifuga ATTIVO"
+                          : "Allarme Antifuga SPENTO",
                       style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 14 * scale,
-                          color: isLocked ? Colors.grey : (isActive ? Colors.red : const Color(0xFF00C6B8)))),
+                          color: isLocked
+                              ? Colors.grey
+                              : (isActive
+                                  ? Colors.red
+                                  : const Color(0xFF00C6B8)))),
                   if (isLocked)
-                    Text("MODIFICA BLOCCATA: CANE SCAPPATO", 
-                        style: TextStyle(fontSize: 10 * scale, color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                    Text("MODIFICA BLOCCATA: CANE SCAPPATO",
+                        style: TextStyle(
+                            fontSize: 10 * scale,
+                            color: Colors.redAccent,
+                            fontWeight: FontWeight.bold)),
                 ],
               ),
             ],
@@ -828,18 +852,22 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
             value: isActive,
             activeColor: Colors.red,
             // Se isLocked è true, passiamo null a onChanged per disabilitare fisicamente lo Switch
-            onChanged: isLocked ? null : (val) async {
-              isTrackingMode.value = val;
-              bool successo = await _usersRepo.setBoardAlarm(val);
-              if (!successo) {
-                isTrackingMode.value = !val;
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Errore sincronizzazione allarme ⚠️")),
-                  );
-                }
-              }
-            },
+            onChanged: isLocked
+                ? null
+                : (val) async {
+                    isTrackingMode.value = val;
+                    bool successo = await _usersRepo.setBoardAlarm(val);
+                    if (!successo) {
+                      isTrackingMode.value = !val;
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              content:
+                                  Text("Errore sincronizzazione allarme ⚠️")),
+                        );
+                      }
+                    }
+                  },
           ),
         ],
       ),
@@ -1067,8 +1095,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
         children: [
           Icon(Icons.sync, color: coloreStato, size: 18 * scale),
           const SizedBox(width: 8),
-          Text(
-              "Ultimo aggiornamento: ${formattaOra(ultimoInvio)}",
+          Text("Ultimo aggiornamento: ${formattaOra(ultimoInvio)}",
               style: TextStyle(
                   color: coloreStato,
                   fontWeight: FontWeight.bold,

@@ -9,6 +9,7 @@ class Activities {
   final DateTime? endTime;
   final bool isActive;
   final String status;
+  final bool anomaly;
 
   Activities({
     required this.id,
@@ -18,6 +19,7 @@ class Activities {
     this.endTime,
     required this.isActive,
     required this.status,
+    this.anomaly = false,
   });
 
   // Crea un'istanza di Activities a partire da un RecordModel di PocketBase
@@ -35,6 +37,7 @@ class Activities {
           : null,
       isActive: record.getBoolValue('is_active'),
       status: record.getStringValue('status'),
+      anomaly: record.getBoolValue('anomaly'),
     );
   }
 
@@ -47,6 +50,7 @@ class Activities {
       'end_time': endTime?.toUtc().toIso8601String(),
       'is_active': isActive,
       'status': status,
+      'anomaly': anomaly,
     };
   }
 }
