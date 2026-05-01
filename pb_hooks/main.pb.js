@@ -79,7 +79,7 @@ onRecordAfterCreateSuccess((e) => {
                 const sleepStatus = utils.ACTIVE_TO_SLEEP[newActiveStatus] ?? "z";
 
                 // Caso speciale: trip-sleep (animale sul veicolo che dorme).
-                // La sessione rimane is_active=true in modo da continuare a
+                // La sessione rimane is_active=true in modo da continuare a            -> Controllare
                 // ricevere posizioni GPS; cambiamo solo lo status in "a".
                 const isTripSleep = newActiveStatus === "v";
 
@@ -337,157 +337,131 @@ onRecordAfterUpdateSuccess((e) => {
 }, "activities");
 
 // ═══════════════════════════════════════════════════════════════
-//  CRON: Watchdog inattività — chiude sessioni appese
-//
-//  Timeout differenziati per status (is_active = true):
-//    "i", "s", "w", "v"  →  10 minuti  (stati attivi normali)
-//    "a"                  →  60 minuti  (trip-sleep: viaggio senza segnale)
-//
-//  I sleep normali (d, p, z) hanno is_active = false → non toccati.
+//  CRON 1: Watchdog inattività — ogni minuto
 // ═══════════════════════════════════════════════════════════════
-// ═══════════════════════════════════════════════════════════════
-//  CRON: Watchdog inattività — chiude sessioni appese
-// ═══════════════════════════════════════════════════════════════
-
 cronAdd("watchdog_device_silence", "* * * * *", () => {
-    const WATCHDOG_TIMEOUT_ACTIVE_MS     = 10 * 60 * 1000;
-    const WATCHDOG_TIMEOUT_TRIP_SLEEP_MS = 60 * 60 * 1000;
-    
+    const WATCHDOG_TIMEOUT_MS = 10 * 60 * 1000;
+    const OFFSET_ITALIA_MS = 2 * 60 * 60 * 1000; 
     const utils = require(`${__hooks}/utils.js`);
-    const now   = new Date();
+    
+    const oraRiferimento = new Date().getTime() + OFFSET_ITALIA_MS;
 
     try {
-        const activeActivities = $app.findRecordsByFilter("activities", "is_active = true", "", 0, 0);
-        if (!activeActivities) return;
+        const activeActivities = $app.findRecordsByFilter("activities", "is_active = true", "", 100, 0);
+        
+        if (!activeActivities || activeActivities.length === 0) return;
 
         activeActivities.forEach(activity => {
-            const boardId    = activity.getString("board_id");
-            const status     = activity.getString("status");
-            const endTimeStr = activity.getString("end_time");
+            const boardId = activity.getString("board_id");
+            const status  = activity.getString("status");
+            const endTimeStr = activity.getString("end_time"); 
+
             if (!endTimeStr) return;
 
-            const timeoutMs = status === "a"
-                ? WATCHDOG_TIMEOUT_TRIP_SLEEP_MS
-                : WATCHDOG_TIMEOUT_ACTIVE_MS;
+            const lastSeenMs = Date.parse(endTimeStr.replace(" ", "T"));
+            const elapsed = oraRiferimento - lastSeenMs;
 
-            const endTimeNormalized = endTimeStr.replace(" ", "T");
-            const elapsed = now - new Date(endTimeNormalized);
+            console.log(`[WATCHDOG] board=${boardId} | inattiva da: ${(elapsed / 60000).toFixed(2)} min`);
 
-            if (isNaN(elapsed)) {
-                console.log(`[WATCHDOG] Timestamp non parsabile board=${boardId}: "${endTimeStr}" — skip`);
-                return;
-            }
-
-            if (elapsed >= timeoutMs) {
+            // Ora scatterà correttamente dopo i 3 minuti
+            if (!isNaN(elapsed) && elapsed >= WATCHDOG_TIMEOUT_MS) {
                 activity.set("is_active", false);
-                activity.set("end_time",  now.toISOString());
                 activity.set("anomaly",   true);
                 $app.save(activity);
-                utils.salvaEvento($app, boardId, "watchdog", `Chiusura automatica per inattività (status: ${status}, ${(elapsed / 60000).toFixed(1)}m)`);
-                console.log(`[WATCHDOG] board=${boardId} status="${status}" chiusa (${(elapsed / 60000).toFixed(1)}m, timeout=${timeoutMs / 60000}m)`);
+                
+                utils.salvaEvento($app, boardId, "watchdog", `Chiusura per inattività (status: ${status})`);
+                console.log(`[WATCHDOG] -> CHIUSA board=${boardId} per inattività.`);
             }
         });
     } catch (err) {
         console.log("[WATCHDOG ERRORE] " + err);
     }
 });
-// ═══════════════════════════════════════════════════════════════
-//  CRON: Mezzanotte — spezza le sessioni sleep per giorno
-//
-//  Alla mezzanotte ogni sessione sleep aperta (is_active=false,
-//  status in d/p/z) viene:
-//    1. Chiusa con lo status attivo corrispondente (d→i, p→s, z→w)
-//    2. Riaperta immediatamente con lo stesso status sleep
-//
-//  Questo garantisce che ogni giorno abbia le proprie sessioni
-//  e che le statistiche giornaliere siano corrette.
-//  "a" (trip-sleep) è is_active=true → gestito dal watchdog, non qui.
-// ═══════════════════════════════════════════════════════════════
 
 // ═══════════════════════════════════════════════════════════════
-//  CRON: Mezzanotte — spezza le sessioni sleep per giorno
-//
-//  Gestisce tutti gli stati sleep alla mezzanotte:
-//    d/p/z (is_active=false) → chiude con stato attivo, riapre con sleep
-//    a     (is_active=true)  → chiude con "v" + is_active=false,
-//                              riapre con "a" + is_active=true
+//  CRON 2: Mezzanotte — split giornaliero
 // ═══════════════════════════════════════════════════════════════
-
-cronAdd("midnight_sleep_split", "0 0 * * *", () => {
+cronAdd("midnight_sleep_split", "59 23 * * *", () => {
     const utils = require(`${__hooks}/utils.js`);
-
     const SLEEP_TO_ACTIVE_MAP = { d: "i", p: "s", z: "w", a: "v" };
+    const OFFSET_ITALIA_MS = 2 * 60 * 60 * 1000;
+    const WATCHDOG_TIMEOUT_MS = 10 * 60 * 1000;
 
-    const midnight = new Date();
-    midnight.setSeconds(0);
-    midnight.setMilliseconds(0);
-    const midnightISO = midnight.toISOString();
-
-    console.log(`[MIDNIGHT] Avvio split sessioni sleep — ${midnightISO}`);
+    const oraRiferimento = new Date().getTime() + OFFSET_ITALIA_MS;
+    const now = new Date();
+    
+    // Orari per la chiusura e l'apertura
+    const fineGiornoISO = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59).toISOString();
+    const inizioGiornoISO = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0).toISOString();
 
     try {
-        // d/p/z → is_active=false | a → is_active=true
-        const sleepActivities = $app.findRecordsByFilter(
+        const targetActivities = $app.findRecordsByFilter(
             "activities",
-            "(is_active = false && (status = 'd' || status = 'p' || status = 'z')) || (is_active = true && status = 'a')",
-            "", 0, 0
+            "is_active = true || (is_active = false && (status = 'd' || status = 'p' || status = 'z' || status = 'a'))",
+            "", 500, 0
         );
 
-        if (!sleepActivities || sleepActivities.length === 0) {
-            console.log("[MIDNIGHT] Nessuna sessione sleep da spezzare");
-            return;
-        }
+        if (!targetActivities) return;
 
-        // Teniamo solo l'ultima sessione per board_id
         const latestByBoard = {};
-        sleepActivities.forEach(activity => {
-            const boardId    = activity.getString("board_id");
-            const endTimeStr = activity.getString("end_time").replace(" ", "T");
-            const endTime    = new Date(endTimeStr);
+        targetActivities.forEach(activity => {
+            const boardId = activity.getString("board_id");
+            const lastSeenMs = Date.parse(activity.getString("end_time").replace(" ", "T"));
 
-            if (!latestByBoard[boardId] || endTime > latestByBoard[boardId].endTime) {
-                latestByBoard[boardId] = { activity, endTime };
+            if (!latestByBoard[boardId] || lastSeenMs > latestByBoard[boardId].lastSeenMs) {
+                latestByBoard[boardId] = { activity, lastSeenMs };
             }
         });
 
-        Object.entries(latestByBoard).forEach(([boardId, { activity }]) => {
+        Object.entries(latestByBoard).forEach(([boardId, { activity, lastSeenMs }]) => {
             try {
-                const sleepStatus  = activity.getString("status");
-                const activeStatus = SLEEP_TO_ACTIVE_MAP[sleepStatus];
+                const isActive = activity.getBool("is_active");
+                const status   = activity.getString("status");
 
-                if (!activeStatus) {
-                    console.log(`[MIDNIGHT] board=${boardId} status="${sleepStatus}" non mappato, skip`);
-                    return;
+                // 1. PRIORITÀ: Controllo Watchdog prima dello split
+                if (isActive) {
+                    const elapsed = oraRiferimento - lastSeenMs;
+                    if (!isNaN(elapsed) && elapsed >= WATCHDOG_TIMEOUT_MS) {
+                        activity.set("is_active", false);
+                        activity.set("anomaly", true);
+                        $app.save(activity);
+                        return; // Esce per questa board
+                    }
                 }
 
-                const isTripSleep = sleepStatus === "a";
+                // 2. LOGICA MEZZANOTTE[cite: 1]
+                const col = $app.findCollectionByNameOrId("activities");
 
-                // 1. Chiudi sessione corrente con stato ATTIVO e is_active=false
-                activity.set("status",    activeStatus);
-                activity.set("end_time",  midnightISO);
-                activity.set("is_active", false);
-                $app.save(activity);
-                console.log(`[MIDNIGHT] board=${boardId} "${sleepStatus}"→"${activeStatus}" chiusa`);
+                if (isActive) {
+                    // Chiude attiva e apre nuova uguale attiva[cite: 1]
+                    activity.set("is_active", false);
+                    activity.set("end_time",  fineGiornoISO);
+                    $app.save(activity);
 
-                // 2. Nuova sessione con stesso stato SLEEP
-                //    "a" rimane is_active=true perché il viaggio è ancora in corso
-                const col  = $app.findCollectionByNameOrId("activities");
-                const newA = new Record(col);
-                newA.set("board_id",    boardId);
-                newA.set("start_time",  midnightISO);
-                newA.set("end_time",    midnightISO);
-                newA.set("is_active",   isTripSleep);
-                newA.set("status",      sleepStatus);
-                newA.set("total_steps", 0);
-                $app.save(newA);
-                console.log(`[MIDNIGHT] board=${boardId} nuova "${sleepStatus}" is_active=${isTripSleep}`);
+                    const newRec = new Record(col);
+                    newRec.set("board_id",    boardId);
+                    newRec.set("start_time",  inizioGiornoISO);
+                    newRec.set("end_time",    inizioGiornoISO);
+                    newRec.set("is_active",   true);
+                    newRec.set("status",      status);
+                    $app.save(newRec);
+                } 
+                else if (SLEEP_TO_ACTIVE_MAP[status]) {
+                    // Chiude sleep (diventa attivo) e apre nuovo sleep
+                    const attivo = SLEEP_TO_ACTIVE_MAP[status];
+                    activity.set("status",   attivo);
+                    activity.set("end_time", fineGiornoISO); 
+                    $app.save(activity);
 
-            } catch (err) {
-                console.log(`[MIDNIGHT] board=${boardId} ERRORE: ` + err);
-            }
+                    const newSleep = new Record(col);
+                    newSleep.set("board_id",    boardId);
+                    newSleep.set("start_time",  inizioGiornoISO);
+                    newSleep.set("end_time",    inizioGiornoISO);
+                    newSleep.set("is_active",   false);
+                    newSleep.set("status",      status);
+                    $app.save(newSleep);
+                }
+            } catch (err) { console.log("Errore board " + boardId + ": " + err); }
         });
-
-    } catch (err) {
-        console.log("[MIDNIGHT ERRORE] " + err);
-    }
+    } catch (err) { console.log("Errore Mezzanotte: " + err); }
 });

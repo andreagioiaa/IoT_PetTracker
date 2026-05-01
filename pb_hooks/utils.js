@@ -279,10 +279,11 @@ function computeStatus(app, boardId, lat, lon, isTrip, steps, prevStatus) {
             console.log(`[TRIP] board=${boardId} trip=false ma steps==0, manteniamo "v"`);
             return "v";
         }
-        // Ha ripreso a muoversi: usciamo dal viaggio e ricalcoliamo
-        notifyBoardUsers(app, boardId, "📍 Animale sceso dal veicolo", "Ricalcolo posizione in corso");
+
+        // Ha ripreso a muoversi.
+        // NON mandiamo la notifica qui e NON resettiamo effectivePrev.
+        // Manteniamo "v" così i blocchi successivi sanno che sta appena scendendo.
         console.log(`[TRIP] board=${boardId} uscita viaggio con steps=${steps}, ricalcolo geofence`);
-        effectivePrev = null; // forza ricalcolo senza storia
     }
 
     // ── 3. INSIDE / OUTSIDE ──────────────────────────────────────────────────
@@ -294,10 +295,7 @@ function computeStatus(app, boardId, lat, lon, isTrip, steps, prevStatus) {
 
     const geoResult = getGeofenceStatus(app, boardId, lat, lon);
 
-    // Nessuna geofence configurata: senza zone definite non esistono
-    // "inside" ne "search". Gli unici stati validi sono "w" e "v".
-    // Se il prevStatus era "i" o "s" (stati che richiedono geofence),
-    // forziamo la caduta su "w" con notifica.
+    // Nessuna geofence configurata
     if (geoResult === "no_geofence") {
         const geofenceStates = new Set(["i", "s"]);
         if (effectivePrev && geofenceStates.has(effectivePrev)) {
@@ -305,6 +303,12 @@ function computeStatus(app, boardId, lat, lon, isTrip, steps, prevStatus) {
             notifyBoardUsers(app, boardId, "Nessuna zona configurata", "Le zone di monitoraggio sono state disattivate");
             return "w";
         }
+        // Se è appena sceso dal veicolo ma non ci sono geofence, passa in passeggiata
+        if (effectivePrev === "v") {
+            notifyBoardUsers(app, boardId, "🐾 Cane sceso dal veicolo in passeggiata", "L'animale è sceso dal veicolo");
+            return "w";
+        }
+        
         console.log(`[GEOFENCE] board=${boardId} nessuna geofence, manteniamo "${effectivePrev ?? "w"}"`);
         return effectivePrev ?? "w";
     }
@@ -318,6 +322,7 @@ function computeStatus(app, boardId, lat, lon, isTrip, steps, prevStatus) {
             const msgMap = {
                 "s": ["✅ Animale rientrato", "L'animale è rientrato nella zona monitorata"],
                 "w": ["🏠 Animale rientrato", "L'animale è tornato dalla passeggiata"],
+                "v": ["🏠 Arrivato a destinazione", "L'animale è sceso dal veicolo nella zona sicura"] // Nuovo caso!
             };
             const [title, body] = msgMap[effectivePrev] ?? ["🏠 Animale in zona", "L'animale si trova nella zona sicura"];
             notifyBoardUsers(app, boardId, title, body);
@@ -331,17 +336,19 @@ function computeStatus(app, boardId, lat, lon, isTrip, steps, prevStatus) {
             const msgMap = {
                 "i": ["🚨 Uscita dalla zona", "L'animale è uscito dalla zona monitorata"],
                 "w": ["🚨 Ricerca attivata",  "Allarme attivato mentre l'animale era in passeggiata"],
+                "v": ["🚨 Cane Scappato dal veicolo", "Allarme! L'animale è fuggito scendendo dal veicolo"] // Quello che hai richiesto
             };
             const [title, body] = msgMap[effectivePrev] ?? ["🚨 Animale fuori zona", "L'animale è fuori dalla zona monitorata"];
             notifyBoardUsers(app, boardId, title, body);
         }
         return "s";
-    }else{
+    } else {
         // Outside, no alarm → walk
         if (effectivePrev !== "w") {
             const msgMap = {
                 "i": ["🐾 Animale in passeggiata", "L'animale è uscito per una passeggiata"],
-                "s": ["🔍 Animale trovato",           "L'animale è stato trovato"],
+                "s": ["🔍 Animale trovato",            "L'animale è stato trovato"],
+                "v": ["🐾 Cane sceso dal veicolo in passeggiata", "L'animale ha iniziato una passeggiata"] // Quello che hai richiesto
             };
             const [title, body] = msgMap[effectivePrev] ?? ["🐾 DIO BOIA", "L'animale è fuori dalla zona sicura"];
             notifyBoardUsers(app, boardId, title, body);
