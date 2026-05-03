@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../services/util.dart';
+import '../utils/helpers.dart';
 import '../repositories/activities_repo.dart';
 import '../services/authentication.dart' as scambio;
 import '../repositories/users_repo.dart';

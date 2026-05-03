@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:pet_tracker/services/util.dart';
+import 'package:pet_tracker/utils/helpers.dart';
 import 'dart:async';
 import '../models/activities.dart';
 import '../repositories/positions_repo.dart';
 import '../services/authentication.dart' as scambio;
 import './globals/app_state.dart';
+import '../models/statistics.dart';
 
 class ActivityDetailsScreen extends StatefulWidget {
   final Activities attivita;
@@ -36,39 +37,37 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
   LatLng? _userLocation;
   StreamSubscription<Position>? _userLocationStream;
 
-  // Statistiche
-  int _minutiTotali = 0;
-  String _kmTotali = "0.0";
-  int _passiTotali = 0;
+  // Inizializza l'oggetto con valori a zero tramite il costruttore empty()
+  DailyStats _statisticheAttivita = DailyStats.empty();
 
   @override
   void initState() {
     super.initState();
-    _calcolaStatistiche();
     _caricaPercorso();
     _avviaStreamPosizioneUtente();
   }
 
-  void _calcolaStatistiche() {
-    DailyStats().elaboraSingolaAttivita(widget.attivita);
-
-    // Recupero i dati calcolati e li assegno alle variabili di stato della pagina
-    _passiTotali = DailyStats().passiTotali;
-    _kmTotali = DailyStats().kmTotali;
-    _minutiTotali = DailyStats().minutiTotali;
-  }
-
   Future<void> _caricaPercorso() async {
+    // 1. Scarica le posizioni dal DB (restituisce List<Positions>)
     final posizioni =
         await _positionsRepo.fetchPositionsForActivity(widget.attivita.id);
+
+    double kmCalcolati = 0.0;
 
     if (posizioni.isNotEmpty) {
       _routePoints = posizioni.map((p) => LatLng(p.lat, p.lon)).toList();
 
-      // Calcola i limiti della mappa per inquadrare tutto il percorso
+      // Trasformiamo le posizioni nel formato Mappa che si aspetta il calcolatore statico
+      final posizioniPerCalcolo =
+          posizioni.map((p) => {'lat': p.lat, 'lon': p.lon}).toList();
+
+      // DELEGHIAMO IL CALCOLO DEI KM AL REPOSITORY
+      kmCalcolati =
+          PositionsRepository.calculateTotalDistance(posizioniPerCalcolo);
+
+      // Calcola i limiti della mappa
       if (_routePoints.isNotEmpty) {
         final bounds = LatLngBounds.fromPoints(_routePoints);
-        // Usa un piccolo ritardo per permettere al MapController di inizializzarsi
         Future.delayed(const Duration(milliseconds: 300), () {
           if (mounted) {
             _mapController.fitCamera(
@@ -80,8 +79,26 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
       }
     }
 
+    // 2. Calcola Passi e Minuti direttamente dall'oggetto Activities che abbiamo già
+    int passi = widget.attivita.totalSteps;
+    int minuti = 0;
+
+    if (widget.attivita.startTime != null) {
+      final start = widget.attivita.startTime!;
+      final end = widget.attivita.endTime ?? DateTime.now();
+      minuti = end.difference(start).inMinutes;
+    }
+
     if (mounted) {
-      setState(() => _isLoading = false);
+      setState(() {
+        // 3. RIEMPIAMO IL MODELLO CONTENITORE!
+        _statisticheAttivita = DailyStats(
+          steps: passi,
+          km: kmCalcolati,
+          minutes: minuti,
+        );
+        _isLoading = false;
+      });
     }
   }
 
@@ -283,13 +300,13 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _buildCompactStat("Passi", "$_passiTotali", Icons.pets,
-                      Colors.orange, scale),
-                  _buildCompactStat(
-                      "Km", _kmTotali, Icons.straighten, Colors.blue, scale),
+                  _buildCompactStat("Passi", "${_statisticheAttivita.steps}",
+                      Icons.pets, Colors.orange, scale),
+                  _buildCompactStat("Km", _statisticheAttivita.formattedKm,
+                      Icons.straighten, Colors.blue, scale),
                   _buildCompactStat(
                       "Durata",
-                      formattaTempoMinuti(_minutiTotali),
+                      formattaTempoMinuti(_statisticheAttivita.minutes),
                       Icons.timer,
                       Colors.purple,
                       scale),

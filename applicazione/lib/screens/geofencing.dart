@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:pet_tracker/services/util.dart';
+import 'package:pet_tracker/utils/helpers.dart';
 import 'dart:async';
 import '../services/authentication.dart' as scambio;
 import '../services/position_gps.dart';
@@ -952,7 +952,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     double screenWidth = MediaQuery.of(context).size.width;
     double scale = (screenWidth / 400).clamp(0.75, 1.1);
     */
-    
+
     double scale = dimensioniSchermo(context);
 
     return Scaffold(

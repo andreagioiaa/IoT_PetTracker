@@ -17,7 +17,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import "daily_recap.dart";
 import 'package:intl/intl.dart';
 import 'splash_view.dart';
-import "../services/util.dart";
+import "../utils/helpers.dart";
+import '../models/statistics.dart';
 
 // Funzione globale da chiamare all'avvio dell'app (es. nel main o in initState di PetTrackerApp)
 Future<void> loadMapPreferences() async {
@@ -148,12 +149,8 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
   // 1. Aggiungi il repository (assicurati di aver importato activities_repo.dart)
   final ActivitiesRepository _activitiesRepo = ActivitiesRepository(scambio.pb);
 
-  // 2. Variabile per i dati aggregati da mostrare nella UI
-  Map<String, dynamic> _dailyStats = {
-    'steps': 0,
-    'km': "0.0",
-    'minutes': 0,
-  };
+  // 2. Inizializzia l'oggetto con valori a zero tramite costruttore
+  DailyStats _statisticheOggi = DailyStats.empty();
 
   late List<Map<String, String>> dates;
   late int selectedDateIndex;
@@ -255,6 +252,9 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
             _configZona = nuovaZona;
             _isLoading = false;
           });
+          if (DateUtils.isSameDay(_dataSelezionata, DateTime.now())) {
+            _scaricaDatiAttivita(_dataSelezionata);
+          }
         }
       } catch (e) {
         debugPrint('❌ [home.dart] Errore stream: $e');
@@ -317,19 +317,17 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
 
   @override
   void dispose() {
-    _activitiesRepo.unsubscribeFromActivities(); // Fondamentale disiscriversi!
+    _activitiesRepo.unsubscribeFromActivities();
     _streamSubscription?.cancel();
     _uiRefreshTimer?.cancel();
     super.dispose();
   }
 
   void _elaboraAttivita(List<dynamic> attivita) {
-    // --- MODIFICA QUI ---
-    DailyStats().elaboraListaAttivita(attivita);
-
     if (mounted) {
       setState(() {
-        _dailyStats = DailyStats().toMap();
+        // Zero calcoli nella UI: passiamo la palla direttamente alla repository!
+        _statisticheOggi = ActivitiesRepository.parsePreloadedData(attivita);
       });
     }
   }
@@ -492,8 +490,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     }
   }
 
-  // home.dart
-
+  // Nuova funzione per scaricare i dati di attività filtrati per giorno e aggiornare le statistiche
   Future<void> _scaricaDatiAttivita(DateTime data) async {
     setState(() => _isActivityLoading = true);
 
@@ -506,17 +503,13 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
         if (mounted) setState(() => _isActivityLoading = false);
         return;
       }
-
-      final attivita =
-          await _activitiesRepo.fetchActivitiesByDate(boardId, data);
-
-      // --- MODIFICA QUI: Uso l'oggetto centralizzato ---
-      DailyStats().elaboraListaAttivita(attivita);
+      // Passa la data selezionata al repository per ottenere solo le attività di quel giorno
+      final statsCalcolate =
+          await _activitiesRepo.getDailyStatistics(boardId, data);
 
       if (mounted) {
         setState(() {
-          // Aggiorno _dailyStats usando il toMap() per compatibilità con il resto della UI
-          _dailyStats = DailyStats().toMap();
+          _statisticheOggi = statsCalcolate;
           _isActivityLoading = false;
         });
       }
@@ -1039,14 +1032,13 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
                     key: const ValueKey('data'),
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _buildCompactStat("Passi", "${_dailyStats['steps']}",
+                      _buildCompactStat("Passi", "${_statisticheOggi.steps}",
                           Icons.pets, Colors.orange, scale),
-                      _buildCompactStat("Km", "${_dailyStats['km']}",
+                      _buildCompactStat("Km", _statisticheOggi.formattedKm,
                           Icons.straighten, Colors.blue, scale),
                       _buildCompactStat(
                           "Durata",
-                          formattaTempoMinuti(_dailyStats['minutes']
-                              as int), // Usa la nuova funzione
+                          formattaTempoMinuti(_statisticheOggi.minutes),
                           Icons.timer,
                           Colors.purple,
                           scale),

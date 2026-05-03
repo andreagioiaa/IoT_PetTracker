@@ -3,6 +3,8 @@ import 'package:pocketbase/pocketbase.dart';
 import 'package:latlong2/latlong.dart';
 import '../services/position_gps.dart';
 import '../models/activities.dart';
+import '../models/statistics.dart';
+import 'positions_repo.dart';
 
 class ActivitiesRepository {
   final PocketBase _pb;
@@ -41,7 +43,7 @@ class ActivitiesRepository {
     }
   }
 
-  /// Crea una nuova attività (es. all'inizio di una camminata)
+  // Crea una nuova attività (es. all'inizio di una camminata)
   Future<Activities?> startActivities(String boardId) async {
     try {
       final record = await _pb.collection('activities').create(body: {
@@ -129,7 +131,7 @@ class ActivitiesRepository {
     }
   }
 
-  /// Sottoscrizione Real-time per monitorare i cambi di stato dell'attività
+  // Sottoscrizione Real-time per monitorare i cambi di stato dell'attività
   Future<void> subscribeToActivityUpdates(
       String boardId, Function(Map<String, dynamic>) onUpdate) async {
     try {
@@ -159,9 +161,9 @@ class ActivitiesRepository {
     }).toList();
   }
 
-  /// Restituisce la stringa descrittiva dello stato dell'attività
-  /// Se isDailyRecap è true, associa i deep sleep ai corrispettivi attivi
-  /// Se lo stato è 'i' (Inside), calcola e restituisce direttamente il nome della zona (es. "Giardino")
+  // Restituisce la stringa descrittiva dello stato dell'attività
+  // Se isDailyRecap è true, associa i deep sleep ai corrispettivi attivi
+  // Se lo stato è 'i' (Inside), calcola e restituisce direttamente il nome della zona (es. "Giardino")
   Future<String> getActivityLabel(Activities attivita,
       {bool isDailyRecap = false}) async {
     String stato = attivita.status.toLowerCase();
@@ -204,53 +206,6 @@ class ActivitiesRepository {
         return 'Sconosciuta';
     }
   }
-
-  /*
-  /// Recupera l'etichetta di stato dell'attività più recente.
-  /// Combina il recupero dell'attività e la decodifica della sua zona/etichetta.
-  Future<String> getActivityStatus(String boardId) async {
-    try {
-      // 1. Recuperiamo l'ultima attività in modo asincrono.
-      // Usiamo 'this.' in modo esplicito (opzionale ma chiaro) per chiamare un metodo della stessa classe.
-      final Activities? ultimaAttivita = await this.getLastActivity(boardId);
-
-      // 2. Barriera di sicurezza (Null Safety): se l'attività non esiste o c'è stato un errore
-      if (ultimaAttivita == null) {
-        print("⚠️ [activities_repo]: Nessuna attività trovata per la board $boardId.");
-        return 'Nessuna attività'; // Fallback da mostrare nella UI
-      }
-
-      // 3. Se arriviamo qui, 'ultimaAttivita' esiste ed è un oggetto concreto.
-      // Passiamo l'oggetto a getActivityLabel e attendiamo la decodifica (che potrebbe richiedere il GPS).
-      final String etichetta = await this.getActivityLabel(ultimaAttivita);
-      
-      return etichetta;
-      
-    } catch (e) {
-      // Gestione di eventuali eccezioni non previste durante il flusso
-      print("🚨 [activities_repo]: Errore critico in getActivityStatus: $e");
-      return 'Stato sconosciuto'; // Fallback per la UI in caso di errore di sistema
-    }
-  }*/
-
-  /*
-  /// Recupera l'etichetta testuale (es. "In viaggio", "Giardino") dell'ultima attività
-  Future<String> getActivityStatus(String boardId) async {
-    try {
-      // Richiamiamo la funzione che abbiamo appena corretto
-      final Activities? ultimaAttivita = await getLastActivity(boardId);
-
-      if (ultimaAttivita == null) {
-        return 'Nessuna attività';
-      }
-
-      // Passiamo l'oggetto reale a getActivityLabel per la decodifica
-      return await getActivityLabel(ultimaAttivita);
-    } catch (e) {
-      print("🚨 [activities_repo]: Errore in getActivityStatus: $e");
-      return 'Stato sconosciuto';
-    }
-  }*/
 
   /// Recupera l'etichetta testuale e la configurazione UI (titolo, colore, icona)
   Future<Map<String, dynamic>> getActivityStatus(String boardId) async {
@@ -345,5 +300,75 @@ class ActivitiesRepository {
     } catch (e) {
       return 'n';
     }
+  }
+
+  // Recupera le statistiche giornaliere (durata totale, distanza, passi) per un dato boardId e giorno, con possibilità di filtrare per status
+  Future<DailyStats> getDailyStatistics(String boardId, DateTime date) async {
+    // 1. Scarica tutte le attività della giornata (usando expand: 'positions')
+    final start =
+        DateTime(date.year, date.month, date.day).toUtc().toIso8601String();
+    final end = DateTime(date.year, date.month, date.day, 23, 59, 59)
+        .toUtc()
+        .toIso8601String();
+
+    final records = await _pb.collection('activities').getFullList(
+          filter:
+              'board_id = "$boardId" && start_time >= "$start" && start_time <= "$end"',
+          expand: 'positions',
+        );
+
+    int totalSteps = 0;
+    double totalKm = 0.0;
+    int totalMinutes = 0;
+
+    for (var r in records) {
+      // Somma passi[cite: 11]
+      totalSteps += r.getIntValue('total_steps');
+
+      // Calcola minuti (differenza start/end)[cite: 11]
+      final start = DateTime.parse(r.getStringValue('start_time'));
+      final end = r.getStringValue('end_time').isNotEmpty
+          ? DateTime.parse(r.getStringValue('end_time'))
+          : DateTime.now();
+      totalMinutes += end.difference(start).inMinutes;
+
+      // Calcola KM usando il metodo del PositionsRepository
+      final posizioni = r.expand['positions'] ?? [];
+      totalKm += PositionsRepository.calculateTotalDistance(posizioni);
+    }
+
+    return DailyStats(steps: totalSteps, km: totalKm, minutes: totalMinutes);
+  }
+
+  // Metodo statico per convertire il JSON precaricato dalla Splash in un DailyStats pulito
+  static DailyStats parsePreloadedData(List<dynamic> attivitaGrezze) {
+    int totalSteps = 0;
+    double totalKm = 0.0;
+    int totalMinutes = 0;
+
+    for (var act in attivitaGrezze) {
+      if (act is Map) {
+        totalSteps += int.tryParse(act['total_steps']?.toString() ?? '0') ?? 0;
+
+        if (act['start_time'] != null &&
+            act['start_time'].toString().isNotEmpty) {
+          final start = DateTime.parse(act['start_time'].toString());
+          final endStr = act['end_time']?.toString() ?? '';
+          final end =
+              endStr.isNotEmpty ? DateTime.parse(endStr) : DateTime.now();
+          totalMinutes += end.difference(start).inMinutes;
+        }
+
+        final posizioni =
+            act['expand'] != null && act['expand']['positions'] != null
+                ? act['expand']['positions']
+                : (act['positions'] ?? []);
+
+        // Usiamo il repo delle posizioni che abbiamo già importato!
+        totalKm += PositionsRepository.calculateTotalDistance(posizioni);
+      }
+    }
+
+    return DailyStats(steps: totalSteps, km: totalKm, minutes: totalMinutes);
   }
 }

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:pocketbase/pocketbase.dart';
 import '../services/authentication.dart';
 import '../models/positions.dart';
+import 'package:latlong2/latlong.dart';
 
 class PositionsRepository {
   final PocketBase _pb;
@@ -104,7 +105,7 @@ class PositionsRepository {
   Future<List<Positions>> fetchPositionsForActivity(String activityId) async {
     try {
       final result = await _pb.collection('positions').getFullList(
-            filter: 'activity = "$activityId"', 
+            filter: 'activity = "$activityId"',
             sort: 'timestamp',
           );
       return result.map((record) => Positions.fromRecord(record)).toList();
@@ -112,5 +113,31 @@ class PositionsRepository {
       print('🛑 [PositionsRepository] Errore fetchPositionsForActivity: $e');
       return [];
     }
+  }
+
+  // Calcola la distanza totale in Km data una lista di posizioni
+  static double calculateTotalDistance(List<dynamic> positions) {
+    // Se ci sono meno di 2 posizioni, non si riesce a calcolare una distanza
+    if (positions.length < 2) return 0.0;
+    double meters = 0.0;
+    const distanceCalc = Distance();
+
+    // Itera su ogni coppia di posizioni consecutive
+    for (int i = 0; i < positions.length - 1; i++) {
+      double lat1 =
+          double.tryParse(positions[i]['lat']?.toString() ?? '') ?? 0.0;
+      double lon1 =
+          double.tryParse(positions[i]['lon']?.toString() ?? '') ?? 0.0;
+      double lat2 =
+          double.tryParse(positions[i + 1]['lat']?.toString() ?? '') ?? 0.0;
+      double lon2 =
+          double.tryParse(positions[i + 1]['lon']?.toString() ?? '') ?? 0.0;
+
+      // Calcola la distanza solo se entrambe le posizioni hanno latitudine valida
+      if (lat1 != 0 && lat2 != 0) {
+        meters += distanceCalc.distance(LatLng(lat1, lon1), LatLng(lat2, lon2));
+      }
+    }
+    return meters / 1000; // Restituisce Km
   }
 }

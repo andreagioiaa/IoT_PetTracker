@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:pet_tracker/services/util.dart';
+import 'package:pet_tracker/utils/helpers.dart';
 import '../services/authentication.dart' as scambio;
 import './globals/app_state.dart';
 import "../repositories/users_repo.dart";
