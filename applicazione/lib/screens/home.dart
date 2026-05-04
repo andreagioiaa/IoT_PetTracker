@@ -181,8 +181,10 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
 
   String? _currentBoardRecordId; // Salviamo l'ID interno di PocketBase
 
-  String _currentStatus =
-      'n'; // Variabile locale per lo stato attività (n, s, p)
+  // Variabile per fare da "Mutex" (Lock) durante la chiamata di rete
+  bool _isUpdatingAlarm = false;
+  // Nuova variabile per tenere traccia dello stato operativo (s, p, n)
+  String _currentStatus = 'n';
 
   @override
   void initState() {
@@ -192,7 +194,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
 
     // Caricamento dati e attivazione ascoltatori
     _scaricaDatiIniziali();
-    _attivaRealTimeStatus(); // Nuova funzione per la reattività dello status
+    _attivaRealTimeStatus();
 
     // 3. INIEZIONE DATI PRE-CARICATI (Dalla Splash)
     // Questo elimina il testo "Caricamento..." istantaneamente se i dati ci sono
@@ -779,24 +781,24 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
   }
 
   Widget _buildTrackingToggle(double scale, bool isActive) {
-    // BLOCCO CRITICO: Se l'allarme è OFF ma lo stato è 's' (search) o 'p' (sleep search)
-    // il tasto deve essere disabilitato (null nell'onChanged).
+    // BLOCCO CRITICO: Se l'allarme è ON ma lo stato è 's' (search) o 'p' (sleep search) significa che il cane è scappato
+    // quindi blocchiamo la possibilità di spegnere l'allarme finché non tornerà in zona sicura (stato 'n')
     final bool isLocked =
-        !isActive && (_currentStatus == 's' || _currentStatus == 'p');
+        isActive && (_currentStatus == 's' || _currentStatus == 'p');
 
     return Container(
       padding:
           EdgeInsets.symmetric(horizontal: 15 * scale, vertical: 5 * scale),
       decoration: BoxDecoration(
           color: isLocked
-              ? Colors.grey.withOpacity(0.1) // Colore spento se bloccato
+              ? Colors.red.withOpacity(0.08) // Mantiene il rossino di emergenza
               : (isActive
                   ? Colors.red.withOpacity(0.08)
                   : const Color(0xFF00C6B8).withOpacity(0.08)),
           borderRadius: BorderRadius.circular(15 * scale),
           border: Border.all(
               color: isLocked
-                  ? Colors.grey.withOpacity(0.3)
+                  ? Colors.red.withOpacity(0.4) // Bordo rosso ben visibile
                   : (isActive
                       ? Colors.red.withOpacity(0.3)
                       : const Color(0xFF00C6B8).withOpacity(0.3)))),
@@ -807,13 +809,13 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
             children: [
               Icon(
                   isLocked
-                      ? Icons.lock_clock
+                      ? Icons.lock // Messo il lucchetto come nella tua foto
                       : (isActive
                           ? Icons.verified_user
                           : Icons.remove_moderator),
-                  color: isLocked
-                      ? Colors.grey
-                      : (isActive ? Colors.red : const Color(0xFF00C6B8)),
+                  color: isActive
+                      ? Colors.red
+                      : const Color(0xFF00C6B8), // Resta rosso!
                   size: 24 * scale),
               SizedBox(width: 10 * scale),
               Column(
@@ -826,13 +828,10 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
                       style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 14 * scale,
-                          color: isLocked
-                              ? Colors.grey
-                              : (isActive
-                                  ? Colors.red
-                                  : const Color(0xFF00C6B8)))),
+                          color:
+                              isActive ? Colors.red : const Color(0xFF00C6B8))),
                   if (isLocked)
-                    Text("MODIFICA BLOCCATA: CANE SCAPPATO",
+                    Text("MODIFICA BLOCCATA",
                         style: TextStyle(
                             fontSize: 10 * scale,
                             color: Colors.redAccent,
@@ -841,27 +840,62 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
               ),
             ],
           ),
-          Switch(
-            value: isActive,
-            activeColor: Colors.red,
-            // Se isLocked è true, passiamo null a onChanged per disabilitare fisicamente lo Switch
-            onChanged: isLocked
-                ? null
-                : (val) async {
-                    isTrackingMode.value = val;
-                    bool successo = await _usersRepo.setBoardAlarm(val);
-                    if (!successo) {
-                      isTrackingMode.value = !val;
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content:
-                                  Text("Errore sincronizzazione allarme ⚠️")),
-                        );
-                      }
-                    }
-                  },
-          ),
+          // Se si aggiona mostra un indicatore di caricamento al posto dello Switch
+          _isUpdatingAlarm
+              ? Padding(
+                  padding: EdgeInsets.only(right: 10 * scale),
+                  child: SizedBox(
+                      width: 20 * scale,
+                      height: 20 * scale,
+                      child: CircularProgressIndicator(
+                          color: Colors.red, strokeWidth: 2)),
+                )
+              : Switch(
+                  value: isActive,
+                  activeColor: Colors.red,
+                  onChanged: isLocked
+                      ? (val) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                  "Impossibile disattivare: l'animale è fuori dalla zona sicura! 🚨"),
+                              backgroundColor: Colors.red,
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      : (val) async {
+                          // 1. Aacquisice IL LOCK (Mutex)
+                          setState(() {
+                            _isUpdatingAlarm = true;
+                          });
+
+                          // 2. Aggiorniamo immediatamente la UI per una risposta istantanea
+                          isTrackingMode.value = val;
+
+                          // 3. Sezione critica: aggiorniamo il database e aspettiamo la conferma
+                          bool successo = await _usersRepo.setBoardAlarm(val);
+
+                          // 4. Se la sincronizzazione fallisce, cambia la UI e mostra un messaggio di errore
+                          if (!successo) {
+                            isTrackingMode.value = !val;
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content: Text(
+                                        "Errore sincronizzazione allarme ⚠️")),
+                              );
+                            }
+                          }
+
+                          // 5. Rilascia il lock
+                          if (mounted) {
+                            setState(() {
+                              _isUpdatingAlarm = false;
+                            });
+                          }
+                        },
+                ),
         ],
       ),
     );
@@ -1062,10 +1096,9 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
                 );
               },
               icon: Icon(
-                Icons
-                    .format_list_bulleted_rounded, // Un'icona che richiama un elenco di attività
+                Icons.format_list_bulleted_rounded,
                 size: 20 * scale,
-                color: const Color(0xFF009B90), // Verde scuro per contrasto
+                color: const Color(0xFF009B90),
               ),
               label: Text(
                 "VEDI DETTAGLI ATTIVITÀ",
