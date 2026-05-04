@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.4.14)  30 APR 2026 15:40
+This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.4.14)  4 MAY 2026 10:32
 entering extended mode
  restricted \write18 enabled.
  file:line:error style messages enabled.
@@ -733,7 +733,7 @@ Package hyperref Info: Link coloring ON on input line 108.
 \@outlinefile=\write4
 \openout4 = `Relazione.out'.
 
-<immagini/Logo.pdf, id=166, 225.84375pt x 225.84375pt>
+<immagini/Logo.pdf, id=174, 225.84375pt x 225.84375pt>
 File: immagini/Logo.pdf Graphic file (type pdf)
 <use immagini/Logo.pdf>
 Package pdftex.def Info: immagini/Logo.pdf  used on input line 120.
@@ -785,59 +785,45 @@ Overfull \hbox (5.60365pt too wide) in paragraph at lines 207--208
 []\T1/lmr/bx/n/12 Invio Fi-na-le\T1/lmr/m/n/12 : Se non vie-ne ri-le-va-ta at-ti-vi-tà per un tem-po su-pe-rio-re a \T1/lmtt/m/n/12 SLEEP_TIMEOUT
  []
 
-(C:\Program Files\MiKTeX\tex/latex/listings\lstlang1.sty
-File: lstlang1.sty 2025/11/14 1.11b listings language file
-) (C:\Program Files\MiKTeX\tex/latex/listings\lstlang1.sty
-File: lstlang1.sty 2025/11/14 1.11b listings language file
-) (C:\Program Files\MiKTeX\tex/latex/listings\lstmisc.sty
-File: lstmisc.sty 2025/11/14 1.11b (Carsten Heinz)
-)
-Package hyperref Info: bookmark level for unknown lstlisting defaults to 0 on input line 210.
-LaTeX Font Info:    Font shape `T1/lmtt/bx/n' in size <10> not available
-(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 211.
-LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <10> on input line 211.
-LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <7> on input line 211.
-LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <5> on input line 211.
- [6]
-Overfull \hbox (31.20036pt too wide) in paragraph at lines 244--246
-\T1/lmr/m/n/12 I da-ti ri-ce-vu-ti ven-go-no nor-ma-liz-za-ti e me-mo-riz-za-ti in una col-le-zio-ne de-no-mi-na-ta \T1/lmtt/m/n/12 data_sent_raw\T1/lmr/m/n/12 .
- []
-
-[7]
-Overfull \hbox (11.94272pt too wide) in paragraph at lines 267--267
+[6] [7]
+Overfull \hbox (11.94272pt too wide) in paragraph at lines 259--259
 |[]\T1/lmr/bx/n/14.4 Logica di Smi-sta-men-to e Nor-ma-liz-za-zio-ne (Server-side Hooks)| 
  []
 
-[8{C:/Program Files/MiKTeX/fonts/enc/dvips/lm/lm-mathsy.enc}]
-Underfull \hbox (badness 1062) in paragraph at lines 293--294
-[]\T1/lmr/m/n/12 Animale su vei-co-lo (ses-sio-ne non
+LaTeX Font Info:    Font shape `T1/lmtt/bx/n' in size <12> not available
+(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 273.
+[8]
+Overfull \hbox (10.3339pt too wide) in paragraph at lines 313--314
+[]\T1/lmr/m/n/12 Tutti gli sta-ti sleep si com-por-ta-no in mo-do \T1/lmr/bx/n/12 uni-for-me\T1/lmr/m/n/12 : ven-go-no sem-pre chiu-si con \T1/lmtt/m/n/12 is_active
  []
 
-[9] [10]
-Underfull \hbox (badness 1701) in paragraph at lines 367--368
+[9] [10{C:/Program Files/MiKTeX/fonts/enc/dvips/lm/lm-mathsy.enc}] [11]
+Underfull \hbox (badness 1701) in paragraph at lines 383--384
 []\T1/lmr/m/n/12 Allarme riat-ti-va-to men-tre
  []
 
 
-Overfull \hbox (7.96135pt too wide) in paragraph at lines 361--379
+Underfull \hbox (badness 10000) in paragraph at lines 384--385
+[]\T1/lmr/m/n/12 Solo do-po il se-con-do
+ []
+
+
+Overfull \hbox (7.96135pt too wide) in paragraph at lines 377--395
  [][] 
  []
 
-[11]
-Overfull \hbox (24.65277pt too wide) in paragraph at lines 412--417
+[12{C:/Program Files/MiKTeX/fonts/enc/dvips/lm/lm-rm.enc}{C:/Program Files/MiKTeX/fonts/enc/dvips/lm/lm-mathit.enc}]
+Overfull \hbox (24.65277pt too wide) in paragraph at lines 428--433
 \T1/lmr/m/n/12 L'autenticazione è ge-sti-ta tra-mi-te un \T1/lmtt/m/n/12 SecureAuthStore \T1/lmr/m/n/12 per-so-na-liz-za-to che esten-de l'\T1/lmtt/m/n/12 AuthStore
  []
 
-[12{C:/Program Files/MiKTeX/fonts/enc/dvips/lm/lm-rm.enc}{C:/Program Files/MiKTeX/fonts/enc/dvips/lm/lm-mathit.enc}] [13] [14] [15]
-Overfull \hbox (14.20894pt too wide) in paragraph at lines 526--526
+[13] [14] [15]
+Overfull \hbox (14.20894pt too wide) in paragraph at lines 543--543
 \T1/lmtt/m/n/12 LilyGo -[] Modem -[] Series / blob / main / datasheet / LTE % 20Antenna % 20Specifications .
  []
 
 
-Overfull \hbox (14.20894pt too wide) in paragraph at lines 526--526
+Overfull \hbox (14.20894pt too wide) in paragraph at lines 543--543
 \T1/lmtt/m/n/12 LilyGo -[] Modem -[] Series / blob / main / datasheet / GPS % 20Antenna % 20Specifications .
  []
 
@@ -847,23 +833,23 @@ LaTeX2e <2025-11-01>
 L3 programming layer <2025-12-24>
  ***********
 Package rerunfilecheck Info: File `Relazione.out' has not changed.
-(rerunfilecheck)             Checksum: 9527EB9683359B47C119314B564D5647;8589.
+(rerunfilecheck)             Checksum: F0EA5C5D9A67F2ABC9131EC9310632DD;9421.
 Package logreq Info: Writing requests to 'Relazione.run.xml'.
 \openout1 = `Relazione.run.xml'.
 
  ) 
 Here is how much of TeX's memory you used:
- 23466 strings out of 467871
- 405299 string characters out of 5428443
- 1325564 words of memory out of 5000000
- 51964 multiletter control sequences out of 15000+600000
- 701810 words of font info for 81 fonts, out of 8000000 for 9000
+ 23026 strings out of 467871
+ 400825 string characters out of 5428443
+ 1271564 words of memory out of 5000000
+ 51541 multiletter control sequences out of 15000+600000
+ 684727 words of font info for 69 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  69i,11n,79p,1302b,2134s stack positions out of 10000i,1000n,20000p,200000b,200000s
-<C:/Program Files/MiKTeX/fonts/type1/public/lm/lmbx10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmbx12.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmbxi10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmcsc10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmmi12.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmr10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmr12.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmr6.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmri12.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmsy10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmtk10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmtt10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmtt12.pfb>
-Output written on Relazione.pdf (17 pages, 408590 bytes).
+<C:/Program Files/MiKTeX/fonts/type1/public/lm/lmbx10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmbx12.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmbxi10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmcsc10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmmi12.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmr10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmr12.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmri12.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmsy10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmtk10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmtt12.pfb>
+Output written on Relazione.pdf (17 pages, 360089 bytes).
 PDF statistics:
- 454 PDF objects out of 1000 (max. 8388607)
- 96 named destinations out of 1000 (max. 500000)
- 334 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 451 PDF objects out of 1000 (max. 8388607)
+ 95 named destinations out of 1000 (max. 500000)
+ 350 words of extra memory for PDF output out of 10000 (max. 10000000)
 

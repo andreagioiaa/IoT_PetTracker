@@ -207,15 +207,6 @@ Il sistema è progettato per massimizzare l'autonomia della batteria da 3000mAh.
     \item \textbf{Invio Finale}: Se non viene rilevata attività per un tempo superiore a \texttt{SLEEP\_TIMEOUT} (30 secondi) \emph{e} il flag \texttt{trip} non è attivo, il sistema invia un ultimo pacchetto dati aggiornando il flag \texttt{sleep} a \texttt{true}.
     \item \textbf{Ibernazione}: Il microcontrollore entra in \textit{Deep Sleep}, spegnendo i moduli radio. Il risveglio è gestito tramite interrupt hardware sul pin \texttt{GPIO\_5}, generato dal BMA400 solo al rilevamento di un nuovo movimento.
 \end{enumerate}
-\begin{lstlisting}[language=C++, caption={Configurazione del Deep Sleep con risveglio tramite accelerometro}]
-void enterDeepSleep() {
-  Serial.println("\nEntro in Deep Sleep...");
-  // Configura il pin di risveglio (GPIO 5) collegato al BMA400
-  pinMode(WAKEUP_PIN, INPUT_PULLDOWN);
-  esp_sleep_enable_ext0_wakeup(WAKEUP_PIN, 1);
-  esp_deep_sleep_start();
-}
-\end{lstlisting}
 
 \subsection{Monitoraggio Hardware e Batteria}
 Il firmware gestisce in modo intelligente l'alimentazione per evitare letture errate o consumi parassiti:
@@ -240,8 +231,9 @@ L'automazione è gestita tramite un \textit{cron job} che esegue il backup in mo
 \subsection{Monitoraggio e Business Continuity}
 Per garantire l'affidabilità dell'intero ecosistema, è stato implementato un sistema di monitoraggio esterno tramite \textbf{UptimeRobot} \cite{uptimerobot}. Dato che l'accessibilità del backend dipende dalla stabilità del tunnel ngrok, il monitoraggio interroga l'endpoint HTTPS a intervalli regolari, inviando notifiche immediate in caso di downtime.
 
-\subsection{Struttura dei dati}
-I dati ricevuti vengono normalizzati e memorizzati in una collezione denominata \texttt{data\_sent\_raw}. La struttura del record prevede i seguenti campi:
+\subsection{Struttura dei dati e pulizia automatica}
+I dati ricevuti dalla board transitano nella collezione \texttt{data\_sent\_raw}, che funge da punto di ingresso grezzo. Ogni record viene immediatamente smistato nelle collezioni specializzate dall'hook server-side e successivamente eliminato nel blocco \texttt{finally} dell'hook stesso. Questo approccio garantisce che il database non accumuli dati ridondanti, mantenendo al contempo un audit trail completo nelle collezioni di destinazione. La struttura del record prevede i seguenti campi:
+
 \begin{itemize}
     \item \texttt{timestamp}: riferimento temporale dell'acquisizione.
     \item \texttt{lat} / \texttt{lon}: coordinate geografiche acquisite dal modulo GNSS;
@@ -265,16 +257,37 @@ Per garantire l'integrità e la riservatezza dei dati, sono state configurate sp
 \end{itemize}
 
 \subsection[Smistamento e Normalizzazione]{Logica di Smistamento e Normalizzazione (Server-side Hooks)}
-Per ottimizzare la gestione dei dati e garantire la separazione delle responsabilità, è stata implementata una logica di smistamento automatico lato server tramite i \textit{JavaScript Event Hooks} di PocketBase. Questa architettura permette di mantenere la collezione \texttt{data\_sent\_raw} come un punto di accumulo ``grezzo'', delegando al server il compito di distribuire le informazioni nelle tabelle specializzate.
+Per ottimizzare la gestione dei dati e garantire la separazione delle responsabilità, è stata implementata una logica di smistamento automatico lato server tramite i \textit{JavaScript Event Hooks} di PocketBase. L'hook \texttt{onRecordAfterCreateSuccess} si attiva immediatamente dopo il salvataggio di ogni pacchetto grezzo, smista i dati nelle collezioni specializzate e infine elimina il record da \texttt{data\_sent\_raw} nel blocco \texttt{finally}, garantendo la pulizia anche in caso di errori parziali.
+
+\subsubsection{Ottimizzazione delle query: lettura centralizzata della board}
+
+Il record board viene letto una sola volta all'inizio dell'hook tramite \texttt{getBoardRecord} e passato come parametro a tutte le funzioni che ne hanno bisogno (\texttt{computeStatus}, \texttt{saveBattery}, \texttt{notifyBoardUsers}). Nella versione precedente ogni funzione eseguiva una query indipendente, producendo 3--4 letture ridondanti per ogni pacchetto ricevuto. La versione attuale elimina completamente questo overhead.
+
+\subsubsection{Meccanismo di Trip Hold (filtro falsi positivi)}
+
+Il dispositivo può inviare occasionalmente pacchetti con \texttt{trip=true} per errore hardware. Per evitare cambi di stato non voluti, è stato implementato un meccanismo di conferma a due pacchetti denominato \textbf{Trip Hold}, basato sul campo JSON \texttt{pending\_trip} nella collezione \texttt{boards}.
+
+Il flusso opera come segue:
+
+\begin{enumerate}
+    \item \textbf{Primo pacchetto \texttt{trip=true} (Hold):} i dati del pacchetto vengono salvati su \texttt{board.pending\_trip}. Viene processata solo la batteria. La posizione non viene salvata e il blocco activity non viene raggiunto (il codice esce con \texttt{return}). La sessione corrente rimane invariata.
+    \item \textbf{Secondo pacchetto \texttt{trip=true} (Conferma):} il viaggio è reale. Viene processata la batteria del pacchetto pending, viene aperta la nuova activity con stato \texttt{"v"}, e le posizioni di entrambi i pacchetti vengono salvate agganciandole alla nuova sessione.
+    \item \textbf{Pacchetto \texttt{trip=false} (Falso positivo):} il pending viene cancellato. I dati GPS del pacchetto in hold vengono tenuti in una variabile temporanea (\texttt{pendingToSave}) e la relativa posizione viene salvata nel blocco finale, agganciata all'activity corrente determinata dalla logica normale -- non prima.
+    \item \textbf{Pacchetto \texttt{sleep=true} durante il hold:} il pending viene cancellato immediatamente, ma il codice \emph{non} esce con \texttt{return}: prosegue con il flusso sleep normale. Questo evita che un \texttt{trip=true} non confermato influenzi lo stato dell'animale.
+    \item \textbf{Watchdog durante il hold:} se il dispositivo va offline, il watchdog cancella il pending insieme alla sessione.
+\end{enumerate}
+
+La proprietà chiave di questo meccanismo è che il pending non può mai influenzare la logica di riattivazione delle activity: il blocco hold esce con \texttt{return} prima del blocco activity (primo pacchetto), oppure il pending è già stato azzerato prima che il blocco activity venga raggiunto (tutti gli altri casi).
 
 \subsubsection{Funzionamento del Trigger onRecordAfterCreateSuccess}
-Il sistema sfrutta l'hook \texttt{onRecordAfterCreateSuccess}, che si attiva immediatamente dopo il salvataggio di un nuovo record inviato dalla board LilyGo. Il processo opera su tre direttrici principali:
+Il trigger elabora ogni pacchetto in cinque fasi sequenziali:
 
 \begin{itemize}
-    \item \textbf{Persistenza Geografica ed Energetica:} I parametri di tensione, percentuale di carica e coordinate GPS vengono estratti e persistiti rispettivamente nelle collezioni \texttt{battery\_data} e \texttt{positions}. L'uso di blocchi \textit{try-catch} indipendenti garantisce che un errore nella gestione della batteria non comprometta il tracciamento GPS.
-    \item \textbf{Logica di Sessione (Activity Tracking):} Il trigger delega il calcolo del nuovo stato alla funzione \texttt{computeStatus} (in \texttt{utils.js}), che gestisce internamente la priorità tra flag \texttt{trip}, posizione rispetto alle geofence e stato dell'allarme utente. Il risultato è sempre uno dei quattro stati attivi: \texttt{i}, \texttt{v}, \texttt{s}, \texttt{w}.
-    \item \textbf{Gestione dello Stato Sleep:} Al ricevimento di un pacchetto con \texttt{sleep: true}, lo stato attivo calcolato viene convertito nel corrispondente stato sleep tramite la mappa \texttt{ACTIVE\_TO\_SLEEP}. Fa eccezione il caso trip-sleep (\texttt{"v"} $\to$ \texttt{"a"}): la sessione rimane aperta con \texttt{is\_active = true} per continuare a ricevere posizioni GPS.
-    \item \textbf{Deduplicazione e Riattivazione delle Sessioni:} Al risveglio dal Deep Sleep, il trigger verifica se la sessione chiusa può essere riattivata (stesso stato o compatibile con \texttt{"a"} $\to$ \texttt{"v"}) senza limiti di tempo, evitando frammentazione delle attività. Per micro-interruzioni non legate allo sleep, la finestra di riattivazione è di 120 secondi.
+    \item \textbf{Trip Hold:} verifica e gestisce il meccanismo di conferma del viaggio descritto sopra.
+    \item \textbf{Batteria:} salva il record \texttt{battery\_data} e controlla se inviare notifiche di cambio soglia. Viene processata per tutti i casi tranne il primo \texttt{trip=true} (già gestito nel blocco hold prima del \texttt{return}).
+    \item \textbf{Activity Tracking:} delega il calcolo del nuovo stato alla funzione \texttt{computeStatus} e gestisce la macchina a stati delle sessioni.
+    \item \textbf{Posizioni:} salva le coordinate GPS agganciandole all'activity determinata al punto precedente. In caso di falso positivo, salva anche la posizione del pacchetto in hold.
+    \item \textbf{Pulizia:} elimina il record da \texttt{data\_sent\_raw} nel blocco \texttt{finally}.
 \end{itemize}
 
 \subsubsection{Macchina a stati delle attività}
@@ -290,43 +303,46 @@ Il cuore della logica server-side è una macchina a stati che modella il comport
 \texttt{i} — inside        & \texttt{d} & Animale all'interno della geofence \\
 \texttt{s} — search        & \texttt{p} & Ricerca attiva: animale fuori zona con allarme \\
 \texttt{w} — walk          & \texttt{z} & Animale in passeggiata fuori zona (senza allarme) \\
-\texttt{v} — vehicle/trip  & \texttt{a} & Animale su veicolo (sessione non chiusa durante sleep) \\
+\texttt{v} — vehicle/trip  & \texttt{a} & Animale su veicolo in movimento \\
 \bottomrule
 \end{tabular}
 \caption{Macchina a stati delle attività: corrispondenza tra stati attivi e sleep}
 \label{tab:stati}
 \end{table}
 
-La tabella mostra le quattro coppie stato-attivo/sleep presenti nel sistema. Lo stato \texttt{"w"} copre sia il caso di passeggiata che quello in cui non è configurata alcuna geofence: in assenza di zone attive, l'animale viene trattato come se fosse in passeggiata fuori zona.
+Tutti gli stati sleep si comportano in modo \textbf{uniforme}: vengono sempre chiusi con \texttt{is\_active = false}. Non esiste più alcun caso speciale per lo stato \texttt{"a"} (trip-sleep). La funzione \texttt{computeStatus} normalizza internamente qualsiasi stato sleep nel corrispondente stato attivo prima di qualsiasi valutazione, permettendo di passare direttamente il \texttt{closedStatus} della sessione precedente senza pre-elaborazione esterna. Questo garantisce che la logica trip (\texttt{steps==0} mantiene \texttt{"v"}) funzioni correttamente anche dopo una fase di sleep.
 
-La transizione \texttt{v} $\to$ \texttt{a} è l'unico caso in cui il passaggio in Deep Sleep \emph{non} chiude la sessione: la sessione rimane \texttt{is\_active = true} con status \texttt{"a"}, permettendo di collegare correttamente le posizioni GPS successive. Al risveglio, se \texttt{trip} è ancora attivo, lo stato torna a \texttt{"v"} senza aprire una nuova sessione.
-
-Le transizioni tra stati attivi sono governate dalla funzione \texttt{computeStatus} che, ricevuto un pacchetto, calcola il nuovo stato in base alla posizione rispetto ai poligoni configurati, alla presenza di un allarme utente e all'eventuale flag \texttt{trip}. La priorità di valutazione è:
+Le transizioni tra stati attivi sono governate dalla funzione \texttt{computeStatus} che, ricevuto un pacchetto, calcola il nuovo stato secondo la seguente priorità:
 
 \begin{enumerate}
-    \item Se \texttt{trip = true} $\Rightarrow$ stato \texttt{"v"} (priorità assoluta, la geofence non viene calcolata).
-    \item Se il dispositivo era in \texttt{"v"} e \texttt{trip} torna \texttt{false} con \texttt{steps == 0} $\Rightarrow$ rimane \texttt{"v"} (ancora fermo dopo il viaggio).
+    \item Se \texttt{trip = true} $\Rightarrow$ stato \texttt{"v"} (priorità assoluta, solo dopo conferma del secondo pacchetto consecutivo).
+    \item Se il dispositivo era in \texttt{"v"} (o \texttt{"a"}, normalizzato a \texttt{"v"}) e \texttt{trip} torna \texttt{false} con \texttt{steps == 0} $\Rightarrow$ rimane \texttt{"v"} (ancora fermo dopo il viaggio).
     \item Se il dispositivo era in \texttt{"v"} e \texttt{trip} torna \texttt{false} con \texttt{steps > 0} $\Rightarrow$ ricalcolo pulito della geofence.
     \item Altrimenti $\Rightarrow$ la macchina a stati valuta la posizione rispetto alle geofence e l'eventuale allarme utente: \texttt{"i"} se dentro, \texttt{"s"} se fuori con allarme attivo, \texttt{"w"} se fuori senza allarme o senza geofence configurate.
 \end{enumerate}
+
 \subsubsection{Gestione del Risveglio e Deduplicazione delle Sessioni}
 
-Un aspetto critico della logica è la gestione del risveglio dal Deep Sleep. Quando il dispositivo si sveglia, potrebbe non trovare una sessione attiva (quella precedente è stata chiusa allo sleep). Il sistema distingue due scenari:
+Un aspetto critico della logica è la gestione del risveglio dal Deep Sleep. Quando il dispositivo si sveglia non trova una sessione attiva (quella precedente è stata chiusa allo sleep). Il codice cerca la sessione chiusa più recente (\texttt{recentClosed}) per ricavare il \texttt{prevStatus} da passare a \texttt{computeStatus}: questo è fondamentale per il trip-sleep, dove \texttt{"a"} viene normalizzato a \texttt{"v"} e con \texttt{steps==0} mantiene correttamente lo stato \texttt{"v"}.
+
+Il sistema distingue tre scenari:
 
 \begin{itemize}
-    \item \textbf{Risveglio nello stesso stato}: se la sessione era stata chiusa in uno stato sleep (es.\ \texttt{"d"}, \texttt{"p"}, \texttt{"z"}) e il nuovo stato attivo calcolato corrisponde allo stesso stato attivo di partenza, la sessione viene riattivata (\texttt{is\_active = true}) senza limiti di tempo. Questo permette di collegare correttamente le attività attraverso i cicli sleep.
-    \item \textbf{Risveglio con cambio di stato}: se il nuovo stato differisce da quello precedente, la sessione chiusa viene prima corretta riportando il suo status alla versione attiva (es.\ \texttt{"d"} $\to$ \texttt{"i"}), poi viene aperta una nuova sessione con il nuovo stato calcolato.
-    \item \textbf{Deduplicazione micro-interruzioni}: per sessioni chiuse non in stato sleep ma entro una finestra di 120 secondi, con stato compatibile, viene applicata una logica di riattivazione per evitare frammentazione causata da brevi perdite di segnale LTE.
+    \item \textbf{Risveglio nello stesso stato:} se la sessione era stata chiusa in uno stato sleep e il nuovo stato attivo calcolato corrisponde allo stesso stato attivo di partenza, la sessione viene riattivata (\texttt{is\_active = true}) senza limiti di tempo. Questo permette di collegare correttamente le attività attraverso i cicli sleep, anche dopo ore di inattività.
+    \item \textbf{Risveglio con cambio di stato:} la sessione chiusa viene prima corretta riportando il suo status alla versione attiva (es.\ \texttt{"d"} $\to$ \texttt{"i"}, \texttt{"z"} $\to$ \texttt{"w"}), così da garantire la correttezza del riepilogo storico. Poi viene aperta una nuova sessione con il nuovo stato calcolato.
+    \item \textbf{Deduplicazione micro-interruzioni:} per sessioni chiuse non in stato sleep ma entro una finestra di 120 secondi, con stato compatibile, viene applicata una logica di riattivazione per evitare frammentazione causata da brevi perdite di segnale LTE.
 \end{itemize}
+
+Le sessioni chiuse con \texttt{anomaly = true} (chiuse dal watchdog) non vengono mai riattivate: viene sempre creata una nuova sessione, evitando che una sessione anomala venga ripresa come se nulla fosse.
 
 \subsubsection{Watchdog di Inattività e Split Notturno}
 
 Il sistema include due \textit{cron job} per garantire la coerenza delle sessioni nel tempo:
 
 \begin{itemize}
-    \item \textbf{Watchdog (ogni minuto):} controlla che nessuna sessione rimanga aperta indefinitamente a causa di un'interruzione imprevista del dispositivo (perdita di segnale LTE, spegnimento improvviso). Se una sessione attiva non riceve aggiornamenti per più di 10 minuti, viene chiusa automaticamente impostando \texttt{is\_active = false} e il flag \texttt{anomaly = true}, e viene salvato un evento \texttt{watchdog} per tracciabilità.
+    \item \textbf{Watchdog (ogni minuto):} controlla che nessuna sessione rimanga aperta indefinitamente a causa di un'interruzione imprevista del dispositivo (perdita di segnale LTE, spegnimento improvviso). Se una sessione attiva non riceve aggiornamenti per più di 10 minuti, viene chiusa automaticamente impostando \texttt{is\_active = false} e il flag \texttt{anomaly = true}, e viene salvato un evento \texttt{watchdog} per tracciabilità. Il watchdog non tocca mai le sessioni in stato sleep, che per design possono rimanere inattive a lungo. Cancella inoltre il campo \texttt{pending\_trip} sulla board in caso di chiusura per inattività, evitando falsi positivi al riavvio.
 
-    \item \textbf{Split di mezzanotte (23:59 ogni giorno):} gestisce le sessioni che attraversano il cambio di giornata. Per ogni board, l'ultima sessione attiva (o in stato sleep) viene chiusa alle \texttt{23:59:59} del giorno corrente e ne viene aperta una nuova identica a partire dalle \texttt{00:00:00} del giorno successivo. Nel caso di sessioni in stato sleep inattive, la sessione del giorno precedente viene riportata al corrispondente stato attivo prima della chiusura, così da garantire la correttezza del riepilogo giornaliero. Il cron di mezzanotte include inoltre una verifica watchdog prioritaria: sessioni anomale (inattive da più di 10 minuti) vengono chiuse direttamente senza essere duplicate nel giorno successivo.
+    \item \textbf{Split di mezzanotte (23:59 ora italiana):} gestisce le sessioni che attraversano il cambio di giornata. Per ogni board, l'ultima sessione attiva viene chiusa alle \texttt{23:59:59} e ne viene aperta una nuova identica a partire dalle \texttt{00:00:00} del giorno successivo. Le sessioni in stato sleep vengono corrette al corrispondente stato attivo prima della chiusura, garantendo la correttezza del riepilogo giornaliero. L'orario è calcolato dinamicamente tramite la funzione \texttt{getItalyTime()}, che gestisce automaticamente il cambio tra ora legale (UTC+2) e ora solare (UTC+1) secondo le regole europee, senza offset hardcoded. Il cron di mezzanotte include inoltre una verifica watchdog prioritaria: sessioni anomale (inattive da più di 10 minuti) vengono chiuse direttamente senza essere duplicate nel giorno successivo.
 \end{itemize}
 
 \subsubsection{Vantaggi Architetturali e Corrispondenza IoTWF}
@@ -365,7 +381,7 @@ Le notifiche vengono scatenate dai seguenti eventi, ciascuno con logica contestu
 Uscita dalla zona      & \texttt{i} $\to$ \texttt{s} oppure \texttt{i} $\to$ \texttt{w} & Dipende dalla presenza di allarme utente \\
 Rientro in zona        & \texttt{s} $\to$ \texttt{i} oppure \texttt{w} $\to$ \texttt{i} & \\
 Allarme da passeggiata & \texttt{w} $\to$ \texttt{s}                                    & Allarme riattivato mentre fuori zona \\
-Inizio viaggio         & qualsiasi $\to$ \texttt{v}                                     & Solo alla prima transizione \\
+Inizio viaggio confermato & qualsiasi $\to$ \texttt{v}                                  & Solo dopo il secondo \texttt{trip=true} consecutivo \\
 Fine viaggio in zona   & \texttt{v} $\to$ \texttt{i}                                    & Arrivato a destinazione \\
 Fine viaggio fuori zona (allarme) & \texttt{v} $\to$ \texttt{s}                        & Animale fuggito dal veicolo \\
 Fine viaggio fuori zona (libero)  & \texttt{v} $\to$ \texttt{w}                        & Passeggiata post-viaggio \\
@@ -516,6 +532,7 @@ Nonostante i risultati ottenuti, il sistema presenta alcune limitazioni:
     \item \textbf{Prestazioni indoor:} il modulo GNSS risulta poco affidabile in ambienti chiusi.
     \item \textbf{Backend locale:} l'utilizzo di PocketBase su macchina locale, esposto tramite ngrok, introduce dipendenze da servizi esterni e limita la scalabilità.
     \item \textbf{Consumo energetico del modem LTE:} la trasmissione dati rappresenta la principale fonte di consumo.
+    \item \textbf{Race condition sui pacchetti simultanei:} in caso di ricezione quasi-simultanea di due pacchetti dallo stesso dispositivo, entrambi potrebbero leggere \texttt{pending\_trip = null} prima che il primo abbia completato la scrittura, impedendo la corretta conferma del viaggio. PocketBase non espone transazioni atomiche sui record, rendendo questo scenario non eliminabile per via software; in pratica la frequenza di invio dei pacchetti rende l'evento raro.
 \end{itemize}
 
 \section{Conclusioni}
