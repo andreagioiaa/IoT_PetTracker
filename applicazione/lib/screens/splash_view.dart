@@ -29,16 +29,18 @@ class SplashScreen extends StatefulWidget {
 
       // Eseguiamo il download in parallelo per dimezzare i tempi di caricamento
       final results = await Future.wait([
-        usersRepo.getAlarmStatus(),
+        usersRepo.getAlarmFromBoard(),
         positionsRepo.getLatestPosition(),
         activitiesRepo.fetchActivitiesByDate(boardId, DateTime.now()),
         activitiesRepo.getDailyStatistics(boardId, DateTime.now()),
+        activitiesRepo.getLatestActivityStatus(boardId),
       ]);
 
       final bool? alarm = results[0] as bool?;
       final pos = results[1] as Positions?;
       final activities = results[2];
       final stats = results[3] as DailyStats;
+      final String currentStatus = results[4] as String;
 
       // Inizializziamo una mappa di default
       Map<String, dynamic> configZona = {
@@ -57,6 +59,7 @@ class SplashScreen extends StatefulWidget {
         'lastPosition': pos,
         'activities': activities,
         'daily_stats': stats,
+        'status': currentStatus,
         'zone': configZona,
         'boardId': boardId,
       };

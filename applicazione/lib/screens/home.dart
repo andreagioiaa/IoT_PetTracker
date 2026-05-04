@@ -212,8 +212,15 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
         _statisticheOggi = widget.preloadedData!['daily_stats'];
       }
       // Altrimenti usiamo il vecchio metodo di fallback
+
       else if (widget.preloadedData!['activities'] != null) {
         _elaboraAttivita(widget.preloadedData!['activities']);
+      }
+
+      // E infine, se la Splash ci ha passato anche lo stato operativo, usiamolo per aggiornare subito la UI
+      if (widget.preloadedData!['status'] != null) {
+        _currentStatus = widget.preloadedData![
+            'status']; // Ora sa se il cane è scappato fin dall'apertura!
       }
 
       _isLoading = false; // Fermiamo il caricamento UI subito!
