@@ -1,20 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-// Calcola e correggere l'orario UTC
+// Converte l'orario UTC in orario locale
 DateTime? _correggiFusoOrario(DateTime? orario) {
   if (orario == null) return null;
-
-  final oraLocale = DateTime.now();
-  DateTime dataReale = orario;
-
-  // Se il dato è nel futuro (es. -69 min) significa che è stato inviato in UTC e dobbiamo correggerlo
-  // Sottrae 2 ore per tornare all'orario reale della board
-  if (oraLocale.difference(orario).inMinutes < -30) {
-    dataReale = orario.subtract(const Duration(hours: 2));
-  }
-
-  return dataReale;
+  return orario.toLocal();
 }
 
 // Ritorna l'orario in formato relativo (es. "10 min fa", "Adesso")
