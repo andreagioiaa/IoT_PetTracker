@@ -207,7 +207,12 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
       final pos = widget.preloadedData!['lastPosition'];
       if (pos != null) _ultimoAggiornamento = pos.timestamp;
 
-      if (widget.preloadedData!['activities'] != null) {
+      // Se lo Splash ci ha passato le statistiche complete (con i KM calcolati)
+      if (widget.preloadedData!['daily_stats'] != null) {
+        _statisticheOggi = widget.preloadedData!['daily_stats'];
+      }
+      // Altrimenti usiamo il vecchio metodo di fallback
+      else if (widget.preloadedData!['activities'] != null) {
         _elaboraAttivita(widget.preloadedData!['activities']);
       }
 

@@ -7,6 +7,7 @@ import '../repositories/users_repo.dart';
 import '../repositories/positions_repo.dart';
 import '../repositories/activities_repo.dart';
 import '../services/authentication.dart' as scambio;
+import '../models/statistics.dart';
 
 class SplashScreen extends StatefulWidget {
   final bool isAlreadyAuthenticated;
@@ -31,11 +32,13 @@ class SplashScreen extends StatefulWidget {
         usersRepo.getAlarmStatus(),
         positionsRepo.getLatestPosition(),
         activitiesRepo.fetchActivitiesByDate(boardId, DateTime.now()),
+        activitiesRepo.getDailyStatistics(boardId, DateTime.now()),
       ]);
 
       final bool? alarm = results[0] as bool?;
       final pos = results[1] as Positions?;
       final activities = results[2];
+      final stats = results[3] as DailyStats;
 
       // Inizializziamo una mappa di default
       Map<String, dynamic> configZona = {
@@ -53,7 +56,8 @@ class SplashScreen extends StatefulWidget {
         'alarm': alarm ?? false,
         'lastPosition': pos,
         'activities': activities,
-        'zone': configZona, // Qui passiamo la mappa
+        'daily_stats': stats,
+        'zone': configZona,
         'boardId': boardId,
       };
     } catch (e) {
