@@ -178,32 +178,44 @@ class ActivitiesRepository {
 
     switch (stato) {
       case 's':
-        return 'Animale scappato';
+        return "Animale scappato";
       case 'w':
-        return 'In passeggiata';
+        return "In passeggiata";
       case 'v':
-        return 'In viaggio';
+        return "In viaggio";
       // Questi casi verranno letti SOLO dalla Home
+      case 'p':
+        return "Animale scappato (Fermo)";
       case 'a':
-        return "Sleep: in viaggio";
+        return "Fermo in viaggio";
       case 'z':
-        return "Sleep: in camminata";
+        return "Fermo in camminata";
       case 'd':
-        return "Sleep: a casa";
+        final nomeZona = await _getNomeZonaDaPosizione(attivita.id);
+        return nomeZona != null
+            ? 'Fermo a $nomeZona'
+            : 'Fermo in zona sconosciuta';
       case 'i':
-        try {
-          final result = await _pb.collection('positions').getFirstListItem(
-                'activity = "${attivita.id}"',
-              );
-          final lat = result.getDoubleValue('lat');
-          final lon = result.getDoubleValue('lon');
-
-          return await PositionGpsService.calcolaZonaDalPunto(LatLng(lat, lon));
-        } catch (e) {
-          return 'Zona sicura sconosciuta';
-        }
+        final nomeZona = await _getNomeZonaDaPosizione(attivita.id);
+        return nomeZona ?? 'Zona sconosciuta';
       default:
         return 'Sconosciuta';
+    }
+  }
+
+  /// Metodo helper per recuperare le coordinate e calcolare il nome della zona
+  Future<String?> _getNomeZonaDaPosizione(String activityId) async {
+    try {
+      final result = await _pb.collection('positions').getFirstListItem(
+            'activity = "$activityId"',
+          );
+      final lat = result.getDoubleValue('lat');
+      final lon = result.getDoubleValue('lon');
+
+      return await PositionGpsService.calcolaZonaDalPunto(LatLng(lat, lon));
+    } catch (e) {
+      // Se fallisce (es. nessuna posizione trovata), restituisce null
+      return null;
     }
   }
 
@@ -240,6 +252,12 @@ class ActivitiesRepository {
       Activities attivita, String titolo) {
     switch (attivita.status.toLowerCase()) {
       case 's':
+        return {
+          'titolo': titolo,
+          'colore': Colors.red,
+          'icona': Icons.warning_amber_rounded
+        };
+      case 'p':
         return {
           'titolo': titolo,
           'colore': Colors.red,
