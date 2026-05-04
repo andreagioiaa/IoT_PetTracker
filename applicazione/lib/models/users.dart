@@ -10,7 +10,6 @@ class User {
   final String name;
   final String surname;
   final bool alarm;
-  final String boardId;
   final DateTime created;
   final DateTime updated;
 
@@ -23,7 +22,6 @@ class User {
     required this.name,
     required this.surname,
     required this.alarm,
-    required this.boardId,
     required this.created,
     required this.updated,
   });
@@ -38,7 +36,6 @@ class User {
       name: record.getStringValue('name'),
       surname: record.getStringValue('surname'),
       alarm: record.getBoolValue('alarm'),
-      boardId: record.getStringValue('boardId'),
       created: DateTime.parse(record.created).toLocal(),
       updated: DateTime.parse(record.updated).toLocal(),
     );
@@ -50,7 +47,6 @@ class User {
       'surname': surname,
       'alarm': alarm,
       'emailVisibility': emailVisibility,
-      'boardId': boardId,
     };
   }
 }

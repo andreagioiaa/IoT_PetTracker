@@ -7,6 +7,7 @@ class Geofences {
   final double centerLon;
   final double centerLat;
   final bool isActive;
+  final String boardId;
   final String userId;
   final String street;
   final int civic;
@@ -22,6 +23,7 @@ class Geofences {
     required this.centerLon,
     required this.centerLat,
     required this.isActive,
+    required this.boardId,
     required this.userId,
     required this.street,
     required this.civic,
@@ -40,6 +42,7 @@ class Geofences {
       centerLon: record.getDoubleValue('center_lon'),
       centerLat: record.getDoubleValue('center_lat'),
       isActive: record.getBoolValue('is_active'),
+      boardId: record.getStringValue('board_id'),
       userId: record.getStringValue('user_id'),
       street: record.getStringValue('street'),
       civic: record.getIntValue('civic'),
@@ -58,6 +61,7 @@ class Geofences {
       'name': name,
       'center_lon': centerLon,
       'center_lat': centerLat,
+      'board_id': boardId,
       'is_active': isActive,
       'user_id': userId,
       'street': street,

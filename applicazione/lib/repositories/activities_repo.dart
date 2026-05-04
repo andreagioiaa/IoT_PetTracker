@@ -304,68 +304,113 @@ class ActivitiesRepository {
 
   // Recupera le statistiche giornaliere (durata totale, distanza, passi) per un dato boardId e giorno, con possibilità di filtrare per status
   Future<DailyStats> getDailyStatistics(String boardId, DateTime date) async {
-    // 1. Scarica tutte le attività della giornata (usando expand: 'positions')
-    final start =
-        DateTime(date.year, date.month, date.day).toUtc().toIso8601String();
-    final end = DateTime(date.year, date.month, date.day, 23, 59, 59)
-        .toUtc()
-        .toIso8601String();
+    try {
+      // Impostiamo i limiti di tempo della giornata (da 00:00 a 23:59) in UTC
+      final start =
+          DateTime(date.year, date.month, date.day).toUtc().toIso8601String();
+      final end = DateTime(date.year, date.month, date.day, 23, 59, 59)
+          .toUtc()
+          .toIso8601String();
 
-    final records = await _pb.collection('activities').getFullList(
-          filter:
-              'board_id = "$boardId" && start_time >= "$start" && start_time <= "$end"',
-          expand: 'positions',
-        );
+      // Scarichiamo TUTTE le attività di questa board per il giorno selezionato
+      final records = await _pb.collection('activities').getFullList(
+            filter:
+                'board_id = "$boardId" && start_time >= "$start" && start_time <= "$end"',
+          );
 
-    int totalSteps = 0;
-    double totalKm = 0.0;
-    int totalMinutes = 0;
+      int totalSteps = 0;
+      int totalMinutes = 0;
 
-    for (var r in records) {
-      // Somma passi[cite: 11]
-      totalSteps += r.getIntValue('total_steps');
+      // Cikliamo ogni attività del giorno per sommare Passi e Minuti
+      for (var record in records) {
+        // Somma i passi (assicurati che il campo nel DB si chiami 'total_steps' o modificalo)
+        totalSteps += record.getIntValue('total_steps');
 
-      // Calcola minuti (differenza start/end)[cite: 11]
-      final start = DateTime.parse(r.getStringValue('start_time'));
-      final end = r.getStringValue('end_time').isNotEmpty
-          ? DateTime.parse(r.getStringValue('end_time'))
-          : DateTime.now();
-      totalMinutes += end.difference(start).inMinutes;
+        // Calcola il tempo: differenza tra fine e inizio
+        String startStr = record.getStringValue('start_time');
+        String endStr = record.getStringValue('end_time');
 
-      // Calcola KM usando il metodo del PositionsRepository
-      final posizioni = r.expand['positions'] ?? [];
-      totalKm += PositionsRepository.calculateTotalDistance(posizioni);
+        if (startStr.isNotEmpty) {
+          DateTime startTime = DateTime.parse(startStr);
+          // Se non c'è un orario di fine, significa che è in corso, usiamo "Adesso"
+          DateTime endTime = endStr.isNotEmpty
+              ? DateTime.parse(endStr)
+              : DateTime.now().toUtc();
+
+          totalMinutes += endTime.difference(startTime).inMinutes;
+        }
+      }
+
+      // Calcolo dei Km totali sfruttando il PositionsRepository che hai già!
+      // Usiamo una nuova istanza per comodità
+      final posRepo = PositionsRepository(_pb);
+      final posizioniDelGiorno = await posRepo.fetchPositionsByDate(date);
+
+      // Trasformiamo le posizioni nel formato accettato dal calcolatore matematico
+      final posizioniPerCalcolo =
+          posizioniDelGiorno.map((p) => {'lat': p.lat, 'lon': p.lon}).toList();
+
+      double totalKm =
+          PositionsRepository.calculateTotalDistance(posizioniPerCalcolo);
+
+      return DailyStats(steps: totalSteps, km: totalKm, minutes: totalMinutes);
+    } catch (e) {
+      debugPrint('🛑 [ActivitiesRepository] Errore getDailyStatistics: $e');
+      return DailyStats.empty();
     }
-
-    return DailyStats(steps: totalSteps, km: totalKm, minutes: totalMinutes);
   }
 
   // Metodo statico per convertire il JSON precaricato dalla Splash in un DailyStats pulito
-  static DailyStats parsePreloadedData(List<dynamic> attivitaGrezze) {
+  static DailyStats parsePreloadedData(List<dynamic> attivitaList) {
     int totalSteps = 0;
-    double totalKm = 0.0;
     int totalMinutes = 0;
+    double totalKm = 0.0;
 
-    for (var act in attivitaGrezze) {
-      if (act is Map) {
-        totalSteps += int.tryParse(act['total_steps']?.toString() ?? '0') ?? 0;
+    for (var act in attivitaList) {
+      // Gestiamo il caso in cui la Splash passi direttamente oggetti di tipo Activities
+      if (act.runtimeType.toString() == 'Activities' ||
+          act is! Map && act is! RecordModel) {
+        // Poiché non possiamo importare il modello Activities qui senza rischiare dipendenze circolari
+        // o errori di cast, leggiamo i dati dinamicamente tramite "duck typing" di Dart.
+        try {
+          totalSteps += (act.totalSteps ?? 0) as int;
 
-        if (act['start_time'] != null &&
-            act['start_time'].toString().isNotEmpty) {
-          final start = DateTime.parse(act['start_time'].toString());
-          final endStr = act['end_time']?.toString() ?? '';
-          final end =
-              endStr.isNotEmpty ? DateTime.parse(endStr) : DateTime.now();
-          totalMinutes += end.difference(start).inMinutes;
+          DateTime? startTime = act.startTime;
+          DateTime? endTime = act.endTime;
+
+          if (startTime != null) {
+            endTime ??= DateTime.now().toUtc();
+            totalMinutes += endTime.difference(startTime).inMinutes;
+          }
+
+          // Se il tuo modello Activities espone un campo 'km', scommenta la riga sotto
+          // totalKm += act.km ?? 0.0;
+        } catch (e) {
+          debugPrint("Errore parsing oggetto Activities: $e");
         }
+        continue;
+      }
 
-        final posizioni =
-            act['expand'] != null && act['expand']['positions'] != null
-                ? act['expand']['positions']
-                : (act['positions'] ?? []);
+      // Codice originale per Mappe o RecordModel (in caso la Splash venga modificata in futuro)
+      final map =
+          act is RecordModel ? act.toJson() : act as Map<String, dynamic>;
 
-        // Usiamo il repo delle posizioni che abbiamo già importato!
-        totalKm += PositionsRepository.calculateTotalDistance(posizioni);
+      totalSteps += (map['total_steps'] ?? 0) as int;
+
+      String? startStr = map['start_time'];
+      String? endStr = map['end_time'];
+
+      if (startStr != null && startStr.isNotEmpty) {
+        DateTime startTime = DateTime.parse(startStr);
+        DateTime endTime = (endStr != null && endStr.isNotEmpty)
+            ? DateTime.parse(endStr)
+            : DateTime.now().toUtc();
+
+        totalMinutes += endTime.difference(startTime).inMinutes;
+      }
+
+      if (map['km'] != null) {
+        totalKm += double.tryParse(map['km'].toString()) ?? 0.0;
       }
     }
 

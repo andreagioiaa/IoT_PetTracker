@@ -35,7 +35,9 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
 
   List<LatLng> _routePoints = [];
   LatLng? _userLocation;
+
   StreamSubscription<Position>? _userLocationStream;
+  StreamSubscription? _dogPositionStream;
 
   // Inizializza l'oggetto con valori a zero tramite il costruttore empty()
   DailyStats _statisticheAttivita = DailyStats.empty();
@@ -45,6 +47,71 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
     super.initState();
     _caricaPercorso();
     _avviaStreamPosizioneUtente();
+
+    if (widget.attivita.isActive == true) {
+      _avviaStreamPosizioneCane();
+    }
+  }
+
+  void _avviaStreamPosizioneCane() {
+    _positionsRepo.subscribeToPositions();
+
+    _dogPositionStream =
+        _positionsRepo.positionsStream.listen((nuovaPos) async {
+      if (!mounted) return;
+
+      // Controlla se la posizione ricevuta appartenga all'attività attuale
+      if (nuovaPos.activityId != widget.attivita.id) {
+        return;
+      }
+
+      // 1. Calcoliamo la distanza percorsa rispetto all'ultimo punto registrato (se esiste)
+      final nuovoPunto = LatLng(nuovaPos.lat, nuovaPos.lon);
+      double kmAggiuntivi = 0.0;
+
+      if (_routePoints.isNotEmpty) {
+        const distanceCalc = Distance();
+        // Calcola la distanza in metri tra l'ultimo punto registrato e il nuovo punto ricevuto
+        final metri = distanceCalc.distance(_routePoints.last, nuovoPunto);
+
+        // Evita di sommare micro-spostamenti dovuti all'errore del sensore (es. < 2 metri)
+        if (metri > 2) {
+          kmAggiuntivi = metri / 1000;
+        }
+      }
+
+      // 2. RECUPERO PASSI: Interroghiamo la tabella 'activities' per avere i passi attuali
+      int passiAggiornati = _statisticheAttivita.steps; // Valore di fallback
+      try {
+        // Facciamo una rapida query per prendere il record aggiornato dell'attività
+        final activityRecord = await scambio.pb
+            .collection('activities')
+            .getOne(widget.attivita.id);
+        passiAggiornati = activityRecord.getIntValue('total_steps');
+      } catch (e) {
+        debugPrint("Impossibile recuperare i passi aggiornati: $e");
+      }
+
+      // 3. Aggiorniamo la UI con tutti i dati fusi insieme!
+      if (mounted) {
+        setState(() {
+          _routePoints.add(nuovoPunto); // Estendiamo la linea sulla mappa
+
+          int nuoviMinuti = _statisticheAttivita.minutes;
+          if (widget.attivita.startTime != null) {
+            nuoviMinuti =
+                DateTime.now().difference(widget.attivita.startTime!).inMinutes;
+          }
+
+          // Ricreiamo l'oggetto con GPS, Tempo e Passi freschi di database
+          _statisticheAttivita = DailyStats(
+            steps: passiAggiornati,
+            km: _statisticheAttivita.km + kmAggiuntivi,
+            minutes: nuoviMinuti,
+          );
+        });
+      }
+    });
   }
 
   Future<void> _caricaPercorso() async {
@@ -125,6 +192,7 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
   @override
   void dispose() {
     _userLocationStream?.cancel();
+    _dogPositionStream?.cancel();
     super.dispose();
   }
 
