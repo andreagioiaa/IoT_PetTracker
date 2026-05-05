@@ -3,6 +3,7 @@ import 'package:pet_tracker/utils/helpers.dart';
 import 'dart:math';
 import 'dart:async';
 import "../repositories/battery_data_repo.dart";
+import "../repositories/users_repo.dart";
 
 class BatteryScreen extends StatefulWidget {
   const BatteryScreen({super.key});
@@ -37,24 +38,21 @@ class _BatteryScreenState extends State<BatteryScreen>
       duration: const Duration(seconds: 2),
     );
 
-    // 2. Avvio dell'ascolto in tempo reale tramite il Repository
-    _batteryRepo.subscribeToBatteryUpdates();
-
-    // 3. Sottoscrizione allo stream tipizzato di BatteryData
+    // 2. Sottoscrizione al flusso di dati della batteria per ricevere aggiornamenti in tempo reale
     _streamSubscription = _batteryRepo.batteryStream.listen((data) {
       debugPrint(
           '🔋 [BATTERY SCREEN] Update ricevuto: ${data.batteryPercent}%');
 
       if (mounted) {
         setState(() {
-          _isCharging = data.charging; //
+          _isCharging = data.charging;
 
           if (_isCharging) {
-            _spinController.repeat(); //
+            _spinController.repeat();
           } else {
-            _spinController.stop(); //
-            _spinController.reset(); //
-            _currentBattery = data.batteryPercent; //
+            _spinController.stop();
+            _spinController.reset();
+            _currentBattery = data.batteryPercent;
           }
 
           _isLoading = false;
@@ -62,34 +60,48 @@ class _BatteryScreenState extends State<BatteryScreen>
       }
     });
 
-    // 4. Caricamento del dato iniziale al boot della schermata
-    _caricaDatiIniziali();
+    // 3. Recupera l'ultimo stato noto della batteria e inizializza la schermata
+    _inizializzaSchermataBatteria();
   }
 
-  /// Recupera l'ultimo stato noto della batteria dal database
-  Future<void> _caricaDatiIniziali() async {
-    final data = await _batteryRepo.getLatestBattery(); //
+// Recupera l'ultimo stato noto della batteria dal database per la board associata all'utente
+  Future<void> _inizializzaSchermataBatteria() async {
+    // 1. Otteniamo la board associata all'utente
+    final UsersRepository usersRepo = UsersRepository();
+    final String? boardId = await usersRepo.getBoardIdFromBoards();
 
-    if (mounted && data != null) {
-      setState(() {
-        _isCharging = data.charging; //
-        _currentBattery = data.batteryPercent; //
-        _isLoading = false;
+    if (boardId != null) {
+      // 2. Avviamo l'ascolto SOLO per questa board
+      await _batteryRepo.subscribeToBatteryUpdates(boardId);
 
-        if (_isCharging) {
-          _spinController.repeat(); //
-        }
-      });
-    } else if (mounted && data == null) {
-      // Gestione caso in cui il DB sia vuoto o irraggiungibile
-      setState(() => _isLoading = false);
+      // 3. Scarichiamo l'ultimo dato relativo a questa board
+      final data = await _batteryRepo.getLatestBattery(boardId);
+
+      if (mounted && data != null) {
+        setState(() {
+          _isCharging = data.charging;
+          _currentBattery = data.batteryPercent;
+          _isLoading = false;
+
+          if (_isCharging) {
+            _spinController.repeat();
+          }
+        });
+      } else if (mounted && data == null) {
+        setState(() => _isLoading = false); // Nessun dato presente
+      }
+    } else {
+      // Caso estremo: l'utente non ha una board associata
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
   @override
   void dispose() {
-    _streamSubscription?.cancel(); //
-    _spinController.dispose(); //
+    _streamSubscription?.cancel();
+    _spinController.dispose();
     super.dispose();
   }
 

@@ -9,12 +9,13 @@ class BatteryRepository {
   Stream<BatteryData> get batteryStream => _batteryStreamController.stream;
 
   // Recupera l'ultimo record completo della batteria
-  Future<BatteryData?> getLatestBattery() async {
+  Future<BatteryData?> getLatestBattery(String boardId) async {
     try {
       final result = await pb.collection(tabella_batteryData).getList(
             page: 1,
             perPage: 1,
             sort: '-timestamp',
+            filter: 'board_id = "$boardId"',
           );
 
       if (result.items.isEmpty) return null;
@@ -26,10 +27,11 @@ class BatteryRepository {
   }
 
   // Avvia l'ascolto in tempo reale e trasforma i RecordModel in BatteryData
-  Future<void> subscribeToBatteryUpdates() async {
+  Future<void> subscribeToBatteryUpdates(String boardId) async {
     try {
       pb.collection(tabella_batteryData).subscribe('*', (e) {
-        if (e.record != null) {
+        if (e.record != null &&
+            e.record!.getStringValue('board_id') == boardId) {
           final data = BatteryData.fromRecord(e.record!);
           _batteryStreamController.add(data);
         }
@@ -41,8 +43,8 @@ class BatteryRepository {
   }
 
   // Metodo helper per sapere se è in carica
-  Future<bool> isCharging() async {
-    final data = await getLatestBattery();
+  Future<bool> isCharging(String boardId) async {
+    final data = await getLatestBattery(boardId);
     return data?.charging ?? false;
   }
 }
