@@ -31,7 +31,7 @@ class Positions {
     );
   }
 
-  /// Converte l'oggetto in una mappa per operazioni di scrittura o log
+  // Converte l'oggetto in una mappa per operazioni di scrittura o log
   Map<String, dynamic> toJson() {
     return {
       'board_id': boardId,

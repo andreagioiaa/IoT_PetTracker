@@ -40,7 +40,7 @@ class BatteryRepository {
     }
   }
 
-  // Metodo helper per sapere se è in carica (usando il modello)
+  // Metodo helper per sapere se è in carica
   Future<bool> isCharging() async {
     final data = await getLatestBattery();
     return data?.charging ?? false;

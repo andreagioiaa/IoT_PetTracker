@@ -9,6 +9,7 @@ class User {
   final bool verified;
   final String name;
   final String surname;
+  // Messo l'allarme qui e non su board per logica di gestione
   final bool alarm;
   final DateTime created;
   final DateTime updated;

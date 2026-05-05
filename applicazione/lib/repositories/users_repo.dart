@@ -5,8 +5,7 @@ import 'package:flutter/material.dart';
 import "../screens/login.dart";
 
 class UsersRepository {
-  // Recupera il boardId interrogando la collezione 'boards'
-  // Nota: Cerchiamo il record dove il campo 'user' (relazione) contiene l'ID dell'utente corrente
+  // Cerca il record della board associata all'utente e restituisce l'ID della board
   Future<String?> getBoardIdFromBoards() async {
     try {
       if (!pb.authStore.isValid || pb.authStore.model == null) return null;
@@ -25,7 +24,7 @@ class UsersRepository {
     }
   }
 
-  /// Legge lo stato dell'allarme dalla board associata all'utente
+  // Legge lo stato dell'allarme dalla board associata all'utente
   Future<bool> getAlarmFromBoard() async {
     try {
       if (!pb.authStore.isValid || pb.authStore.model == null) return false;
@@ -43,18 +42,15 @@ class UsersRepository {
     }
   }
 
-  /// Aggiorna lo stato dell'allarme sulla board
+  // Aggiorna lo stato dell'allarme sulla board
   Future<bool> setBoardAlarm(bool value) async {
     try {
       if (!pb.authStore.isValid || pb.authStore.model == null) return false;
       final userId = pb.authStore.model!.id;
 
-      // 1. Troviamo il record della board tramite l'utente
       final record = await pb.collection('boards').getFirstListItem(
             'user ~ "$userId"',
           );
-
-      // 2. Aggiorniamo il campo 'alarm' su quel record specifico
       await pb.collection('boards').update(record.id, body: {
         'alarm': value,
       });
@@ -62,7 +58,6 @@ class UsersRepository {
       print(
           "🚨[user_repo] nuovo valore per \"alarm\" nella collection \"board\": " +
               value.toString());
-
       return true;
     } catch (e) {
       debugPrint(
@@ -225,7 +220,7 @@ class UsersRepository {
   }
 
   // Aggiorna la password ed effettua il re-login automatico
-  // PocketBase invalida il token quando la password cambia, quindi il re-auth è d'obbligo.
+  // PocketBase invalida il token quando la password cambia, quindi il re-auth è d'obbligo
   Future<bool> updatePassword(String oldPassword, String newPassword) async {
     try {
       if (!pb.authStore.isValid) return false;
@@ -249,10 +244,10 @@ class UsersRepository {
 
   // Effettua il logout pulendo lo store e riportando l'utente al login
   void eseguiLogout(BuildContext context) {
-    // 1. Pulisce il PocketBase authStore
+    // Pulisce il PocketBase authStore
     logout();
 
-    // 2. Rimuove tutte le rotte e torna al Login
+    // Rimuove tutte le rotte e torna al Login
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (context) => const AuthScreen()),
@@ -269,13 +264,13 @@ class UsersRepository {
   Future<bool> login(String identity, String password) async {
     try {
       // PocketBase gestisce il token internamente: dopo questa chiamata,
-      // il token viene salvato nel secureStore configurato in scambio.dart
+      // il token viene salvato nel secureStore configurato in authentication.dart
       await pb
           .collection('users')
           .authWithPassword(identity.trim(), password.trim());
 
       if (pb.authStore.isValid) {
-        isReady = true; // Impostiamo la variabile globale in scambio.dart
+        isReady = true;
         return true;
       }
       return false;
@@ -285,15 +280,13 @@ class UsersRepository {
     }
   }
 
-  /// Permette di sottoscriversi ai cambiamenti in tempo reale di una specifica board
-  /// Restituisce una funzione per annullare la sottoscrizione (unsubscribe)
+  // Permette di sottoscriversi ai cambiamenti in tempo reale di una specifica board
+  // Restituisce una funzione per annullare la sottoscrizione (unsubscribe)
   Future<void> subscribeToBoardUpdates(
       String recordId, Function(Map<String, dynamic>) onUpdate) async {
     try {
-      // Ci iscriviamo ai cambiamenti del record specifico nella collezione 'boards'
       await pb.collection('boards').subscribe(recordId, (e) {
         if (e.action == 'update' && e.record != null) {
-          // Passiamo i dati aggiornati alla callback
           onUpdate(e.record!.toJson());
         }
       });
@@ -304,7 +297,7 @@ class UsersRepository {
     }
   }
 
-  /// Utility per disiscriversi da un record specifico
+  // Utility per disiscriversi da un record specifico
   void unsubscribeFromBoard(String recordId) {
     pb.collection('boards').unsubscribe(recordId);
     print("🔌 [users_repo]: Sottoscrizione rimossa per board: $recordId");

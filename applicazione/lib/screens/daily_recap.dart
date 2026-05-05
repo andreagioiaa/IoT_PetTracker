@@ -55,7 +55,7 @@ class _RecapScreenState extends State<RecapScreen> {
   }
 
   void _attivaRealTimeAttivita() async {
-    // Attivare subito il Real-Time, altrimenti dopo averlo recuperato durante il caricamento
+    // Attiva subito il Real-Time o dopo averlo recuperato durante il caricamento
     await _activitiesRepo.subscribeToActivityUpdates(_boardId!, (data) {
       // Se arriva un aggiornamento dal server ricarichiamo la lista
       if (mounted) {
@@ -78,6 +78,7 @@ class _RecapScreenState extends State<RecapScreen> {
   }
   // -------------------------
 
+  // Carica le attività giornaliere e aggiorna lo stato della pagina
   Future<void> _caricaAttivitaGiornaliere() async {
     // Verifica se il widget è ancora montato prima di aggiornare lo stato
     if (!mounted) return;

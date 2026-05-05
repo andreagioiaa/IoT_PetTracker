@@ -61,10 +61,10 @@ class PetTrackerApp extends StatelessWidget {
   }
 }
 
+// Funzione per determinare il colore dello stato in base all'ultimo aggiornamento della posizione
 Color getColoreStato(DateTime? ultimoInvio) {
   if (ultimoInvio == null) return Colors.grey;
 
-  // FIX: Anche qui serve la conversione locale per non avere colori errati
   final differenza = DateTime.now().difference(ultimoInvio.toLocal());
 
   if (differenza.inMinutes < 30) return const Color(0xFF00C6B8);
@@ -95,7 +95,7 @@ class _PetTrackerNavigationState extends State<PetTrackerNavigation> {
   void initState() {
     super.initState();
 
-    // Impostiamo il valore dell'allarme PRIMA di costruire la UI
+    // Imposta il valore dell'allarme PRIMA di costruire la UI
     if (widget.preloadedData != null) {
       isTrackingMode.value = widget.preloadedData!['alarm'] ?? false;
     }
@@ -145,26 +145,25 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
   // Repository
   final UsersRepository _usersRepo = UsersRepository();
   final PositionsRepository _positionsRepo = PositionsRepository(scambio.pb);
-
-  // 1. Aggiungi il repository (assicurati di aver importato activities_repo.dart)
   final ActivitiesRepository _activitiesRepo = ActivitiesRepository(scambio.pb);
 
-  // 2. Inizializzia l'oggetto con valori a zero tramite costruttore
+  // Inizializzia l'oggetto con valori a zero tramite costruttore
   DailyStats _statisticheOggi = DailyStats.empty();
 
+  // Variabili per la gestione della riga dei giorni
   late List<Map<String, String>> dates;
   late int selectedDateIndex;
   late String currentMonthName;
-
   DateTime? _ultimoAggiornamento;
 
-  // Sostituisci _nomeZona con questa variabile
+  // Config dinamica per titolo, colore e icona della zona (aggiornata in tempo reale)
   Map<String, dynamic> _configZona = {
     'titolo': 'Ricerca in corso...',
     'colore': Colors.grey,
     'icona': Icons.location_on
   };
 
+  // Variabile per il nome visualizzato (caricamento iniziale...)
   String _displayUsername = "Caricamento...";
 
   // Per il caricamento iniziale di tutta la pagina
@@ -212,7 +211,6 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
         _statisticheOggi = widget.preloadedData!['daily_stats'];
       }
       // Altrimenti usiamo il vecchio metodo di fallback
-
       else if (widget.preloadedData!['activities'] != null) {
         _elaboraAttivita(widget.preloadedData!['activities']);
       }
@@ -320,12 +318,32 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     if (boardId != null) {
       await _activitiesRepo.subscribeToActivityUpdates(boardId, (data) {
         if (mounted) {
+          // 1. Aggiorna SUBITO lo stato locale (così non si blocca il lucchetto)
           setState(() {
             _currentStatus = data['status'] ?? 'n';
           });
           debugPrint("📡 [home.dart] Nuovo status ricevuto: $_currentStatus");
+
+          // 2. Chiama la funzione per aggiornare titoli, colori e icone (in background)
+          _aggiornaGraficaZonaDaFunzioni();
         }
       });
+    }
+  }
+
+  // Utilizza la logica di aggiornamento grafico basata sullo stato dell'attività
+  Future<void> _aggiornaGraficaZonaDaFunzioni() async {
+    try {
+      // Usa la TUA funzione che passa per getActivityStatus e _getNomeZonaDaPosizione
+      Map<String, dynamic> nuovaZona = await _calculateCurrentZone();
+
+      if (mounted) {
+        setState(() {
+          _configZona = nuovaZona; // Applica la grafica aggiornata
+        });
+      }
+    } catch (e) {
+      debugPrint("❌ Errore aggiornamento grafica zona: $e");
     }
   }
 
@@ -592,27 +610,6 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
       }
     }
   }
-
-  /* PRECEDENTE: non eliminarla, non si sa ancora se funziona la nuova
-  Future<void> _scaricaDatiIniziali() async {
-    // 1. Dati Utente
-    final user = await _usersRepo.getCurrentUser();
-    final statoAllarme = await _usersRepo.getAlarmStatus();
-
-    // 2. Dati Posizione
-    final tempoIniziale = await _positionsRepo.getLastTimestamp();
-    final zonaIniziale = await _calculateCurrentZone();
-
-    if (mounted) {
-      setState(() {
-        _displayUsername = user?.username ?? 'username';
-        if (statoAllarme != null) isTrackingMode.value = statoAllarme;
-        _ultimoAggiornamento = tempoIniziale;
-        _nomeZona = zonaIniziale;
-        _isLoading = false;
-      });
-    }
-  } */
 
   // Modifica la firma e il ritorno di _calculateCurrentZone
   Future<Map<String, dynamic>> _calculateCurrentZone() async {

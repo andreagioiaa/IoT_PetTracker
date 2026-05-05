@@ -48,7 +48,7 @@ class Geofences {
       civic: record.getIntValue('civic'),
       city: record.getStringValue('city'),
       cap: record.getIntValue('cap'),
-      // Estrazione del campo JSON 'vertices'.
+      // Estrazione del campo JSON 'vertices'
       vertices: record.data['vertices'],
       created: DateTime.parse(record.created).toLocal(),
       updated: DateTime.parse(record.updated).toLocal(),

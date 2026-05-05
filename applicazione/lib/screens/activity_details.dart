@@ -65,7 +65,7 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
         return;
       }
 
-      // 1. Calcoliamo la distanza percorsa rispetto all'ultimo punto registrato (se esiste)
+      // Calcola la distanza percorsa rispetto all'ultimo punto registrato (se esiste)
       final nuovoPunto = LatLng(nuovaPos.lat, nuovaPos.lon);
       double kmAggiuntivi = 0.0;
 
@@ -80,10 +80,9 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
         }
       }
 
-      // 2. RECUPERO PASSI: Interroghiamo la tabella 'activities' per avere i passi attuali
+      // RECUPERO PASSI: Interroga la tabella 'activities' per avere i passi attuali
       int passiAggiornati = _statisticheAttivita.steps; // Valore di fallback
       try {
-        // Facciamo una rapida query per prendere il record aggiornato dell'attività
         final activityRecord = await scambio.pb
             .collection('activities')
             .getOne(widget.attivita.id);
@@ -92,10 +91,11 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
         debugPrint("Impossibile recuperare i passi aggiornati: $e");
       }
 
-      // 3. Aggiorniamo la UI con tutti i dati fusi insieme!
+      // Aggiorniamo la UI con tutti i dati fusi insieme
       if (mounted) {
         setState(() {
-          _routePoints.add(nuovoPunto); // Estendiamo la linea sulla mappa
+          _routePoints
+              .add(nuovoPunto); // Estendemo il percorso con il nuovo punto
 
           int nuoviMinuti = _statisticheAttivita.minutes;
           if (widget.attivita.startTime != null) {
@@ -103,7 +103,7 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
                 DateTime.now().difference(widget.attivita.startTime!).inMinutes;
           }
 
-          // Ricreiamo l'oggetto con GPS, Tempo e Passi freschi di database
+          // Ricrea l'oggetto con GPS, Tempo e Passi freschi di database
           _statisticheAttivita = DailyStats(
             steps: passiAggiornati,
             km: _statisticheAttivita.km + kmAggiuntivi,
@@ -115,7 +115,7 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
   }
 
   Future<void> _caricaPercorso() async {
-    // 1. Scarica le posizioni dal DB (restituisce List<Positions>)
+    // Scarica le posizioni dal DB (restituisce List<Positions>)
     final posizioni =
         await _positionsRepo.fetchPositionsForActivity(widget.attivita.id);
 
@@ -124,11 +124,11 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
     if (posizioni.isNotEmpty) {
       _routePoints = posizioni.map((p) => LatLng(p.lat, p.lon)).toList();
 
-      // Trasformiamo le posizioni nel formato Mappa che si aspetta il calcolatore statico
+      // Trasforma le posizioni nel formato Mappa che si aspetta il calcolatore statico
       final posizioniPerCalcolo =
           posizioni.map((p) => {'lat': p.lat, 'lon': p.lon}).toList();
 
-      // DELEGHIAMO IL CALCOLO DEI KM AL REPOSITORY
+      // Delega il calcolo della distanza totale alla repository
       kmCalcolati =
           PositionsRepository.calculateTotalDistance(posizioniPerCalcolo);
 
@@ -146,7 +146,7 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
       }
     }
 
-    // 2. Calcola Passi e Minuti direttamente dall'oggetto Activities che abbiamo già
+    // Calcola Passi e Minuti direttamente dall'oggetto Activities che abbiamo già
     int passi = widget.attivita.totalSteps;
     int minuti = 0;
 
@@ -156,9 +156,9 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
       minuti = end.difference(start).inMinutes;
     }
 
+    // Restituisce tutto alla UI in un colpo solo
     if (mounted) {
       setState(() {
-        // 3. RIEMPIAMO IL MODELLO CONTENITORE!
         _statisticheAttivita = DailyStats(
           steps: passi,
           km: kmCalcolati,
@@ -169,6 +169,7 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
     }
   }
 
+  // Avvia lo stream della posizione dell'utente (richiede permessi e servizi attivi)
   void _avviaStreamPosizioneUtente() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) return;
@@ -196,6 +197,7 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
     super.dispose();
   }
 
+  // Costruisce un mini FAB con icona, colore e azione personalizzabili
   Widget _miniFAB(IconData icon, Color color, VoidCallback onPressed,
       {Color iconColor = Colors.white}) {
     return SizedBox(

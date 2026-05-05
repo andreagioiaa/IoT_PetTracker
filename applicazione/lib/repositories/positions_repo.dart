@@ -50,9 +50,8 @@ class PositionsRepository {
 
       String timeStr = result.items.first.getStringValue('timestamp');
 
-      // DateTime.parse riconosce automaticamente il formato ISO 8601 di PocketBase.
-      // Se la stringa termina con 'Z', l'oggetto creato sarà già in UTC.
-      // Usiamo .toUtc() per sicurezza assoluta e chiarezza d'intenti.
+      // DateTime.parse riconosce automaticamente il formato ISO 8601 di PocketBase
+      // Se la stringa termina con 'z', l'oggetto creato sarà già in UTC
       return DateTime.parse(timeStr).toUtc();
     } catch (e) {
       print('🛑 Errore durante il recupero del timestamp: $e');
@@ -68,14 +67,12 @@ class PositionsRepository {
   // Recupera tutte le posizioni di un giorno specifico
   Future<List<Positions>> fetchPositionsByDate(DateTime date) async {
     try {
-      // Definiamo i limiti del giorno (00:00 - 23:59) in UTC
       final start =
           DateTime(date.year, date.month, date.day).toUtc().toIso8601String();
       final end = DateTime(date.year, date.month, date.day, 23, 59, 59)
           .toUtc()
           .toIso8601String();
 
-      // Query alla collezione 'positions'
       final result = await _pb.collection('positions').getFullList(
             filter: 'timestamp >= "$start" && timestamp <= "$end"',
             sort: 'timestamp',
@@ -85,19 +82,6 @@ class PositionsRepository {
     } catch (e) {
       print('🛑 [PositionsRepository] Errore fetchPositionsByDate: $e');
       return [];
-    }
-  }
-
-  // Recupera la prima posizione legata a una specifica attività
-  Future<Positions?> getFirstPositionForActivity(String activity) async {
-    try {
-      final result = await _pb.collection('positions').getFirstListItem(
-            'activity = "$activity"',
-          );
-      return Positions.fromRecord(result);
-    } catch (e) {
-      // Se non ci sono posizioni per questa attività, ritorna null
-      return null;
     }
   }
 

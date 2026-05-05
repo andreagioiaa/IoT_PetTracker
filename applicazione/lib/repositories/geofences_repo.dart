@@ -7,7 +7,7 @@ class GeofenceRepository {
 
   GeofenceRepository(this._pb);
 
-  // Metodo per recuperare i record grezzi (utile per logiche interne come l'overlap)
+  // Metodo per recuperare tutte le zone (usato principalmente per debug o funzioni avanzate)
   Future<List<RecordModel>> getFullList() async {
     return await _pb.collection('geofences').getFullList();
   }

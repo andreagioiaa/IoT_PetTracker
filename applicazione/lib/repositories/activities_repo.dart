@@ -19,47 +19,11 @@ class ActivitiesRepository {
           );
       return Activities.fromRecord(result);
     } catch (e) {
-      return null; // 404 gestito silenziosamente
+      return null; // 404 gestito silenziosamente (nessuna attività attiva) o errore critico (es. connessione)
     }
   }
 
-  // Crea una nuova attività solo se non ne esiste già una attiva per lo stesso boardId
-  Future<Activities?> startNewActivity(String boardId) async {
-    try {
-      // Analisi Critica: Prima di iniziare, controlla se ne esiste già una attiva
-      final active = await fetchCurrentActiveActivities(boardId);
-      if (active != null) return active;
-
-      final record = await _pb.collection('activities').create(body: {
-        'board_id': boardId,
-        'start_time': DateTime.now().toUtc().toIso8601String(),
-        'total_steps': 0,
-        'is_active': true,
-      });
-      return Activities.fromRecord(record);
-    } catch (e) {
-      print('❌ Errore startNewActivity: $e');
-      return null;
-    }
-  }
-
-  // Crea una nuova attività (es. all'inizio di una camminata)
-  Future<Activities?> startActivities(String boardId) async {
-    try {
-      final record = await _pb.collection('activities').create(body: {
-        'board_id': boardId,
-        'start_time': DateTime.now().toUtc().toIso8601String(),
-        'total_steps': 0,
-        'is_active': true,
-      });
-      return Activities.fromRecord(record);
-    } catch (e) {
-      print('❌ Errore durante la creazione dell\'attività: $e');
-      return null;
-    }
-  }
-
-  // Termina l'attività attiva (es. alla fine di una camminata)
+  // Mapping delle attività per una data specifica
   Future<List<Activities>> fetchActivitiesByDate(
       String boardId, DateTime date) async {
     try {
@@ -70,6 +34,7 @@ class ActivitiesRepository {
           .toUtc()
           .toIso8601String();
 
+      // -start_time per ordinare dalla più recente alla più vecchia
       final result = await _pb.collection('activities').getFullList(
             filter:
                 'board_id = "$boardId" && start_time >= "$startOfDay" && start_time <= "$endOfDay"',
@@ -83,33 +48,9 @@ class ActivitiesRepository {
     }
   }
 
-  // Fetch dello storico completo delle attività per un dato boardId e giorno
-  Future<List<dynamic>> fetchDailyStats(String boardId, DateTime date) async {
+  // Recupera l'ultimo oggetto Activities completo per la board
+  Future<Activities?> _getLastActivity(String boardId) async {
     try {
-      // Definisci i limiti temporali del giorno scelto (00:00 - 23:59)
-      final start =
-          DateTime(date.year, date.month, date.day).toUtc().toIso8601String();
-      final end = DateTime(date.year, date.month, date.day, 23, 59, 59)
-          .toUtc()
-          .toIso8601String();
-
-      final records = await _pb.collection('activities').getFullList(
-            filter:
-                'board_id = "$boardId" && start_time >= "$start" && start_time <= "$end"',
-          );
-
-      return records;
-    } catch (e) {
-      print("Errore fetch storico: $e");
-      return [];
-    }
-  }
-
-  /// Recupera l'ultimo oggetto Activities completo per la board
-  Future<Activities?> getLastActivity(String boardId) async {
-    try {
-      // 1. Usiamo getList: qui 'sort', 'page' e 'perPage' sono parametri definiti.
-      // 2. Ordiniamo per '-start_time' per avere la più recente (visto nello screenshot).
       final result = await _pb.collection('activities').getList(
             page: 1,
             perPage: 1,
@@ -117,7 +58,7 @@ class ActivitiesRepository {
             sort: '-start_time',
           );
 
-      // 3. Verifichiamo se la lista contiene almeno un elemento
+      // Verifica se c'è stato un risultato valido prima di accedere al primo elemento
       if (result.items.isNotEmpty) {
         return Activities.fromRecord(result.items.first);
       }
@@ -135,7 +76,6 @@ class ActivitiesRepository {
   Future<void> subscribeToActivityUpdates(
       String boardId, Function(Map<String, dynamic>) onUpdate) async {
     try {
-      // Ci iscriviamo ai cambiamenti della collezione filtrando per boardId
       await _pb.collection('activities').subscribe("*", (e) {
         if (e.record != null &&
             e.record!.getStringValue('board_id') == boardId) {
@@ -148,7 +88,7 @@ class ActivitiesRepository {
     }
   }
 
-  /// Rimuove la sottoscrizione alle attività
+  // Rimuove la sottoscrizione alle attività
   void unsubscribeFromActivities() {
     _pb.collection('activities').unsubscribe("*");
   }
@@ -189,7 +129,7 @@ class ActivitiesRepository {
       case 'a':
         return "Fermo in viaggio";
       case 'z':
-        return "Fermo in camminata";
+        return "Fermo in passeggiata";
       case 'd':
         final nomeZona = await _getNomeZonaDaPosizione(attivita.id);
         return nomeZona != null
@@ -203,7 +143,7 @@ class ActivitiesRepository {
     }
   }
 
-  /// Metodo helper per recuperare le coordinate e calcolare il nome della zona
+  // Metodo helper per recuperare le coordinate e calcolare il nome della zona
   Future<String?> _getNomeZonaDaPosizione(String activityId) async {
     try {
       final result = await _pb.collection('positions').getFirstListItem(
@@ -219,10 +159,10 @@ class ActivitiesRepository {
     }
   }
 
-  /// Recupera l'etichetta testuale e la configurazione UI (titolo, colore, icona)
+  // Recupera l'etichetta testuale e la configurazione UI se c'è un'attività attiva, altrimenti ritorna valori di default
   Future<Map<String, dynamic>> getActivityStatus(String boardId) async {
     try {
-      final Activities? ultimaAttivita = await getLastActivity(boardId);
+      final Activities? ultimaAttivita = await _getLastActivity(boardId);
 
       if (ultimaAttivita == null) {
         return {
@@ -232,10 +172,10 @@ class ActivitiesRepository {
         };
       }
 
-      // Passiamo l'oggetto reale a getActivityLabel per la decodifica del titolo
+      // Passa l'oggetto reale a getActivityLabel per la decodifica del titolo
       String titoloAttivita = await getActivityLabel(ultimaAttivita);
 
-      // Ritorniamo la mappa completa passando l'attività e il titolo ricavato
+      // Ritorna la mappa completa passando l'attività e il titolo ricavato
       return getConfigForActivity(ultimaAttivita, titoloAttivita);
     } catch (e) {
       print("🚨 [activities_repo]: Errore in getActivityStatus: $e");
@@ -302,6 +242,7 @@ class ActivitiesRepository {
     }
   }
 
+  // Recupera solo lo stato dell'ultima attività per un dato boardId, o 'n' se non c'è nessuna attività
   Future<String> getLatestActivityStatus(String boardId) async {
     try {
       final result = await _pb.collection('activities').getList(
@@ -323,14 +264,13 @@ class ActivitiesRepository {
   // Recupera le statistiche giornaliere (durata totale, distanza, passi) per un dato boardId e giorno, con possibilità di filtrare per status
   Future<DailyStats> getDailyStatistics(String boardId, DateTime date) async {
     try {
-      // Impostiamo i limiti di tempo della giornata (da 00:00 a 23:59) in UTC
       final start =
           DateTime(date.year, date.month, date.day).toUtc().toIso8601String();
       final end = DateTime(date.year, date.month, date.day, 23, 59, 59)
           .toUtc()
           .toIso8601String();
 
-      // Scarichiamo TUTTE le attività di questa board per il giorno selezionato
+      // Scarica TUTTE le attività di questa board per il giorno selezionato
       final records = await _pb.collection('activities').getFullList(
             filter:
                 'board_id = "$boardId" && start_time >= "$start" && start_time <= "$end"',
@@ -339,9 +279,9 @@ class ActivitiesRepository {
       int totalSteps = 0;
       int totalMinutes = 0;
 
-      // Cikliamo ogni attività del giorno per sommare Passi e Minuti
+      // Cicla ogni attività del giorno per sommare Passi e Minuti
       for (var record in records) {
-        // Somma i passi (assicurati che il campo nel DB si chiami 'total_steps' o modificalo)
+        // Somma i passi
         totalSteps += record.getIntValue('total_steps');
 
         // Calcola il tempo: differenza tra fine e inizio
@@ -359,12 +299,11 @@ class ActivitiesRepository {
         }
       }
 
-      // Calcolo dei Km totali sfruttando il PositionsRepository che hai già!
-      // Usiamo una nuova istanza per comodità
+      // Calcolo dei Km totali sfruttando il PositionsRepository
       final posRepo = PositionsRepository(_pb);
       final posizioniDelGiorno = await posRepo.fetchPositionsByDate(date);
 
-      // Trasformiamo le posizioni nel formato accettato dal calcolatore matematico
+      // Trasforma le posizioni nel formato accettato dal metodo di calcolo della distanza (lista di mappe con lat e lon)
       final posizioniPerCalcolo =
           posizioniDelGiorno.map((p) => {'lat': p.lat, 'lon': p.lon}).toList();
 
@@ -385,11 +324,10 @@ class ActivitiesRepository {
     double totalKm = 0.0;
 
     for (var act in attivitaList) {
-      // Gestiamo il caso in cui la Splash passi direttamente oggetti di tipo Activities
+      // Gestisce il caso in cui la Splash passi direttamente oggetti di tipo Activities
       if (act.runtimeType.toString() == 'Activities' ||
           act is! Map && act is! RecordModel) {
-        // Poiché non possiamo importare il modello Activities qui senza rischiare dipendenze circolari
-        // o errori di cast, leggiamo i dati dinamicamente tramite "duck typing" di Dart.
+        // Se l'oggetto è già un'istanza di Activities, accede direttamente ai suoi campi
         try {
           totalSteps += (act.totalSteps ?? 0) as int;
 
@@ -400,16 +338,13 @@ class ActivitiesRepository {
             endTime ??= DateTime.now().toUtc();
             totalMinutes += endTime.difference(startTime).inMinutes;
           }
-
-          // Se il tuo modello Activities espone un campo 'km', scommenta la riga sotto
-          // totalKm += act.km ?? 0.0;
         } catch (e) {
           debugPrint("Errore parsing oggetto Activities: $e");
         }
         continue;
       }
 
-      // Codice originale per Mappe o RecordModel (in caso la Splash venga modificata in futuro)
+      // Codice originale per Mappe o RecordModel
       final map =
           act is RecordModel ? act.toJson() : act as Map<String, dynamic>;
 

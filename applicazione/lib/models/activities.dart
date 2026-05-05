@@ -29,6 +29,7 @@ class Activities {
       boardId: record.getStringValue('board_id'),
       totalSteps: record.getIntValue('total_steps'),
       // Gestione dei campi data nullable per evitare crash se il campo è vuoto
+      // Parsing della data con conversione al fuso locale
       startTime: record.getStringValue('start_time').isNotEmpty
           ? DateTime.parse(record.getStringValue('start_time')).toLocal()
           : null,
