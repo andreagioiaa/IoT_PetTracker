@@ -191,35 +191,37 @@ void iniettaGps() {
 GpsData getGpsData() {
   GpsData gps = {0.0f, 0.0f, 0.0f, false};
   String raw = sendAT("AT+CGNSSINFO", 1500);
-  
-  // Se la risposta è vuota o non contiene fix (molte virgole consecutive)
-  if (raw.indexOf("+CGNSSINFO:") == -1 || raw.indexOf(",,,,") != -1) return gps;
 
-  // Utilizziamo un metodo più robusto per dividere la stringa tramite le virgole
-  int indices[15]; 
-  int count = 0;
+  if (raw.indexOf("+CGNSSINFO:") == -1 || raw.indexOf(",,,,") != -1) {
+    return gps; 
+  }
+
+  int indices[12];
   int lastPos = raw.indexOf(':');
-
-  // Troviamo le posizioni di tutte le virgole
-  while (count < 15) {
-    int nextComma = raw.indexOf(',', lastPos + 1);
-    if (nextComma == -1) break;
-    indices[count++] = nextComma;
-    lastPos = nextComma;
+  for (int i = 0; i < 12; i++) {
+    indices[i] = raw.indexOf(',', lastPos + 1);
+    lastPos = indices[i];
+    if (lastPos == -1) break;
   }
 
-  if (count >= 12) {
-    gps.lat   = raw.substring(indices[3] + 1, indices[4]).toFloat();
-    gps.lon   = raw.substring(indices[5] + 1, indices[6]).toFloat();
-        
-    float speedKnots = raw.substring(indices[10] + 1, indices[11]).toFloat();
-    gps.speed = speedKnots * 1.852f;
+  String sLat   = raw.substring(indices[3] + 1, indices[4]);
+  String sNS    = raw.substring(indices[4] + 1, indices[5]);
+  String sLon   = raw.substring(indices[5] + 1, indices[6]);
+  String sEW    = raw.substring(indices[6] + 1, indices[7]);
+  String sSpeed = raw.substring(indices[10] + 1, indices[11]);
 
-    if (gps.lat != 0 && gps.lon != 0) {
-      gps.valid = true;
-    }
+  if (sLat.length() > 0 && sLon.length() > 0) {
+    gps.lat = sLat.toFloat();
+    if (sNS == "S") gps.lat *= -1.0f;
+
+    gps.lon = sLon.toFloat();
+    if (sEW == "W") gps.lon *= -1.0f;
+
+    gps.speed = sSpeed.toFloat();
+    
+    gps.valid = true;
   }
-  
+
   return gps;
 }
 
@@ -407,6 +409,7 @@ void loop() {
   unsigned long gpsStart = millis();
   Serial.println("[GPS] Ricerca segnale...");
   while (!gps.valid && (millis() - gpsStart < GPS_TIMEOUT)) {
+    Serial.println("[GPS] Ricerca segnale...");
     gps = getGpsData();
   }
 
