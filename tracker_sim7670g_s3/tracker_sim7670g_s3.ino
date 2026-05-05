@@ -14,6 +14,30 @@
 #define BAT_ADC_EN    14
 
 // ═══════════════════════════════════════════════
+//  STRUCT
+// ═══════════════════════════════════════════════
+struct BatInfo {
+  float voltage;
+  int   percent;
+  bool  charging;
+};
+
+struct GpsData {
+  float lat;
+  float lon;
+  float speed;
+  bool  valid = false;
+};
+
+struct StepData {
+  uint32_t total;
+  uint32_t session;
+  uint32_t lastSession = 0;
+  uint8_t  activityType;
+  bool     hasNewSteps;
+};
+
+// ═══════════════════════════════════════════════
 //  ACCELEROMETRO
 // ═══════════════════════════════════════════════
 BMA400 accelerometer;
@@ -54,29 +78,6 @@ const char* pb_url = "https://harvey-chairless-shenna.ngrok-free.dev/api/collect
 const char* apn    = "internet.it";
 
 HardwareSerial modem(1);
-
-// ═══════════════════════════════════════════════
-//  STRUCT
-// ═══════════════════════════════════════════════
-struct BatInfo {
-  float voltage;
-  int   percent;
-  bool  charging;
-};
-
-struct GpsData {
-  float lat;
-  float lon;
-  bool  valid = false;
-};
-
-struct StepData {
-  uint32_t total;
-  uint32_t session;
-  uint32_t lastSession = 0;
-  uint8_t  activityType;
-  bool     hasNewSteps;
-};
 
 // ═══════════════════════════════════════════════
 //  FUNZIONI BASE E UTILITY
@@ -188,22 +189,37 @@ void iniettaGps() {
 }
 
 GpsData getGpsData() {
-  GpsData gps = {0.0f, 0.0f, false};
+  GpsData gps = {0.0f, 0.0f, 0.0f, false};
   String raw = sendAT("AT+CGNSSINFO", 1500);
+  
+  // Se la risposta è vuota o non contiene fix (molte virgole consecutive)
   if (raw.indexOf("+CGNSSINFO:") == -1 || raw.indexOf(",,,,") != -1) return gps;
 
-  int pos = raw.indexOf(':');
-  for (int i = 0; i < 5; i++) pos = raw.indexOf(',', pos + 1);
-  int p6 = raw.indexOf(',', pos + 1);
-  int p7 = raw.indexOf(',', p6 + 1);
-  int p8 = raw.indexOf(',', p7 + 1);
+  // Utilizziamo un metodo più robusto per dividere la stringa tramite le virgole
+  int indices[15]; 
+  int count = 0;
+  int lastPos = raw.indexOf(':');
 
-  float lat = raw.substring(pos + 1, p6).toFloat();
-  float lon = raw.substring(p7 + 1, p8).toFloat();
-
-  if (lat != 0 && lon != 0) {
-    gps.lat = lat; gps.lon = lon; gps.valid = true;
+  // Troviamo le posizioni di tutte le virgole
+  while (count < 15) {
+    int nextComma = raw.indexOf(',', lastPos + 1);
+    if (nextComma == -1) break;
+    indices[count++] = nextComma;
+    lastPos = nextComma;
   }
+
+  if (count >= 12) {
+    gps.lat   = raw.substring(indices[3] + 1, indices[4]).toFloat();
+    gps.lon   = raw.substring(indices[5] + 1, indices[6]).toFloat();
+        
+    float speedKnots = raw.substring(indices[10] + 1, indices[11]).toFloat();
+    gps.speed = speedKnots * 1.852f;
+
+    if (gps.lat != 0 && gps.lon != 0) {
+      gps.valid = true;
+    }
+  }
+  
   return gps;
 }
 
@@ -385,7 +401,7 @@ void loop() {
   static uint32_t lastSessionStepsCount = 0;
 
   StepData step = readStepData(lastSessionStepsCount);
-  BatInfo   bat  = leggiBatteria();
+  BatInfo  bat  = leggiBatteria();
 
   GpsData gps;
   unsigned long gpsStart = millis();
@@ -398,17 +414,42 @@ void loop() {
   lastSessionStepsCount = step.session;
   String ts             = getTimestamp();
 
-  if (step.hasNewSteps) {
-    lastActivityTime = millis();
-    sendIfGpsValid(gps, bat, ts, step, false, false);
+  if (!gps.valid) {
+    Serial.println("[SYS] GPS non valido, salto loop.");
+    delay(5000);
+    return;
+  }
 
-  } else if (millis() - lastActivityTime > SLEEP_TIMEOUT) {
-    Serial.println("[SYS] Timeout inattività → Deep Sleep.");
-    sendIfGpsValid(gps, bat, ts, step, true, false);
-    enterDeepSleep();
+  // --- LOGICA DI STATO ---
+  if (step.hasNewSteps) {
+    // Caso 1: L'utente sta camminando
+    Serial.println("[STATE] Movimento rilevato (Passi)");
+    lastActivityTime = millis();
+    inviaDati(gps.lat, gps.lon, bat, ts, step, false, false);
+
+  } else if (gps.speed > 10.0f) {
+    // Caso 2: Nessun passo ma velocità > 10km/h (es. in auto)
+    Serial.println("[STATE] Movimento rilevato (Velocità > 10km/h)");
+    lastActivityTime = millis();
+    inviaDati(gps.lat, gps.lon, bat, ts, step, false, true);
 
   } else {
-    sendIfGpsValid(gps, bat, ts, step, false, true);
+    // Caso 3: Nessun passo e velocità bassa (< 10km/h)
+    // Se è passato il tempo di inattività, andiamo in Deep Sleep
+    if (millis() - lastActivityTime > SLEEP_TIMEOUT) {
+      Serial.println("[STATE] Fermo da tempo → Invio Sleep e Deep Sleep");
+      inviaDati(gps.lat, gps.lon, bat, ts, step, true, false);
+      enterDeepSleep();
+    } else {
+      // Temporaneamente fermo ma non ancora in timeout
+      Serial.println("[STATE] Inattivo, attesa timeout...");
+    }
   }
+
+  // Aggiorna variabili per iniezione Hot Start
+  lastLat = gps.lat; 
+  lastLon = gps.lon; 
+  hasGpsFix = true;
+
   delay(5000);
 }
