@@ -76,6 +76,8 @@ class ActivitiesRepository {
   Future<void> subscribeToActivityUpdates(
       String boardId, Function(Map<String, dynamic>) onUpdate) async {
     try {
+      _pb.collection('activities').unsubscribe("*");
+
       await _pb.collection('activities').subscribe("*", (e) {
         if (e.record != null &&
             e.record!.getStringValue('board_id') == boardId) {
@@ -301,7 +303,8 @@ class ActivitiesRepository {
 
       // Calcolo dei Km totali sfruttando il PositionsRepository
       final posRepo = PositionsRepository(_pb);
-      final posizioniDelGiorno = await posRepo.fetchPositionsByDate(date);
+      final posizioniDelGiorno =
+          await posRepo.fetchPositionsByDate(date, boardId);
 
       // Trasforma le posizioni nel formato accettato dal metodo di calcolo della distanza (lista di mappe con lat e lon)
       final posizioniPerCalcolo =

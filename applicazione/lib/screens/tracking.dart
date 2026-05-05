@@ -12,6 +12,7 @@ import '../services/position_gps.dart';
 import './globals/app_state.dart';
 import '../repositories/users_repo.dart';
 import "../repositories/positions_repo.dart";
+import "../repositories/geofences_repo.dart";
 
 class TrackingScreen extends StatefulWidget {
   const TrackingScreen({super.key});
@@ -21,12 +22,12 @@ class TrackingScreen extends StatefulWidget {
 }
 
 class _TrackingScreenState extends State<TrackingScreen> {
-  // --- VARIABILI PRINCIPALI ---
+  // Controller per la mappa e repository per dati
   final MapController _mapController = MapController();
   final UsersRepository _usersRepo = UsersRepository();
-
   late final PositionsRepository _positionsRepo =
       PositionsRepository(scambio.pb);
+  late final GeofenceRepository _geofenceRepo = GeofenceRepository(scambio.pb);
 
   // Posizioni e cronologia
   LatLng? _petLocation;
@@ -107,30 +108,29 @@ class _TrackingScreenState extends State<TrackingScreen> {
     }
   }
 
+  // Funzione per preparare i dati con gestione degli errori e fallback
   Future<void> _inizializzaDati() async {
+    final String? boardId = await _usersRepo.getBoardIdFromBoards();
+
+    if (boardId == null) {
+      debugPrint(
+          "🛑 [TrackingScreen] Nessuna board trovata per questo utente!");
+      return; // Ferma tutto se non c'è una board
+    }
+
     try {
-      final geoResult = await scambio.pb.collection('geofences').getFullList();
-      List<Map<String, dynamic>> activeZones = [];
-      for (var record in geoResult) {
-        if (record.getBoolValue('is_active') == true) {
-          List<LatLng> pts = [];
-          final rawList = record.getListValue<dynamic>('vertices');
-          for (var pt in rawList) {
-            if (pt is List && pt.length >= 2) {
-              pts.add(LatLng(double.parse(pt[0].toString()),
-                  double.parse(pt[1].toString())));
-            }
-          }
-          if (pts.length >= 3) activeZones.add({'vertices': pts});
-        }
-      }
+      final geofences = await _geofenceRepo.fetchGeofences(boardId);
+
+      final activeZones =
+          geofences.where((z) => z['is_active'] == true).toList();
+
       if (mounted) setState(() => _savedZones = activeZones);
     } catch (e) {
       debugPrint("Errore caricamento zone: $e");
     }
 
     try {
-      final ultimaPos = await _positionsRepo.getLatestPosition();
+      final ultimaPos = await _positionsRepo.getLatestPosition(boardId);
       if (ultimaPos != null && mounted) {
         setState(() {
           _petLocation = LatLng(ultimaPos.lat, ultimaPos.lon);
@@ -145,7 +145,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
     }
 
     // 1. Attiviamo la sottoscrizione real-time nel repository
-    _positionsRepo.subscribeToPositions();
+    _positionsRepo.subscribeToPositions(boardId);
 
     // 2. Ascoltiamo lo stream di oggetti 'Positions' (non più record grezzi)
     _petStreamSubscription =
@@ -274,10 +274,10 @@ class _TrackingScreenState extends State<TrackingScreen> {
       compassRotation = (_directionToPet! - _phoneHeading!) * (math.pi / 180);
     }
 
-    // Colore primario adattivo per banner e UI, l'arancione resta fisso per il pet
+    // Colore primario adattivo per banner e UI, cambia se il pet è in zona sicura o no
     final Color primaryColor =
         _isPetSafe ? const Color(0xFF00C6B8) : Colors.red.shade900;
-    final Color petColor = Colors.orange; // Fisso!
+    final Color petColor = Colors.orange;
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -365,8 +365,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
                             height: 60,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color:
-                                  petColor.withOpacity(0.3), // Sempre arancione
+                              color: petColor.withOpacity(0.3),
                             ),
                           ),
                           Container(
@@ -374,7 +373,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
                             height: 30,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: petColor, // Sempre arancione
+                              color: petColor,
                             ),
                             child: const Icon(Icons.pets,
                                 color: Colors.white, size: 18),

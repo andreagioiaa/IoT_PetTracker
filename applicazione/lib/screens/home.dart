@@ -31,7 +31,6 @@ class PetTrackerApp extends StatelessWidget {
   const PetTrackerApp({super.key});
 
   @override
-  @override
   Widget build(BuildContext context) {
     // Controllo se l'utente ha già fatto il login in passato
     bool isAuth = scambio.pb.authStore.isValid;
@@ -163,6 +162,9 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     'icona': Icons.location_on
   };
 
+  // Variabile per tenere traccia dell'ID della board
+  String? _currentBoardId;
+
   // Variabile per il nome visualizzato (caricamento iniziale...)
   String _displayUsername = "Caricamento...";
 
@@ -217,8 +219,15 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
 
       // E infine, se la Splash ci ha passato anche lo stato operativo, usiamolo per aggiornare subito la UI
       if (widget.preloadedData!['status'] != null) {
-        _currentStatus = widget.preloadedData![
-            'status']; // Ora sa se il cane è scappato fin dall'apertura!
+        _currentStatus = widget.preloadedData!['status'];
+      }
+
+      // Salviamo l'ID della board per usarlo negli stream e nelle funzioni future
+      _currentBoardId = widget.preloadedData!['boardId'];
+
+      // Se abbiamo già l'ID della board dalla Splash, possiamo sottoscriverci allo stream
+      if (_currentBoardId != null) {
+        _positionsRepo.subscribeToPositions(_currentBoardId!);
       }
 
       _isLoading = false; // Fermiamo il caricamento UI subito!
@@ -252,7 +261,6 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
 
     // 6. STREAM REAL-TIME (Posizione Animale)
     // Anche se abbiamo i dati della Splash, dobbiamo ascoltare i nuovi movimenti!
-    _positionsRepo.subscribeToPositions();
     _streamSubscription =
         _positionsRepo.positionsStream.listen((nuovaPos) async {
       try {
@@ -350,6 +358,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
   @override
   void dispose() {
     _activitiesRepo.unsubscribeFromActivities();
+    _positionsRepo.dispose();
     _streamSubscription?.cancel();
     _uiRefreshTimer?.cancel();
     super.dispose();
@@ -568,6 +577,12 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
       // 2. RECUPERO ID BOARD (Essenziale per lo stato attività)
       // Ci serve l'ID per sapere quale record di 'activities' monitorare
       final boardId = await _usersRepo.getBoardIdFromBoards();
+      _currentBoardId = boardId;
+
+      // Avvia lo stream posizioni se non era già partito tramite la splash
+      if (_currentBoardId != null && widget.preloadedData == null) {
+        _positionsRepo.subscribeToPositions(_currentBoardId!);
+      }
 
       // 3. Recupero lo stato dell'allarme direttamente dalla Board
       final statoAllarme = await _usersRepo.getAlarmFromBoard();
@@ -580,7 +595,9 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
       }
 
       // 5. Recupero dati iniziali di Posizione (Timestamp e Zona)
-      final tempoIniziale = await _positionsRepo.getLastTimestamp();
+      final tempoIniziale = _currentBoardId != null
+          ? await _positionsRepo.getLastTimestamp(_currentBoardId!)
+          : null;
       final zonaIniziale = await _calculateCurrentZone();
 
       if (mounted) {

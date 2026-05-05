@@ -54,7 +54,7 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
   }
 
   void _avviaStreamPosizioneCane() {
-    _positionsRepo.subscribeToPositions();
+    _positionsRepo.subscribeToPositions(widget.attivita.boardId);
 
     _dogPositionStream =
         _positionsRepo.positionsStream.listen((nuovaPos) async {

@@ -30,7 +30,7 @@ class SplashScreen extends StatefulWidget {
       // Eseguiamo il download in parallelo per dimezzare i tempi di caricamento
       final results = await Future.wait([
         usersRepo.getAlarmFromBoard(),
-        positionsRepo.getLatestPosition(),
+        positionsRepo.getLatestPosition(boardId),
         activitiesRepo.fetchActivitiesByDate(boardId, DateTime.now()),
         activitiesRepo.getDailyStatistics(boardId, DateTime.now()),
         activitiesRepo.getLatestActivityStatus(boardId),

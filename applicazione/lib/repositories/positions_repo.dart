@@ -14,21 +14,26 @@ class PositionsRepository {
   Stream<Positions> get positionsStream => _positionsController.stream;
 
   // Sottoscrizione in tempo reale alla collezione 'positions'
-  void subscribeToPositions() {
+  void subscribeToPositions(String boardId) {
+    _pb.collection(tabella_positions).unsubscribe('*');
+
     _pb.collection(tabella_positions).subscribe('*', (e) {
       if (e.record != null) {
-        _positionsController.add(Positions.fromRecord(e.record!));
+        if (e.record!.getStringValue('board_id') == boardId) {
+          _positionsController.add(Positions.fromRecord(e.record!));
+        }
       }
     });
   }
 
   // Recupera l'ultimo record della posizione registrato
-  Future<Positions?> getLatestPosition() async {
+  Future<Positions?> getLatestPosition(String boardId) async {
     try {
       final result = await pb.collection(tabella_positions).getList(
             page: 1,
             perPage: 1,
             sort: '-timestamp',
+            filter: 'board_id = "$boardId"',
           );
 
       if (result.items.isEmpty) return null;
@@ -40,11 +45,14 @@ class PositionsRepository {
   }
 
   // Recupera l'ultimo timestamp in positions_repo.dart
-  Future<DateTime?> getLastTimestamp() async {
+  Future<DateTime?> getLastTimestamp(String boardId) async {
     try {
-      final result = await pb
-          .collection(tabella_positions)
-          .getList(page: 1, perPage: 1, sort: '-timestamp');
+      final result = await pb.collection(tabella_positions).getList(
+            page: 1,
+            perPage: 1,
+            sort: '-timestamp',
+            filter: 'board_id = "$boardId"',
+          );
 
       if (result.items.isEmpty) return null;
 
@@ -61,11 +69,13 @@ class PositionsRepository {
 
   // Chiude lo stream quando non più necessario (per evitare memory leak)
   void dispose() {
+    _pb.collection(tabella_positions).unsubscribe('*');
     _positionsController.close();
   }
 
   // Recupera tutte le posizioni di un giorno specifico
-  Future<List<Positions>> fetchPositionsByDate(DateTime date) async {
+  Future<List<Positions>> fetchPositionsByDate(
+      DateTime date, String boardId) async {
     try {
       final start =
           DateTime(date.year, date.month, date.day).toUtc().toIso8601String();
@@ -74,7 +84,8 @@ class PositionsRepository {
           .toIso8601String();
 
       final result = await _pb.collection('positions').getFullList(
-            filter: 'timestamp >= "$start" && timestamp <= "$end"',
+            filter:
+                'board_id = "$boardId" && timestamp >= "$start" && timestamp <= "$end"',
             sort: 'timestamp',
           );
 
