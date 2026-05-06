@@ -105,6 +105,7 @@
     postbreak=\mbox{\textcolor{red}{$\hookrightarrow$}\space},
 }
 
+
 \begin{document}
 
 \begin{titlepage}
@@ -134,13 +135,13 @@
 \end{titlepage}
 
 \begin{abstract}
-Il progetto Pet-Tracker propone la realizzazione di un sistema IoT per il tracciamento in tempo reale di animali domestici di media taglia. 
-La soluzione integra un dispositivo embedded basato su ESP32-S3 con connettività LTE e modulo GNSS, in grado di acquisire e trasmettere dati di posizione, stato della batteria e attività motoria verso un backend remoto.
+\noindent Il progetto Pet-Tracker propone la realizzazione di un sistema IoT per il tracciamento in tempo reale di animali domestici di taglia media o superiore, scelta dettata dal peso del dispositivo. 
+La soluzione integra un dispositivo embedded basato su ESP32-S3 con connettività LTE e modulo GNSS, in grado di acquisire e trasmettere dati di posizione, stato della batteria e attività motoria verso un backend remoto. \\
 
-L'architettura segue il modello IoT World Forum (IoTWF) e adotta tecniche di ottimizzazione energetica, tra cui modalità Deep Sleep e strategie di Hot Start per il GPS. 
-I dati vengono elaborati e resi disponibili tramite API REST e visualizzati attraverso un'applicazione mobile dedicata.
+\noindent L'architettura segue il modello IoT World Forum (IoTWF) e adotta tecniche di ottimizzazione energetica, tra cui modalità Deep Sleep e strategie di Hot Start per il GPS. 
+I dati vengono elaborati e resi disponibili tramite API REST e visualizzati attraverso un'applicazione mobile dedicata. \\
 
-L'obiettivo principale è garantire un sistema affidabile, a basso consumo energetico e scalabile per il monitoraggio continuo dell'animale.
+\noindent L'obiettivo principale è garantire un sistema affidabile, a basso consumo energetico e scalabile per il monitoraggio continuo dell'animale.
 \end{abstract}
 
 \newpage
@@ -399,48 +400,50 @@ Watchdog               & Silenzio $>$ 10 minuti                                 
 \section{Front-end e Applicazione Mobile}
 
 L'applicazione mobile è stata sviluppata in Flutter \cite{flutter}, un framework
-cross-platform che permette di produrre un'unica codebase per Android e iOS.
+cross-platform che permette di produrre un'unica base di codice per Android e iOS.
 La comunicazione con il backend avviene tramite il PocketBase SDK ufficiale per
-Dart, che gestisce internamente le chiamate REST e i meccanismi di autenticazione.
+\texttt{Dart}, che gestisce internamente le chiamate REST e i meccanismi di autenticazione.
 
 \subsection{Architettura a livelli}
 
-Il codice dell'applicazione è organizzato secondo una separazione netta tra livelli di
-responsabilità:
+Il codice è strutturato in quattro livelli principali, per separare le diverse responsabilità:
 
 \begin{itemize}
   \item \textbf{Repositories}: accesso ai dati remoti tramite PocketBase SDK,
-    con esposizione di metodi asincroni e stream tipizzati verso le schermate.
-  \item \textbf{Models}: rappresentazione del dominio applicativo (es. Utente, Posizione, Attività). 
-    Questo livello si occupa della deserializzazione dei dati, mappando i record grezzi (JSON) 
-    ricevuti dal backend in oggetti Dart fortemente tipizzati.
-  \item \textbf{Services}: logica trasversale e di sistema, indipendente dalla UI
-    (autenticazione, logica di geofencing, tracciamento GPS, notifiche push).
+    fornendo alle schermate dati in tempo reale e pronti all'uso.
+  \item \textbf{Models}: definiscono la struttura dei dati (es. Utente, Posizione) 
+    convertendo i record JSON del backend in oggetti Dart.
+  \item \textbf{Services}: gestiscono le funzionalità di sistema e le integrazioni esterne 
+    (es. autenticazione, mappe, tracciamento GPS e notifiche).
   \item \textbf{Screens}: interfaccia utente che si limita a richiedere i dati ai
     repository e a reagire ai loro aggiornamenti.
 \end{itemize}
 
-Questa architettura facilita la testabilità e disaccoppia la logica di business dalla
-presentazione, in linea con il principio di separazione delle responsabilità.
+Questa struttura garantisce un codice ordinato e facile da aggiornare, 
+mantenendo la logica di funzionamento ben separata dall'interfaccia grafica.
 
 \subsection{Autenticazione e persistenza della sessione}
 
-L'autenticazione è gestita tramite un \texttt{SecureAuthStore} personalizzato che
-estende l'\texttt{AuthStore} nativo di PocketBase. Il token JWT restituito dal server
-al momento del login viene serializzato in JSON e salvato in modo cifrato tramite
-\texttt{flutter\_secure\_storage}, che su Android si appoggia al sistema Keystore e
-su iOS al Keychain.
+Per permettere all'utente di restare collegato in modo permanente e sicuro,
+abbiamo esteso l'\texttt{AuthStore} nativo di PocketBase, 
+che normalmente salva i dati solo temporaneamente in memoria. 
+L'autenticazione è quindi gestita tramite un \texttt{SecureAuthStore} personalizzato 
+che agisce come una \textit{cassaforte digitale}, riceve il token (JSON Web Token) 
+dal server al momento del login e lo archivia in forma cifrata 
+all'interno del dispositivo tramite \texttt{flutter\_secure\_storage}. 
+Questo sistema sfrutta i sistemi di protezione hardware del dispositivo 
+(Keystore su Android e Keychain su iOS) per impedire accessi non autorizzati.
 
 Al riavvio dell'app, il token viene riletto dallo storage sicuro e viene
 tentato un refresh automatico della sessione. In caso di successo, l'utente accede
 direttamente alla schermata principale senza dover reinserire le credenziali; in caso di
-token scaduto, lo store viene svuotato e l'utente viene reindirizzato al login.
+token scaduto o non valido, lo store viene svuotato e l'utente viene reindirizzato alla schermata di login.
 
-\subsection{Splash Screen e caricamento parallelo}
+\subsection{Splash Screen e Caricamento Parallelo}
 
-La schermata di avvio svolge un ruolo attivo nel precaricare i dati necessari alla
-home page. Una volta verificata l'autenticazione, vengono avviate in parallelo,
-tramite \texttt{Future.wait}, le seguenti operazioni:
+La schermata di avvio svolge un ruolo attivo nel precaricare i dati 
+necessari alla home page. Una volta verificata l'autenticazione, 
+vengono avviate in parallelo, le seguenti operazioni:
 
 \begin{itemize}
   \item recupero del profilo utente e dello stato dell'allarme;
@@ -448,59 +451,95 @@ tramite \texttt{Future.wait}, le seguenti operazioni:
   \item recupero delle attività del giorno corrente filtrate per \texttt{board\_id}.
 \end{itemize}
 
-Il \texttt{board\_id}, identificativo univoco della board LilyGo associata all'utente,
-viene risolto dinamicamente interrogando la collezione \texttt{boards} sul backend,
-evitando qualsiasi valore hardcoded. Contestualmente, viene calcolata la zona di
-geofencing in cui si trova l'animale. I dati precaricati vengono poi passati
-direttamente alla schermata principale, eliminando ulteriori chiamate di rete al
-momento della navigazione.
+Il \texttt{board\_id}, identificativo univoco della board LilyGo associata a uno o più utenti,
+viene risolto dinamicamente interrogando la collezione \texttt{boards} sul backend tramite repository.
+Questo permette all'app di trovare il dispositivo corretto automaticamente, 
+evitando di dover inserire il codice manualmente nel software.
 
-\subsection{Comunicazione in tempo reale}
 
-Per le funzionalità che richiedono aggiornamenti continui --- posizione GPS e stato
-della batteria --- l'app sfrutta il meccanismo di \textit{subscribe} offerto da
-PocketBase, basato su Server-Sent Events (SSE). I repository espongono uno
-\texttt{Stream} tipizzato (rispettivamente \texttt{Stream<Positions>} e
-\texttt{Stream<BatteryData>}) a cui le schermate si sottoscrivono tramite
-\texttt{StreamSubscription}. Ogni nuovo record inserito nel backend viene notificato
-istantaneamente all'app senza necessità di polling.
+\subsection{Comunicazione in Tempo Reale}
 
-\subsection{Geofencing lato client}
+Completata la fase iniziale di caricamento dati, l'app stabilisce una 
+\textbf{connessione persistente} al database, passando da una visualizzazione 
+statica ad un monitoraggio dinamico.
 
-La logica di geofencing è implementata interamente lato client tramite l'algoritmo
+Per le funzionalità che richiedono aggiornamenti continui come la posizione GPS, 
+l'app sfrutta il meccanismo di \textit{subscribe} offerto da PocketBase, 
+basato su \texttt{Server-Sent Events}. 
+I repository (come \texttt{PositionsRepository}) espongono uno \texttt{Stream} tipizzato 
+(ad esempio \texttt{Stream<Positions>}) a cui le schermate si sottoscrivono 
+tramite una \texttt{StreamSubscription}.
+
+In questo modo, ogni nuovo record inserito nel database viene notificato 
+istantaneamente all'app. L'interfaccia utente si aggiorna dinamicamente 
+evitando la tecnica del \textit{polling}, che costringerebbe l'app a inviare 
+continue richieste al server, ed eliminando la necessità di qualsiasi ricaricamento 
+manuale della pagina da parte dell'utente.
+
+Per garantire l'efficienza dell'applicativo e prevenire \textit{memory leak}, 
+ogni sottoscrizione viene rigorosamente interrotta tramite il comando
+\texttt{cancel()} nel metodo \texttt{dispose()} quando l'utente naviga verso un'altra schermata. 
+Questa accortezza evita di mantenere attive connessioni inutili in background, 
+ottimizzando l'uso della batteria e del traffico dati.
+
+\subsection{Geofencing e Geocoding}
+
+La logica di geofencing è implementata anche dal lato client tramite l'algoritmo
 \textit{Ray-Casting}. Dato un punto GPS (latitudine, longitudine) e un poligono
 definito da una lista di vertici, l'algoritmo traccia un raggio orizzontale dal punto
-verso l'infinito e conta le intersezioni con i lati del poligono: un numero dispari
-indica che il punto è interno al poligono.
+verso l'infinito e conta le intersezioni con i lati del poligono, se il numero è dispari
+indica che il punto è interno al poligono, altrimenti è esterno. 
+Questa scelta progettuale permette di gestire recinti virtuali di qualsiasi forma, 
+adattandosi efficacemente ai confini del mondo reale.
 
 Le zone vengono recuperate dalla collezione \texttt{geofences} su PocketBase, dove
 ogni record memorizza il nome della zona, i dati dell'indirizzo e la lista dei vertici
 del poligono. Solo le zone con il flag \texttt{is\_active} impostato a \texttt{true}
 vengono considerate nel calcolo. Il risultato della verifica è una stringa con il nome
 della zona di appartenenza, oppure \textit{``Fuori zona sicura''} se il punto non
-rientra in nessuna area attiva. Questa informazione viene mostrata in tempo reale
-nella schermata principale.
+rientra in nessuna area attiva. 
 
-\subsection{Notifiche push}
+Per arricchire l'interfaccia, l'applicativo integra un servizio di \textbf{geocoding} 
+basato sulle API di \textit{Nominatim} \cite{nominatim}. 
+Quest'ultimo agisce come motore di ricerca che interroga il database 
+cartografico open-source di OpenStreetMap, permettendo di:
+\begin{itemize}
+  \item \textbf{Reverse Geocoding}: tradurre le coordinate GPS in indirizzi testuali completi 
+  (Via, Civico, CAP e Città) per facilitare la lettura all'utente;
+  \item \textbf{Forward Geocoding}: consentire all'utente di creare nuove zone inserendo 
+  un indirizzo testuale, che il sistema converte automaticamente in coordinate geografiche 
+  per posizionare correttamente il poligono sulla mappa.
+\end{itemize}
 
-Le notifiche push sono gestite tramite Firebase Cloud Messaging (FCM). Al primo
+\subsection{Permessi e Notifiche Push}
+
+Le notifiche push sono gestite tramite \texttt{Firebase Cloud Messaging}. Al primo
 avvio, l'app mostra un dialog personalizzato che spiega all'utente il motivo della
 richiesta del permesso, prima di invocare la richiesta di sistema. Una volta ottenuto
 il consenso, il token FCM del dispositivo viene sincronizzato con il profilo utente su
-PocketBase: il campo \texttt{tokenFCM} è modellato come una lista, permettendo
-all'utente di ricevere notifiche su più dispositivi contemporaneamente. Un controllo
-di duplicazione evita che lo stesso token venga registrato più volte.
+PocketBase, nel campo \texttt{tokenFCM} modellato come una lista, permettendo
+all'utente di ricevere notifiche su più dispositivi contemporaneamente. 
+Prima del salvataggio, un controllo di duplicazione verifica che il token del dispositivo 
+corrente non sia già presente nella lista, evitando ricezioni di notifiche ridondanti.
 
-\subsection{Funzionalità principali}
+Analogamente alla gestione delle notifiche, l'app mostra al primo avvio un dialog personalizzato per spiegare 
+le finalità del monitoraggio della poszione dell'utente prima di attivare la richiesta di sistema. 
+Il consenso ottenuto viene poi incrociato con l'effettivo stato dell'antenna GPS tramite un controllo centralizzato, 
+che aggiorna una variabile di stato globale per abilitare il recupero della posizione con alta precisione. 
+Infine, l'utilizzo di SharedPreferences permette di memorizzare l'avvenuta visualizzazione dell'informativa, 
+evitando che il pop-up esplicativo appaia ripetutamente ad ogni avvio dell'applicazione.
 
-\paragraph{Mappa in tempo reale.}
+
+\subsection{Funzionalità Principali}
+
+\paragraph{Mappa in Tempo Reale}
 La schermata principale mostra la posizione aggiornata dell'animale su mappa
 tramite la libreria \texttt{flutter\_map} con tile OpenStreetMap. La posizione viene
 aggiornata ad ogni evento ricevuto dallo stream in tempo reale. L'indirizzo
 corrispondente alle coordinate viene risolto in forma testuale tramite il servizio di
 reverse geocoding Nominatim.
 
-\paragraph{Riepilogo giornaliero.}
+\paragraph{Riepilogo Giornaliero}
 La schermata di recap, accessibile selezionando una data dal calendario, recupera
 dal backend le attività e le posizioni GPS relative a quel giorno. Le posizioni vengono
 rappresentate come una polilinea sulla mappa, restituendo una visualizzazione del
@@ -508,14 +547,14 @@ percorso effettuato dall'animale. Le statistiche aggregate (passi totali, distan
 stimata in chilometri e durata complessiva del movimento) vengono calcolate
 client-side a partire dai dati ricevuti.
 
-\paragraph{Stato della batteria.}
+\paragraph{Stato della batteria}
 La schermata dedicata mostra la percentuale di carica residua tramite un indicatore
 circolare animato con gradiente. Quando il campo \texttt{charging} del record è
 impostato a \texttt{true}, l'indicatore entra in modalità animazione rotante per
 segnalare visivamente la ricarica in corso. La durata stimata residua viene calcolata
 proporzionalmente alla capacità nominale della batteria (3000 mAh).
 
-\paragraph{Gestione delle zone sicure.}
+\paragraph{Gestione delle Zone Sicure}
 L'app consente di creare, modificare e disattivare le zone di geofencing tramite un
 editor poligonale interattivo su mappa. L'utente può disegnare il perimetro della zona
 toccando i vertici direttamente sulla mappa; al salvataggio, le coordinate dei vertici
@@ -525,7 +564,7 @@ centroide.
 
 \section{Test e Risultati}
 
-\section{Limiti del sistema}
+\section{Limiti del Sistema}
 Nonostante i risultati ottenuti, il sistema presenta alcune limitazioni:
 \begin{itemize}
     \item \textbf{Dipendenza dalla rete LTE:} in assenza di copertura, la trasmissione dei dati non è garantita.

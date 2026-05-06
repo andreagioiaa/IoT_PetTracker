@@ -1,5 +1,5 @@
 % $ biblatex auxiliary file $
-% $ biblatex bbl format version 3.3 $
+% $ biblatex bbl format version 3.2 $
 % Do not modify the above lines!
 %
 % This is an auxiliary file used by the 'biblatex' package.
@@ -18,8 +18,8 @@
 
 
 \refsection{0}
-  \datalist[entry]{none/global//global/global/global}
-    \entry{lilygo_specs}{online}{}{}
+  \datalist[entry]{none/global//global/global}
+    \entry{lilygo_specs}{online}{}
       \field{sortinit}{1}
       \field{sortinithash}{4f6aaa89bab872aa0999fec09ff8e98a}
       \field{labeltitlesource}{title}
@@ -31,7 +31,7 @@
       \verb https://github.com/Xinyuan-LilyGO/LilyGo-Modem-Series/blob/main/docs/en/esp32s3/sim7670g-s3/REAMDE.MD
       \endverb
     \endentry
-    \entry{LTE}{online}{}{}
+    \entry{LTE}{online}{}
       \field{sortinit}{2}
       \field{sortinithash}{8b555b3791beccb63322c22f3320aa9a}
       \field{labeltitlesource}{title}
@@ -43,7 +43,7 @@
       \verb https://github.com/Xinyuan-LilyGO/LilyGo-Modem-Series/blob/main/datasheet/LTE%20Antenna%20Specifications.pdf
       \endverb
     \endentry
-    \entry{GPS}{online}{}{}
+    \entry{GPS}{online}{}
       \field{sortinit}{3}
       \field{sortinithash}{ad6fe7482ffbd7b9f99c9e8b5dccd3d7}
       \field{labeltitlesource}{title}
@@ -55,7 +55,7 @@
       \verb https://github.com/Xinyuan-LilyGO/LilyGo-Modem-Series/blob/main/datasheet/GPS%20Antenna%20Specifications.pdfp
       \endverb
     \endentry
-    \entry{bma400}{online}{}{}
+    \entry{bma400}{online}{}
       \field{sortinit}{4}
       \field{sortinithash}{9381316451d1b9788675a07e972a12a7}
       \field{labeltitlesource}{title}
@@ -67,7 +67,7 @@
       \verb https://www.bosch-sensortec.com/media/boschsensortec/downloads/product_flyer/bst-bma400-fl000.pdf
       \endverb
     \endentry
-    \entry{pocketbase}{online}{}{}
+    \entry{pocketbase}{online}{}
       \field{sortinit}{5}
       \field{sortinithash}{20e9b4b0b173788c5dace24730f47d8c}
       \field{labeltitlesource}{title}
@@ -79,7 +79,7 @@
       \verb https://pocketbase.io/docs/
       \endverb
     \endentry
-    \entry{ngrok}{online}{}{}
+    \entry{ngrok}{online}{}
       \field{sortinit}{6}
       \field{sortinithash}{b33bc299efb3c36abec520a4c896a66d}
       \field{labeltitlesource}{title}
@@ -91,7 +91,7 @@
       \verb https://ngrok.com/docs/secure-tunnels/
       \endverb
     \endentry
-    \entry{rclone}{online}{}{}
+    \entry{rclone}{online}{}
       \field{sortinit}{7}
       \field{sortinithash}{108d0be1b1bee9773a1173443802c0a3}
       \field{labeltitlesource}{title}
@@ -103,7 +103,7 @@
       \verb https://rclone.org/
       \endverb
     \endentry
-    \entry{backblaze}{online}{}{}
+    \entry{backblaze}{online}{}
       \field{sortinit}{8}
       \field{sortinithash}{a231b008ebf0ecbe0b4d96dcc159445f}
       \field{labeltitlesource}{title}
@@ -115,7 +115,7 @@
       \verb https://www.backblaze.com/b2/cloud-storage.html
       \endverb
     \endentry
-    \entry{uptimerobot}{online}{}{}
+    \entry{uptimerobot}{online}{}
       \field{sortinit}{9}
       \field{sortinithash}{0a5ebc79d83c96b6579069544c73c7d4}
       \field{labeltitlesource}{title}
@@ -127,7 +127,7 @@
       \verb https://uptimerobot.com/
       \endverb
     \endentry
-    \entry{nodejs}{online}{}{}
+    \entry{nodejs}{online}{}
       \field{sortinit}{1}
       \field{sortinithash}{4f6aaa89bab872aa0999fec09ff8e98a}
       \field{labeltitlesource}{title}
@@ -139,7 +139,7 @@
       \verb https://nodejs.org/en/docs/
       \endverb
     \endentry
-    \entry{firebase_admin}{online}{}{}
+    \entry{firebase_admin}{online}{}
       \field{sortinit}{1}
       \field{sortinithash}{4f6aaa89bab872aa0999fec09ff8e98a}
       \field{labeltitlesource}{title}
@@ -151,7 +151,7 @@
       \verb https://firebase.google.com/docs/cloud-messaging/server
       \endverb
     \endentry
-    \entry{flutter}{online}{}{}
+    \entry{flutter}{online}{}
       \field{sortinit}{1}
       \field{sortinithash}{4f6aaa89bab872aa0999fec09ff8e98a}
       \field{labeltitlesource}{title}
@@ -161,6 +161,18 @@
       \endverb
       \verb{url}
       \verb https://docs.flutter.dev/
+      \endverb
+    \endentry
+    \entry{nominatim}{online}{}
+      \field{sortinit}{1}
+      \field{sortinithash}{4f6aaa89bab872aa0999fec09ff8e98a}
+      \field{labeltitlesource}{title}
+      \field{title}{Nominatim Documentation}
+      \verb{urlraw}
+      \verb https://nominatim.org/release-docs/latest/
+      \endverb
+      \verb{url}
+      \verb https://nominatim.org/release-docs/latest/
       \endverb
     \endentry
   \enddatalist
