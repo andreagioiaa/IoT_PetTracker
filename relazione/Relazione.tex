@@ -474,6 +474,8 @@ cross-platform che permette di produrre un'unica base di codice per Android e iO
 La comunicazione con il backend avviene tramite il PocketBase SDK ufficiale per
 \texttt{Dart}, che gestisce internamente le chiamate REST e i meccanismi di autenticazione.
 
+A differenza della natura multi-piattaforma del framework, i test sono stati condotti esclusivamente su ambiente Android. Tale decisione è stata dettata da vincoli tecnici: l'assenza di postazioni di lavoro equipaggiate con macOS, requisito necessario per il processo di build in ambiente Apple, e la mancanza di una licenza \textit{Apple Developer Program}, necessaria per garantire la persistenza dell'applicazione sul dispositivo fisico oltre il limite di sette giorni previsto per i profili gratuiti.
+
 \subsection{Architettura a livelli}
 
 Il codice è strutturato in quattro livelli principali, per separare le diverse responsabilità:
@@ -552,6 +554,24 @@ ogni sottoscrizione viene rigorosamente interrotta tramite il comando
 Questa accortezza evita di mantenere attive connessioni inutili in background, 
 ottimizzando l'uso della batteria e del traffico dati.
 
+\subsection{Permessi per Notifiche Push e Localizzazione}
+
+Le notifiche push sono gestite tramite \texttt{Firebase Cloud Messaging}. Al primo
+avvio, l'app mostra un dialog personalizzato che spiega all'utente il motivo della
+richiesta del permesso, prima di invocare la richiesta di sistema. Una volta ottenuto
+il consenso, il token FCM del dispositivo viene sincronizzato con il profilo utente su
+PocketBase, nel campo \texttt{tokenFCM} modellato come una lista, permettendo
+all'utente di ricevere notifiche su più dispositivi contemporaneamente. 
+Prima del salvataggio, un controllo di duplicazione verifica che il token del dispositivo 
+corrente non sia già presente nella lista, evitando ricezioni di notifiche ridondanti.
+
+Analogamente alla gestione delle notifiche, l'app mostra al primo avvio un dialog personalizzato per spiegare 
+le finalità del monitoraggio della poszione dell'utente prima di attivare la richiesta di sistema. 
+Il consenso ottenuto viene poi incrociato con l'effettivo stato dell'antenna GPS tramite un controllo centralizzato, 
+che aggiorna una variabile di stato globale per abilitare il recupero della posizione con alta precisione. 
+Infine, l'utilizzo di SharedPreferences permette di memorizzare l'avvenuta visualizzazione dell'informativa, 
+evitando che il pop-up esplicativo appaia ripetutamente ad ogni avvio dell'applicazione.
+
 \subsection{Geofencing e Geocoding}
 
 La logica di geofencing è implementata anche dal lato client tramite l'algoritmo
@@ -581,23 +601,7 @@ cartografico open-source di OpenStreetMap, permettendo di:
   per posizionare correttamente il poligono sulla mappa.
 \end{itemize}
 
-\subsection{Permessi e Notifiche Push}
 
-Le notifiche push sono gestite tramite \texttt{Firebase Cloud Messaging}. Al primo
-avvio, l'app mostra un dialog personalizzato che spiega all'utente il motivo della
-richiesta del permesso, prima di invocare la richiesta di sistema. Una volta ottenuto
-il consenso, il token FCM del dispositivo viene sincronizzato con il profilo utente su
-PocketBase, nel campo \texttt{tokenFCM} modellato come una lista, permettendo
-all'utente di ricevere notifiche su più dispositivi contemporaneamente. 
-Prima del salvataggio, un controllo di duplicazione verifica che il token del dispositivo 
-corrente non sia già presente nella lista, evitando ricezioni di notifiche ridondanti.
-
-Analogamente alla gestione delle notifiche, l'app mostra al primo avvio un dialog personalizzato per spiegare 
-le finalità del monitoraggio della poszione dell'utente prima di attivare la richiesta di sistema. 
-Il consenso ottenuto viene poi incrociato con l'effettivo stato dell'antenna GPS tramite un controllo centralizzato, 
-che aggiorna una variabile di stato globale per abilitare il recupero della posizione con alta precisione. 
-Infine, l'utilizzo di SharedPreferences permette di memorizzare l'avvenuta visualizzazione dell'informativa, 
-evitando che il pop-up esplicativo appaia ripetutamente ad ogni avvio dell'applicazione.
 
 
 \subsection{Funzionalità Principali}
