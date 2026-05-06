@@ -192,33 +192,46 @@ GpsData getGpsData() {
   GpsData gps = {0.0f, 0.0f, 0.0f, false};
   String raw = sendAT("AT+CGNSSINFO", 1500);
 
-  if (raw.indexOf("+CGNSSINFO:") == -1 || raw.indexOf(",,,,") != -1) {
-    return gps; 
+  int start = raw.indexOf("+CGNSSINFO:");
+  if (start == -1) return gps;
+
+  String data = raw.substring(start + 11);
+  data.trim();
+
+  if (data.startsWith(",,,,,") || data.length() < 10) return gps;
+
+  // Split in campi
+  String fields[20];
+  int fieldCount = 0;
+  int pos = 0;
+
+  while (fieldCount < 20) {
+    int comma = data.indexOf(',', pos);
+    if (comma == -1) {
+      fields[fieldCount++] = data.substring(pos);
+      break;
+    }
+    fields[fieldCount++] = data.substring(pos, comma);
+    pos = comma + 1;
   }
+  
+  String sLat   = fields[5];
+  String sNS    = fields[6];
+  String sLon   = fields[7];
+  String sEW    = fields[8];
+  String sSpeed = fields[12];
 
-  int indices[12];
-  int lastPos = raw.indexOf(':');
-  for (int i = 0; i < 12; i++) {
-    indices[i] = raw.indexOf(',', lastPos + 1);
-    lastPos = indices[i];
-    if (lastPos == -1) break;
-  }
+  if (sLat.length() > 0 && sLon.length() > 0 &&
+      sNS.length() > 0  && sEW.length() > 0) {
 
-  String sLat   = raw.substring(indices[3] + 1, indices[4]);
-  String sNS    = raw.substring(indices[4] + 1, indices[5]);
-  String sLon   = raw.substring(indices[5] + 1, indices[6]);
-  String sEW    = raw.substring(indices[6] + 1, indices[7]);
-  String sSpeed = raw.substring(indices[10] + 1, indices[11]);
-
-  if (sLat.length() > 0 && sLon.length() > 0) {
+    // Già in gradi decimali, nessuna conversione necessaria
     gps.lat = sLat.toFloat();
     if (sNS == "S") gps.lat *= -1.0f;
 
     gps.lon = sLon.toFloat();
     if (sEW == "W") gps.lon *= -1.0f;
 
-    gps.speed = sSpeed.toFloat();
-    
+    gps.speed = sSpeed.toFloat();  // in km/h o nodi, verifica il datasheet
     gps.valid = true;
   }
 

@@ -7,7 +7,7 @@
 //
 // MACCHINA A STATI (priorità: trip → inside → alarm):
 //
-//  1. trip=true                      → "v"  (sempre, ignora geofence)
+//  1. trip=true                      → "v"  (sempre, solo dopo conferma 2° pacchetto)
 //  2. trip=false && era "v" o "a":
 //       steps==0 (ancora fermo)      → rimane "v"
 //       steps>0  (ha ripreso)        → ricalcola geofence → i/s/w
@@ -15,15 +15,14 @@
 //  4. inside=false && alarm=true     → "s"
 //  5. inside=false && alarm=false    → "w"
 //
-// FIX6: computeStatus, checkBatteryNotify e notifyBoardUsers accettano
-// il record board già letto come parametro, evitando query ridondanti.
-//
-// FIX7: getItalyTime() calcola l'offset Italia dinamicamente (ora legale/solare).
+// NOTE:
+//  - getBoardRecord va chiamata UNA SOLA VOLTA per pacchetto e passata ai metodi
+//  - getItalyTime() calcola l'offset Italia dinamicamente (ora legale/solare)
+//  - saveBattery: salva il record battery_data E controlla notifiche
+//  - createNewActivity: crea e salva una nuova activity, ritorna il record
 //
 // ═══════════════════════════════════════════════════════════════
 
-const SESSION_DEDUP_SEC    = 120;
-const WATCHDOG_TIMEOUT_MIN = 10;
 const BRIDGE_URL           = "http://127.0.0.1:3000/send";
 
 // Mappe bidirezionali sleep ↔ attivo
@@ -34,18 +33,17 @@ const ACTIVE_STATES = new Set(["i", "v", "s", "w"]);
 const SLEEP_STATES  = new Set(["d", "a", "p", "z"]);
 
 // ─────────────────────────────────────────────────────────────────────────────
-// FIX7: ORA ITALIANA DINAMICA
+// ORA ITALIANA DINAMICA
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Restituisce il timestamp corrente in ora italiana (ms).
  * Calcola automaticamente l'offset UTC+1 (ora solare) o UTC+2 (ora legale).
- *
  * L'ora legale italiana inizia l'ultima domenica di marzo e finisce
  * l'ultima domenica di ottobre, allineata alle regole europee.
  */
 function getItalyTime() {
-    const now = new Date();
+    const now  = new Date();
     const year = now.getUTCFullYear();
 
     // Ultima domenica di marzo (inizio ora legale)
@@ -56,7 +54,7 @@ function getItalyTime() {
     const lastSundayOctober = new Date(Date.UTC(year, 9, 31));
     lastSundayOctober.setUTCDate(31 - lastSundayOctober.getUTCDay());
 
-    const isDST = now >= lastSundayMarch && now < lastSundayOctober;
+    const isDST   = now >= lastSundayMarch && now < lastSundayOctober;
     const offsetMs = isDST ? 2 * 60 * 60 * 1000 : 1 * 60 * 60 * 1000;
 
     return now.getTime() + offsetMs;
@@ -70,7 +68,7 @@ function getItalyTime() {
  * Restituisce il record board cercando prima per campo "board" (IMEI),
  * poi come fallback per id record PocketBase.
  * Chiamare questa funzione UNA SOLA VOLTA per pacchetto e passare
- * il risultato ai metodi successivi (FIX6).
+ * il risultato ai metodi successivi.
  */
 function getBoardRecord(app, boardId) {
     try {
@@ -85,7 +83,7 @@ function getBoardRecord(app, boardId) {
 
 /**
  * Restituisce l'array di userId collegati alla board.
- * FIX6: accetta il record board già letto per evitare query ridondanti.
+ * Accetta il record board già letto per evitare query ridondanti.
  */
 function getBoardUsers(board) {
     try {
@@ -100,7 +98,7 @@ function getBoardUsers(board) {
 
 /**
  * Restituisce il valore del campo alarm sulla board.
- * FIX6: accetta il record board già letto per evitare query ridondanti.
+ * Accetta il record board già letto per evitare query ridondanti.
  */
 function getBoardAlarm(board) {
     try {
@@ -126,6 +124,134 @@ function salvaEvento(app, boardId, type, detail) {
         app.save(rec);
     } catch (err) {
         console.log("[EVENTI ERRORE] " + err);
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BATTERIA
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Salva il record battery_data e controlla se inviare notifica.
+ * Accetta il record board già letto per evitare query ridondanti.
+ *
+ * @param {object}  app
+ * @param {string}  boardId
+ * @param {string}  timestamp
+ * @param {number}  battery         - voltaggio
+ * @param {number}  batteryPercent  - percentuale
+ * @param {boolean} isCharging
+ * @param {object}  board           - record board già letto (può essere null)
+ */
+function saveBattery(app, boardId, timestamp, battery, batteryPercent, isCharging, board) {
+    // 1. Salva sempre il record battery_data
+    try {
+        const colB = app.findCollectionByNameOrId("battery_data");
+        const recB = new Record(colB);
+        recB.set("board_id",        boardId);
+        recB.set("timestamp",       timestamp);
+        recB.set("battery",         battery);
+        recB.set("battery_percent", batteryPercent);
+        recB.set("charging",        isCharging);
+        app.save(recB);
+    } catch (err) {
+        console.log(`[BATTERY SAVE] board=${boardId} errore: ` + err);
+    }
+
+    // 2. Controlla e invia notifica se lo stato è cambiato
+    // Se board non è passata, skip delle notifiche (es. pacchetto pending
+    // processato prima di avere il contesto completo)
+    if (!board) return;
+
+    try {
+        const lastStatus = board.getString("battery_status") || "ok";
+        let newStatus    = lastStatus;
+        let shouldNotify = false;
+
+        if (isCharging && lastStatus !== "carica") {
+            newStatus = "carica"; shouldNotify = true;
+        } else if (!isCharging && batteryPercent <= 10) {
+            if (lastStatus !== "critical") { newStatus = "critical"; shouldNotify = true; }
+        } else if (!isCharging && batteryPercent <= 20) {
+            if (lastStatus === "ok" || lastStatus === "carica" || lastStatus === "critical") {
+                newStatus = "low"; shouldNotify = true;
+            }
+        } else if (batteryPercent > 20 && !isCharging) {
+            newStatus = "ok";
+        }
+
+        if (newStatus !== lastStatus) {
+            board.set("battery_status", newStatus);
+            app.save(board);
+
+            if (shouldNotify) {
+                const notificationMap = {
+                    "carica":   { title: "⚡ Batteria in carica", body: "Batteria in caricamento" },
+                    "critical": { title: "🪫 Batteria critica",   body: `Livello critico: ${batteryPercent}% — caricare subito` },
+                    "low":      { title: "🔋 Batteria bassa",     body: `Livello basso: ${batteryPercent}%` }
+                };
+                const content = notificationMap[newStatus] || { title: "🔋 Stato Batteria", body: `Livello: ${batteryPercent}%` };
+                notifyBoardUsers(app, board, boardId, content.title, content.body);
+                console.log(`[BATTERY] board=${boardId} "${lastStatus}" → "${newStatus}" (${batteryPercent}%)`);
+            }
+        }
+    } catch (err) {
+        console.log("[BATTERY NOTIFY ERRORE] " + err);
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ACTIVITY
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Crea e salva una nuova activity con is_active=true.
+ * Ritorna il record creato.
+ *
+ * @param {object} app
+ * @param {string} boardId
+ * @param {string} timestamp
+ * @param {string} status       - stato attivo (i, v, s, w)
+ * @param {number} steps
+ * @returns {object}            - il record activity creato
+ */
+function createNewActivity(app, boardRecordId, timestamp, status, steps) {
+    const col = app.findCollectionByNameOrId("activities");
+    const rec = new Record(col);
+    rec.set("board_id",    boardRecordId); // Deve essere l'id di PocketBase (es. 'u1p2sh...')[cite: 1, 2]
+    rec.set("start_time",  timestamp);
+    rec.set("end_time",    timestamp);
+    rec.set("is_active",   true);
+    rec.set("status",      status);
+    rec.set("total_steps", steps);
+    app.save(rec);
+    console.log(`[DEBUG] Activity CREATA: ${rec.id} | Status: ${status}`);
+    return rec;
+}
+
+/**
+ * Salva una posizione GPS agganciandola ad una activity.
+ * Se activityId è null, salva la posizione senza aggancio.
+ *
+ * @param {object}      app
+ * @param {string}      boardId
+ * @param {string}      timestamp
+ * @param {number}      lat
+ * @param {number}      lon
+ * @param {string|null} activityId
+ */
+function savePosition(app, boardRecordId, timestamp, lat, lon, activityId) {
+    try {
+        const colP = app.findCollectionByNameOrId("positions");
+        const recP = new Record(colP);
+        recP.set("board_id",  boardRecordId);
+        recP.set("timestamp", timestamp);
+        recP.set("lat",       lat);
+        recP.set("lon",       lon);
+        if (activityId) recP.set("activity", activityId);
+        app.save(recP);
+    } catch (err) {
+        console.log("[DEBUG] Errore salvataggio posizione: " + err);
     }
 }
 
@@ -168,7 +294,7 @@ function removeToken(app, userId, tokenToRemove) {
 
 /**
  * Invia una notifica push a TUTTI gli utenti collegati alla board.
- * FIX6: accetta il record board già letto per evitare query ridondanti.
+ * Accetta il record board già letto per evitare query ridondanti.
  */
 function notifyBoardUsers(app, board, boardId, title, body) {
     try {
@@ -195,6 +321,7 @@ function notifyBoardUsers(app, board, boardId, title, body) {
                         })
                     });
 
+                    // 404 = UNREGISTERED, 400 = INVALID_ARGUMENT → rimuovi token
                     if (response.statusCode === 404 || response.statusCode === 400) {
                         console.log(`[FCM] Token non valido utente ${userId}. Rimozione.`);
                         removeToken(app, userId, token);
@@ -226,6 +353,10 @@ function pointInPolygon(lat, lon, vertices) {
     return inside;
 }
 
+/**
+ * Controlla tutti i geofence attivi della board.
+ * @returns "inside" | "outside" | "no_geofence"
+ */
 function getGeofenceStatus(app, boardId, lat, lon) {
     try {
         const result = app.findRecordsByFilter(
@@ -270,17 +401,15 @@ function getGeofenceStatus(app, boardId, lat, lon) {
 /**
  * Calcola il nuovo status attivo secondo la priorità: trip → inside → alarm.
  *
- * FIX6: accetta il record board già letto per evitare query ridondanti.
- *
  * @param {object}       app
- * @param {object|null}  board       - record board già letto (FIX6)
+ * @param {object|null}  board       - record board già letto
  * @param {string}       boardId
  * @param {number}       lat
  * @param {number}       lon
- * @param {boolean}      isTrip
+ * @param {boolean}      isTrip      - flag trip confermato (solo 2° pacchetto)
  * @param {number}       steps
- * @param {string|null}  prevStatus  - attivo o sleep, normalizzato internamente
- * @returns {string}
+ * @param {string|null}  prevStatus  - stato attivo o sleep (normalizzato internamente)
+ * @returns {string}                 - nuovo stato attivo
  */
 function computeStatus(app, board, boardId, lat, lon, isTrip, steps, prevStatus) {
 
@@ -291,8 +420,8 @@ function computeStatus(app, board, boardId, lat, lon, isTrip, steps, prevStatus)
     }
 
     // ── 1. TRIP ──────────────────────────────────────────────────────────────
-    // Chiamato solo per trip=true confermato (secondo pacchetto) grazie al hold.
-    if (isTrip) {
+    // Raggiunto solo per trip=true confermato (secondo pacchetto consecutivo).
+    if (isTrip && steps === 0) {    //Aggiunta condizione steps==0 per evitare falsi positivi trip quando l'animale è già in movimento
         if (effectivePrev !== "v") {
             notifyBoardUsers(app, board, boardId, "🚗 Animale in viaggio", "L'animale è su un veicolo");
             console.log(`[TRIP] board=${boardId} ingresso in viaggio (era: ${effectivePrev})`);
@@ -308,6 +437,8 @@ function computeStatus(app, board, boardId, lat, lon, isTrip, steps, prevStatus)
             return "v";
         }
         console.log(`[TRIP] board=${boardId} uscita viaggio con steps=${steps}, ricalcolo geofence`);
+        // effectivePrev rimane "v" così i blocchi inside/outside sanno che
+        // l'animale è appena sceso dal veicolo
     }
 
     // ── 3. INSIDE / OUTSIDE ──────────────────────────────────────────────────
@@ -334,7 +465,6 @@ function computeStatus(app, board, boardId, lat, lon, isTrip, steps, prevStatus)
     }
 
     const inside   = geoResult === "inside";
-    // FIX6: usa il record board già letto
     const hasAlarm = getBoardAlarm(board);
 
     // ── Inside ───────────────────────────────────────────────────────────────
@@ -381,63 +511,17 @@ function computeStatus(app, board, boardId, lat, lon, isTrip, steps, prevStatus)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// BATTERIA
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Controlla il livello batteria e invia notifica se lo stato è cambiato.
- * FIX6: accetta il record board già letto per evitare query ridondanti.
- */
-function checkBatteryNotify(app, board, batteryPercent, isCharging) {
-    try {
-        if (!board) return;
-
-        const lastStatus = board.getString("battery_status") || "ok";
-        let newStatus    = lastStatus;
-        let shouldNotify = false;
-
-        if (isCharging && lastStatus !== "carica") {
-            newStatus = "carica"; shouldNotify = true;
-        } else if (batteryPercent <= 10) {
-            if (lastStatus !== "critical") { newStatus = "critical"; shouldNotify = true; }
-        } else if (batteryPercent <= 20) {
-            if (lastStatus === "ok" || lastStatus === "carica" || lastStatus === "critical") {
-                newStatus = "low"; shouldNotify = true;
-            }
-        } else if (batteryPercent > 20) {
-            newStatus = "ok";
-        }
-
-        if (newStatus !== lastStatus) {
-            board.set("battery_status", newStatus);
-            app.save(board);
-
-            if (shouldNotify) {
-                const boardId = board.getString("board");
-                const notificationMap = {
-                    "carica":   { title: "⚡ Batteria in carica", body: "Batteria in caricamento" },
-                    "critical": { title: "🪫 Batteria critica",   body: `Livello critico: ${batteryPercent}% — caricare subito` },
-                    "low":      { title: "🔋 Batteria bassa",     body: `Livello basso: ${batteryPercent}%` }
-                };
-                const content = notificationMap[newStatus] || { title: "🔋 Stato Batteria", body: `Livello: ${batteryPercent}%` };
-                notifyBoardUsers(app, board, boardId, content.title, content.body);
-                console.log(`[BATTERY] board=${boardId} "${lastStatus}" → "${newStatus}" (${batteryPercent}%)`);
-            }
-        }
-    } catch (err) {
-        console.log("[BATTERY NOTIFY ERRORE] " + err);
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // EXPORTS
 // ─────────────────────────────────────────────────────────────────────────────
 
 module.exports = {
-    SESSION_DEDUP_SEC, WATCHDOG_TIMEOUT_MIN,
     SLEEP_TO_ACTIVE, ACTIVE_TO_SLEEP, ACTIVE_STATES, SLEEP_STATES,
     getItalyTime,
-    salvaEvento, notifyBoardUsers, checkBatteryNotify,
+    salvaEvento,
+    saveBattery,
+    createNewActivity,
+    savePosition,
+    notifyBoardUsers,
     pointInPolygon, getGeofenceStatus, computeStatus,
     getBoardRecord, getBoardUsers, getBoardAlarm,
 };

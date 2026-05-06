@@ -175,11 +175,19 @@ Viene impiegata una batteria ricaricabile 3000mAh 30A Litio-Ion ad alta capacit�
 L'accelerometro usato è un \textbf{BMA400} \cite{bma400} integrato nella breadboard \textbf{CJMCU-400}, che viene interrogato per rilevare il movimento, consentendo l'implementazione di un contapassi utile al monitoraggio della salute dell'animale.
 
 \section{Firmware: Logica di funzionamento}
-Il firmware, sviluppato in ambiente \texttt{Arduino} per il SoC \texttt{ESP32-S3}, gestisce l'acquisizione dei dati dai sensori, il controllo del modem LTE e l'ottimizzazione energetica tramite una macchina a stati finiti.
+
+Il firmware, sviluppato in ambiente Arduino per il SoC ESP32-S3, gestisce l'acquisizione
+dei dati dai sensori, il controllo del modem LTE e l'ottimizzazione energetica tramite una
+macchina a stati finiti.
 
 \subsection{Gestione della Persistenza e Hot Start}
-Per ridurre drasticamente il \textit{Time To First Fix} (TTFF) del modulo GNSS, il firmware sfrutta la memoria \textbf{RTC (Real-Time Clock)} dell'ESP32. Questa memoria permette di mantenere i dati vitali anche durante i cicli di \textit{Deep Sleep}. 
-Le variabili critiche, come l'ultima posizione valida (\texttt{lastLat}, \texttt{lastLon}) e i timestamp (\texttt{lastGpsDate}, \texttt{lastGpsTime}), vengono dichiarate con l'attributo \texttt{RTC\_DATA\_ATTR}.
+
+Per ridurre drasticamente il Time To First Fix (TTFF) del modulo GNSS, il firmware
+sfrutta la memoria RTC (Real-Time Clock) dell'ESP32. Questa memoria permette
+di mantenere i dati vitali anche durante i cicli di Deep Sleep. Le variabili critiche, come
+l'ultima posizione valida (\texttt{lastLat}, \texttt{lastLon}) e i timestamp
+(\texttt{lastGpsDate}, \texttt{lastGpsTime}), vengono dichiarate con l'attributo
+\texttt{RTC\_DATA\_ATTR}.
 
 Al risveglio del dispositivo, la funzione \texttt{iniettaGps()} esegue le seguenti operazioni:
 \begin{itemize}
@@ -187,34 +195,96 @@ Al risveglio del dispositivo, la funzione \texttt{iniettaGps()} esegue le seguen
     \item Inietta la posizione nota nel modulo GNSS tramite il comando \texttt{AT+CGNSSPOS}.
     \item Sincronizza l'orario del modem con il comando \texttt{AT+CGNSSTIME}.
 \end{itemize}
-Questo meccanismo abilita la modalità \textbf{Hot Start}, che minimizza il tempo di ricerca dei satelliti e, di conseguenza, il consumo energetico.
+
+Questo meccanismo abilita la modalità Hot Start, che minimizza il tempo di ricerca dei
+satelliti e, di conseguenza, il consumo energetico.
 
 \subsection{Protocollo di Comunicazione HTTPS}
-La trasmissione dei dati al backend PocketBase è affidata a una serie di comandi AT inviati via seriale al modem SIM7670G. Il firmware incapsula le informazioni in un oggetto JSON strutturato, inviato tramite una richiesta \texttt{HTTPS POST}. Il payload include:
+
+La trasmissione dei dati al backend PocketBase è affidata a una serie di comandi AT inviati
+via seriale al modem SIM7670G. Il firmware incapsula le informazioni in un oggetto JSON
+strutturato, inviato tramite una richiesta HTTPS POST. Il payload include:
 \begin{itemize}
     \item \texttt{board\_id}: un identificativo univoco derivato dall'IMEI del modem;
     \item \texttt{geo}: un oggetto con latitudine e longitudine per la gestione cartografica;
-    \item \texttt{battery} / \texttt{battery\_percent} / \texttt{charging}: telemetria sullo stato di carica della batteria;
-    \item \texttt{steps}: conteggio dei passi rilevato dall'accelerometro;
-    \item \texttt{sleep}: flag booleano che segnala al server l'imminente entrata in stato di inattività;
-    \item \texttt{trip}: flag booleano che segnala al server che l'animale si trova su un veicolo in movimento. Quando attivo, ha priorità assoluta sulla logica di geofencing e sopprime il Deep Sleep per garantire la continuità del tracciamento.
+    \item \texttt{battery} / \texttt{battery\_percent} / \texttt{charging}:
+          telemetria sullo stato di carica della batteria;
+    \item \texttt{steps}: conteggio dei passi rilevato dall'accelerometro nella sessione corrente;
+    \item \texttt{sleep}: flag booleano che segnala al server l'imminente entrata in stato
+          di inattività;
+    \item \texttt{trip}: flag booleano che segnala al server che l'animale si trova su un
+          veicolo in movimento. Quando attivo, ha priorità assoluta sulla logica di geofencing
+          e sopprime il Deep Sleep per garantire la continuità del tracciamento.
 \end{itemize}
 
+La sequenza di invio si avvale dei comandi AT \texttt{AT+HTTPINIT}, \texttt{AT+HTTPPARA}
+e \texttt{AT+HTTPDATA} per configurare la sessione HTTP, inserire i dati e infine avviare
+la trasmissione con \texttt{AT+HTTPACTION=1}. Al termine di ogni invio, la sessione viene
+chiusa con \texttt{AT+HTTPTERM} per liberare le risorse del modem.
+
 \subsection{Risparmio Energetico e Deep Sleep}
-Il sistema è progettato per massimizzare l'autonomia della batteria da 3000mAh. La logica di risparmio energetico è coordinata con l'accelerometro \textbf{BMA400} e tiene conto dello stato di viaggio:
+
+Il sistema è progettato per massimizzare l'autonomia della batteria da 3000\,mAh. La
+logica di risparmio energetico è coordinata con l'accelerometro BMA400 e tiene conto
+dello stato di viaggio:
 \begin{enumerate}
-    \item \textbf{Rilevamento Attività}: Il firmware monitora costantemente il numero di passi. Ogni nuovo movimento resetta un timer di inattività (\texttt{lastActivityTime}).
-    \item \textbf{Modalità Viaggio}: Se il flag \texttt{trip} è attivo, il Deep Sleep viene soppresso indipendentemente dall'inattività rilevata dall'accelerometro. Il dispositivo continua a trasmettere posizione e telemetria a intervalli regolari per tutto il tempo in cui è in viaggio.
-    \item \textbf{Invio Finale}: Se non viene rilevata attività per un tempo superiore a \texttt{SLEEP\_TIMEOUT} (30 secondi) \emph{e} il flag \texttt{trip} non è attivo, il sistema invia un ultimo pacchetto dati aggiornando il flag \texttt{sleep} a \texttt{true}.
-    \item \textbf{Ibernazione}: Il microcontrollore entra in \textit{Deep Sleep}, spegnendo i moduli radio. Il risveglio è gestito tramite interrupt hardware sul pin \texttt{GPIO\_5}, generato dal BMA400 solo al rilevamento di un nuovo movimento.
+    \item \textbf{Rilevamento Attività:} il firmware monitora costantemente il numero di passi.
+          Ogni nuovo movimento resetta un timer di inattività (\texttt{lastActivityTime}).
+    \item \textbf{Modalità Viaggio:} se il flag \texttt{trip} è attivo (velocità GPS superiore
+          a 10\,km/h), il Deep Sleep viene soppresso indipendentemente dall'inattività rilevata
+          dall'accelerometro. Il dispositivo continua a trasmettere posizione e telemetria a
+          intervalli regolari per tutto il tempo in cui è in viaggio.
+    \item \textbf{Invio Finale:} se non viene rilevata attività per un tempo superiore a
+          \texttt{SLEEP\_TIMEOUT} (30~secondi) e il flag \texttt{trip} non è attivo, il sistema
+          invia un ultimo pacchetto dati aggiornando il flag \texttt{sleep} a \texttt{true}.
+    \item \textbf{Ibernazione:} il microcontrollore entra in Deep Sleep, spegnendo i moduli
+          radio tramite i comandi \texttt{AT+CGNSSPWR=0} e \texttt{AT+CPOWD=1}. Il risveglio
+          è gestito tramite interrupt hardware sul pin \texttt{GPIO\_5}, generato dal BMA400
+          solo al rilevamento di un nuovo movimento.
 \end{enumerate}
 
 \subsection{Monitoraggio Hardware e Batteria}
-Il firmware gestisce in modo intelligente l'alimentazione per evitare letture errate o consumi parassiti:
+
+Il firmware gestisce in modo intelligente l'alimentazione per evitare letture errate o
+consumi parassiti:
 \begin{itemize}
-    \item \textbf{Controllo ADC}: Il circuito del partitore di tensione per la batteria viene attivato solo durante la lettura tramite il pin \texttt{BAT\_ADC\_EN}, garantendo la precisione del voltaggio acquisito dal pin \texttt{ADC\_BAT}.
-    \item \textbf{Stato USB}: Attraverso la lettura dei registri hardware dell'ESP32, il sistema rileva se il dispositivo è collegato a una fonte di ricarica USB, settando dinamicamente il campo \texttt{charging} nel pacchetto dati.
+    \item \textbf{Controllo ADC:} il circuito del partitore di tensione per la batteria viene
+          attivato solo durante la lettura tramite il pin \texttt{BAT\_ADC\_EN}, garantendo la
+          precisione del voltaggio acquisito dal pin \texttt{ADC\_BAT}. Il valore grezzo viene
+          mediato su 10 campionamenti consecutivi e scalato con fattore~2 per compensare il
+          partitore. La percentuale di carica viene calcolata mediante interpolazione lineare
+          nell'intervallo compreso tra $3{,}4\,\mathrm{V}$ e $4{,}2\,\mathrm{V}$,
+          corrispondente rispettivamente allo 0\% e al 100\% di carica.
+    \item \textbf{Stato USB:} attraverso la lettura del registro hardware
+          \texttt{USB\_SERIAL\_JTAG\_\allowbreak EP1\_CONF\_REG} dell'ESP32, il sistema
+          rileva se il dispositivo è collegato a una fonte di ricarica USB, settando
+          dinamicamente il campo \texttt{charging} nel pacchetto dati. In stato di ricarica,
+          i valori di tensione e percentuale non vengono aggiornati per evitare misurazioni
+          distorte dalla corrente di carica in ingresso; vengono invece restituiti gli ultimi
+          valori validi salvati in memoria RTC.
 \end{itemize}
+
+\subsection{Acquisizione GPS e Timeout}
+
+Il modulo GNSS SIM7670G viene interrogato tramite il comando AT~\texttt{AT+CGNSSINFO}.
+La risposta viene analizzata campo per campo, estraendo latitudine, longitudine e velocità
+in formato già decimale, senza necessità di conversione dal formato NMEA gradi-minuti.
+Il firmware attende fino a un massimo di \texttt{GPS\_TIMEOUT} (180~secondi) per ottenere
+un fix valido; superato tale limite senza una posizione acquisita, il ciclo corrente viene
+saltato e il sistema ritenta al loop successivo. Una volta ottenuto un fix valido, le
+coordinate e il timestamp vengono salvati in memoria RTC per abilitare il Hot Start al
+ciclo successivo.
+
+\subsection{Connessione alla Rete LTE}
+
+All'avvio, il firmware tenta di registrarsi alla rete LTE attraverso la funzione
+\texttt{connectToNetworkFast()}. Vengono configurati la modalità radio
+(\texttt{AT+CNMP=38} per LTE only), il profilo APN dell'operatore e l'attivazione del
+contesto dati con \texttt{AT+CNACT=0,1}. La registrazione viene verificata in polling
+tramite il comando \texttt{AT+CEREG?}, controllando la presenza dei codici di stato
+\texttt{0,1} (registrato in rete home) o \texttt{0,5} (roaming). Se entro
+\texttt{NET\_TIMEOUT} (60~secondi) la registrazione non viene completata, il dispositivo
+entra direttamente in Deep Sleep per evitare consumi inutili in assenza di copertura.
 
 \section{Back-end e Database}
 Il centro nevralgico della gestione dati è basato su \textbf{PocketBase} \cite{pocketbase}, una soluzione open-source che integra un database embedded SQLite con un'interfaccia API REST. 
