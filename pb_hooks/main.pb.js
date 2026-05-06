@@ -2,294 +2,196 @@
 //  HOOK PRINCIPALE: Smistamento dati — data_sent_raw
 // ═══════════════════════════════════════════════════════════════
 
-onRecordAfterCreateSuccess((e) => {
-    const utils = require(`${__hooks}/utils.js`);
+onRecordAfterCreateSuccess((e) => { // Hook eseguito dopo la creazione di un record nella collection "data_sent_raw"
+    const utils = require(`${__hooks}/utils.js`); // Import funzioni helper
 
-    const raw       = e.record;
-    const boardId   = raw.getString("board_id");
-    const timestamp = raw.getString("timestamp");
-    const sleep     = raw.getBool("sleep");
-    const trip      = raw.getBool("trip");
-    const steps     = raw.getInt("steps");
-    const lat       = raw.getFloat("lat");
-    const lon       = raw.getFloat("lon");
-    const hasCoords = !(lat === 0.0 && lon === 0.0);
+    const raw       = e.record; // Record appena inserito
+    const imei      = raw.getString("board_id"); // ID dispositivo
+    const timestamp = raw.getString("timestamp"); // Timestamp evento
+    const sleep     = raw.getBool("sleep"); // Flag sleep
+    const trip      = raw.getBool("trip"); // Flag movimento
+    const steps     = raw.getInt("steps"); // Numero passi
+    const lat       = raw.getFloat("lat"); // Latitudine
+    const lon       = raw.getFloat("lon"); // Longitudine
+    const hasCoords = !(lat === 0.0 && lon === 0.0); // Verifica coordinate valide
 
     try {
-        const board = utils.getBoardRecord(e.app, boardId);
-
-        // ── TRIP HOLD: Gestione Falsi Positivi Viaggio ──────────────────────
-        let pendingTrip = null;
-        try {
-            const pendingRaw = board ? board.getString("pending_trip") : null;
-            if (pendingRaw) pendingTrip = JSON.parse(pendingRaw);
-        } catch (err) { pendingTrip = null; }
-
-        // Se sleep=true, cancella subito ogni eventuale hold pendente
-        if (sleep && pendingTrip) {
-            if (board) {
-                board.set("pending_trip", null);
-                e.app.save(board);
-            }
-            pendingTrip = null;
+        const board = utils.getBoardRecord(e.app, imei); // Recupera board associata
+        if (!board) {
+            console.log(`[DEBUG] ERRORE: Board non trovata per IMEI ${imei}`);
+            return;
         }
 
-        // Logica di Filtro Trip (Richiede 2 messaggi consecutivi trip=true)
-        if (trip && !sleep) {
-            if (!pendingTrip) {
-                // PRIMO trip=true: Metti in HOLD e salva i dati
-                const holdData = {
-                    timestamp, lat, lon, steps,
-                    battery: raw.getFloat("battery"),
-                    battery_percent: raw.getInt("battery_percent"),
-                    charging: raw.getBool("charging")
-                };
-                if (board) {
-                    board.set("pending_trip", JSON.stringify(holdData));
-                    e.app.save(board);
-                }
-                // Processa batteria ma non salvare posizione/activity[cite: 3]
-                utils.saveBattery(e.app, boardId, timestamp, holdData.battery, holdData.battery_percent, holdData.charging);
-                e.next(); return; 
-            } else {
-                // SECONDO trip=true: Viaggio CONFERMATO[cite: 3]
-                utils.saveBattery(e.app, boardId, pendingTrip.timestamp, pendingTrip.battery, pendingTrip.battery_percent, pendingTrip.charging);
-                if (board) {
-                    board.set("pending_trip", null);
-                    e.app.save(board);
-                }
-            }
-        }
+        console.log(`[DEBUG] Inizio processing pacchetto | BoardID: ${board.id} | Status: Sleep=${sleep}, Trip=${trip}, Steps=${steps}`);
 
-        // Se trip=false ma avevamo un pending, era un falso positivo: recupera GPS[cite: 3]
-        if (!trip && pendingTrip) {
-            if (board) {
-                board.set("pending_trip", null);
-                e.app.save(board);
-            }
-            // Salvataggio ritardato della posizione del pacchetto in hold[cite: 3]
-            utils.savePositionDelayed(e.app, boardId, pendingTrip);
-            pendingTrip = null;
-        }
-
-        // ── 1. BATTERIA (Pacchetto attuale) ──────────────────────────────────
-        utils.saveBattery(e.app, boardId, timestamp, raw.getFloat("battery"), raw.getInt("battery_percent"), raw.getBool("charging"));
+        // ── 1. BATTERIA ──────────────────────────────────────────────────────
+        utils.saveBattery( // Salva dati batteria
+            e.app,
+            board.id,
+            timestamp,
+            raw.getFloat("battery"),
+            raw.getInt("battery_percent"),
+            raw.getBool("charging"),
+            board
+        );
 
         // ── 2. ACTIVITY: Macchina a Stati ────────────────────────────────────
-        let activeActivity = null;
-        const activeList = e.app.findRecordsByFilter("activities", "board_id = {:id} && is_active = true", "-end_time", 1, 0, { id: boardId });
-        let currentActivity = activeList.length > 0 ? activeList[0] : null;
+        let activeActivity = null; // Variabile per activity attiva finale
+        
+        // 1. Cerca prima se c'è qualcosa di attivo
+        const activeList = e.app.findRecordsByFilter(   // SQL Query
+            "activities",                               // FROM activities
+            "board_id = {:id} && is_active = true",     // WHERE board_id = :id AND is_active = true
+            "-end_time",                                // ORDER BY end_time DESC (il "-" indica ordine decrescente)
+            1,                                          // LIMIT 1 (prende solo il record più recente)
+            0,                                          // OFFSET 0 (nessuno skip)
+            { id: board.id }                            // :id = board.id (binding parametro)
+        );
+
+        let currentActivity = activeList.length > 0 ? activeList[0] : null; // Prende la più recente
+
+        // 2. LOGICA DI RISVEGLIO: Se non c'è nulla di attivo, guarda l'ultima chiusa
+        if (!currentActivity) {
+            const recentList = e.app.findRecordsByFilter(
+                "activities",
+                "board_id = {:id} && is_active = false",
+                "-end_time",
+                1,
+                0,
+                { id: board.id }
+            );
+            const recentClosed = recentList.length > 0 ? recentList[0] : null; // Ultima activity chiusa
+
+            if (recentClosed && utils.SLEEP_STATES.has(recentClosed.getString("status"))) {
+                const oldStatus = recentClosed.getString("status"); // Stato precedente
+                const wakeStatus = utils.SLEEP_TO_ACTIVE[oldStatus] ?? oldStatus; // Conversione sleep → attivo
+                
+                console.log(`[DEBUG] Risveglio attività ${recentClosed.id}: ${oldStatus} -> ${wakeStatus}`);
+                
+                recentClosed.set("is_active", true); // Riattiva
+                recentClosed.set("status", wakeStatus); // Aggiorna stato
+                e.app.save(recentClosed);
+                currentActivity = recentClosed; // Diventa activity corrente
+            }
+        }
+
+        // 3. Calcolo nuovo stato
+        const newActiveStatus = utils.computeStatus(
+            e.app,
+            board,
+            board.id,
+            lat,
+            lon,
+            trip,
+            steps,
+            currentActivity ? currentActivity.getString("status") : null
+        );
 
         if (currentActivity) {
-            // --- GESTIONE SESSIONE ATTIVA ---
-            const prevStatus = currentActivity.getString("status");
-            const newActiveStatus = utils.computeStatus(e.app, board, boardId, lat, lon, trip, steps, prevStatus);
+            const rawPrevStatus = currentActivity.getString("status"); // Stato attuale
+            const normalizedPrev = utils.SLEEP_TO_ACTIVE[rawPrevStatus] ?? rawPrevStatus; // Normalizzato
 
-            if (sleep) {
-                // Transizione verso lo Sleep: chiude l'activity[cite: 3, 4]
-                const sleepStatus = utils.ACTIVE_TO_SLEEP[newActiveStatus] ?? "z";
-                currentActivity.set("is_active", false);
-                currentActivity.set("end_time",  timestamp);
-                currentActivity.set("status",    sleepStatus);
+            if (sleep) { // Se dispositivo entra in sleep
+                const sleepStatus = utils.ACTIVE_TO_SLEEP[newActiveStatus] ?? "z"; // Conversione attivo → sleep
+                currentActivity.set("is_active", false); // Chiude activity
+                currentActivity.set("end_time", timestamp);
+                currentActivity.set("status", sleepStatus);
+                e.app.save(currentActivity);
+                activeActivity = currentActivity;
+            } else if (newActiveStatus === normalizedPrev) { // Nessun cambio stato
+                currentActivity.set("total_steps", currentActivity.getInt("total_steps") + steps); // Aggiorna passi
+                currentActivity.set("end_time", timestamp); // Estende activity
                 e.app.save(currentActivity);
                 activeActivity = currentActivity;
             } else {
-                // Aggiornamento o Cambio Stato in tempo reale[cite: 3]
-                if (newActiveStatus === prevStatus) {
-                    currentActivity.set("total_steps", currentActivity.getInt("total_steps") + steps);
-                    currentActivity.set("end_time", timestamp);
-                    e.app.save(currentActivity);
-                    activeActivity = currentActivity;
-                } else {
-                    // Cambio stato: chiudi vecchia e apri nuova[cite: 3]
-                    currentActivity.set("is_active", false);
-                    currentActivity.set("end_time", timestamp);
-                    e.app.save(currentActivity);
+                // CAMBIO STATO (es. v → w)
+                console.log(`[DEBUG] Transizione stato: ${normalizedPrev} -> ${newActiveStatus}`);
+                currentActivity.set("is_active", false); // Chiude activity
+                currentActivity.set("end_time", timestamp);
+                e.app.save(currentActivity);
 
-                    activeActivity = utils.createNewActivity(e.app, boardId, timestamp, newActiveStatus, steps);
-                }
+                activeActivity = utils.createNewActivity( // Crea nuova activity
+                    e.app,
+                    board.id,
+                    timestamp,
+                    newActiveStatus,
+                    steps
+                );
             }
-        } else {
-            // --- GESTIONE RISVEGLIO O NUOVA SESSIONE ---
-            const recentList = e.app.findRecordsByFilter("activities", "board_id = {:id} && is_active = false", "-end_time", 1, 0, { id: boardId });
-            const recentClosed = recentList.length > 0 ? recentList[0] : null;
-            const prevStatus = recentClosed ? recentClosed.getString("status") : null;
-
-            const newActiveStatus = utils.computeStatus(e.app, board, boardId, lat, lon, trip, steps, prevStatus);
-
-            if (sleep) {
-                if (recentClosed) activeActivity = recentClosed;
-            } else {
-                if (recentClosed) {
-                    const closedStatus = recentClosed.getString("status");
-                    const isClosedSleep = utils.SLEEP_STATES.has(closedStatus);
-                    
-                    // Mappa lo stato sleep (d,a,p,z) al suo attivo (i,v,s,w)
-                    const closedOrigin = isClosedSleep ? (utils.SLEEP_TO_ACTIVE[closedStatus] ?? closedStatus) : closedStatus;
-                    const sameSituation = (closedOrigin === newActiveStatus);
-                    
-                    const diffSec = (new Date(timestamp) - new Date(recentClosed.getString("end_time").replace(" ", "T"))) / 1000;
-
-                    // RIPRENDE solo se la situazione è IDENTICA[cite: 3]
-                    if (isClosedSleep && !recentClosed.getBool("anomaly") && sameSituation) {
-                        recentClosed.set("is_active", true);
-                        recentClosed.set("status", newActiveStatus);
-                        recentClosed.set("end_time", timestamp);
-                        recentClosed.set("total_steps", recentClosed.getInt("total_steps") + steps);
-                        e.app.save(recentClosed);
-                        activeActivity = recentClosed;
-                    } 
-                    // DEDUP: se attivo e stessa situazione entro timeout[cite: 3]
-                    else if (!isClosedSleep && diffSec < utils.SESSION_DEDUP_SEC && sameSituation) {
-                        recentClosed.set("is_active", true);
-                        recentClosed.set("end_time", timestamp);
-                        e.app.save(recentClosed);
-                        activeActivity = recentClosed;
-                    }
-                    else {
-                        // SITUAZIONE CAMBIATA: Nuova Activity[cite: 3]
-                        activeActivity = utils.createNewActivity(e.app, boardId, timestamp, newActiveStatus, steps);
-                    }
-                } else {
-                    activeActivity = utils.createNewActivity(e.app, boardId, timestamp, newActiveStatus, steps);
-                }
-            }
+        } else if (!sleep) { // Nessuna activity attiva e non in sleep
+            activeActivity = utils.createNewActivity(
+                e.app,
+                board.id,
+                timestamp,
+                newActiveStatus,
+                steps
+            );
         }
 
-        // ── 3. POSIZIONI ─────────────────────────────────────────────────────
-        if (hasCoords && activeActivity) {
-            const colP = e.app.findCollectionByNameOrId("positions");
-            const recP = new Record(colP);
-            recP.set("board_id", boardId);
-            recP.set("timestamp", timestamp);
-            recP.set("lat", lat);
-            recP.set("lon", lon);
-            recP.set("activity", activeActivity.id);
-            e.app.save(recP);
+        // ── 3. POSIZIONI ─────────────────────────
+        if (hasCoords && activeActivity) { // Salva posizione solo se valida e c'è activity
+            try {
+                const idAttivita = activeActivity.id; // ID activity
+
+                if (!idAttivita) {
+                    console.log("[DEBUG] ERRORE: activeActivity non ha un ID valido!");
+                    return;
+                }
+
+                const colP = e.app.findCollectionByNameOrId("positions"); // Collection posizioni
+                const recP = new Record(colP); // Nuovo record
+                
+                recP.set("board_id", board.id);
+                recP.set("timestamp", timestamp);
+                recP.set("lat", lat);
+                recP.set("lon", lon);
+                
+                recP.set("activity", idAttivita); // Relazione con activity
+                
+                e.app.save(recP);
+                console.log(`[DEBUG] OK! Posizione salvata e collegata all'activity: ${idAttivita}`);
+
+            } catch (posErr) {
+                console.log(`[DEBUG] FALLIMENTO POSIZIONE: ${posErr.toString()}`);
+            }
         }
 
     } catch (err) {
-        console.log("ERRORE CRITICO: " + err);
+        console.log("[DEBUG] ERRORE CRITICO HOOK: " + err);
     } finally {
-        e.app.delete(raw);
-        e.next();
+        e.next(); // Continua la pipeline hook
     }
 }, "data_sent_raw");
 
 
 // ═══════════════════════════════════════════════════════════════
-//  HOOK: Notifiche al cambio status su activities (onCreate)
+// WATCHDOG: chiude attività ferme
 // ═══════════════════════════════════════════════════════════════
 
-onRecordAfterCreateSuccess((e) => {
-    const utils   = require(`${__hooks}/utils.js`);
-    const record  = e.record;
-    const boardId = record.getString("board_id");
-    const status  = record.getString("status");
-
-    const eventMap = {
-        "i": ["status_inside",      "Animale nella zona sicura"],
-        "v": ["status_trip",        "Animale in viaggio su veicolo"],
-        "s": ["status_search",      "Animale fuori zona — ricerca attiva"],
-        "w": ["status_walk",        "Animale in passeggiata"],
-        "d": ["status_sleep_i",     "Animale a riposo in zona sicura"],
-        "a": ["status_trip_sleep",  "Animale in sleep durante il viaggio"],
-        "p": ["status_sleep_s",     "Animale a riposo fuori zona (allarme)"],
-        "z": ["status_sleep_w",     "Animale a riposo fuori zona (passeggiata)"],
-    };
-
-    try {
-        const entry = eventMap[status];
-        if (entry) utils.salvaEvento(e.app, boardId, entry[0], entry[1]);
-    } catch (err) {
-        console.log("[ACTIVITY CREATE HOOK ERRORE] " + err);
-    } finally {
-        e.next();
-    }
-}, "activities");
-
-
-// ═══════════════════════════════════════════════════════════════
-//  HOOK: Notifiche al cambio status su activities (onUpdate)
-// ═══════════════════════════════════════════════════════════════
-
-onRecordAfterUpdateSuccess((e) => {
-    const utils   = require(`${__hooks}/utils.js`);
-    const record  = e.record;
-    const boardId = record.getString("board_id");
-    const status  = record.getString("status");
-    const isActive = record.getBool("is_active");
-
-    if (!isActive) { e.next(); return; }
-
-    const eventMap = {
-        "v": ["status_trip",   "Animale in viaggio su veicolo"],
-        "i": ["status_inside", "Animale rientrato in zona sicura"],
-        "s": ["status_search", "Animale fuori zona — ricerca attiva"],
-        "w": ["status_walk",   "Animale in passeggiata"],
-    };
-
-    try {
-        const entry = eventMap[status];
-        if (entry) utils.salvaEvento(e.app, boardId, entry[0], entry[1]);
-    } catch (err) {
-        console.log("[ACTIVITY UPDATE HOOK ERRORE] " + err);
-    } finally {
-        e.next();
-    }
-}, "activities");
-
-
-// ═══════════════════════════════════════════════════════════════
-//  CRON 1: Watchdog inattività — ogni minuto
-// ═══════════════════════════════════════════════════════════════
-cronAdd("watchdog_device_silence", "* * * * *", () => {
-    const WATCHDOG_TIMEOUT_MS = 10 * 60 * 1000;
-    const utils = require(`${__hooks}/utils.js`);
-
-    // FIX7: offset Italia dinamico — gestisce ora legale/solare automaticamente
-    const oraRiferimento = utils.getItalyTime();
+cronAdd("watchdog_device_silence", "* * * * *", () => { // Ogni minuto
+    const WATCHDOG_TIMEOUT_MS = 10 * 60 * 1000; // 10 minuti
+    const oraAttualeMS = Date.now(); // Timestamp corrente UTC
 
     try {
         const activeActivities = $app.findRecordsByFilter("activities", "is_active = true", "", 100, 0);
-        if (!activeActivities || activeActivities.length === 0) return;
-
+        
         activeActivities.forEach(activity => {
             const boardId    = activity.getString("board_id");
-            const status     = activity.getString("status");
             const endTimeStr = activity.getString("end_time");
 
             if (!endTimeStr) return;
 
-            // Sleep sempre is_active=false per design, questo è solo salvaguardia
-            if (utils.SLEEP_STATES.has(status)) {
-                console.log(`[WATCHDOG] board=${boardId} skip sleep "${status}"`);
-                return;
-            }
+            const lastSeenMs = Date.parse(endTimeStr.replace(" ", "T")); // Parsing ISO
+            const elapsedMS = oraAttualeMS - lastSeenMs; // Tempo trascorso
+            const elapsedMin = elapsedMS / 60000;
 
-            //const lastSeenMs = Date.parse(endTimeStr.replace(" ", "T"));
-            const lastSeenMs = Date.parse(endTimeStr.replace(" ", "T")) + (2 * 60 * 60 * 1000);
-            const elapsed    = oraRiferimento - lastSeenMs;
+            console.log(`[WATCHDOG] Board: ${boardId} | Delta: ${elapsedMin.toFixed(2)} min`);
 
-            console.log(`[WATCHDOG] board=${boardId} | inattiva da: ${(elapsed / 60000).toFixed(2)} min`);
-
-            if (!isNaN(elapsed) && elapsed >= WATCHDOG_TIMEOUT_MS) {
-                activity.set("is_active", false);
-                activity.set("anomaly",   true);
+            if (!isNaN(elapsedMS) && elapsedMS >= WATCHDOG_TIMEOUT_MS) {
+                console.log(`[WATCHDOG] -> Scaduto! Chiusura board ${boardId}`);
+                activity.set("is_active", false); // Chiude activity
+                activity.set("anomaly",   true); // Segna anomalia
                 $app.save(activity);
-
-                // FIX5: cancella il pending_trip se il device va offline
-                try {
-                    const board = utils.getBoardRecord($app, boardId);
-                    if (board && board.getString("pending_trip")) {
-                        board.set("pending_trip", null);
-                        $app.save(board);
-                        console.log(`[WATCHDOG] board=${boardId} pending_trip cancellato`);
-                    }
-                } catch (err) { console.log("[WATCHDOG] Errore cancella pending: " + err); }
-
-                utils.salvaEvento($app, boardId, "watchdog", `Chiusura per inattività (status: ${status})`);
-                console.log(`[WATCHDOG] -> CHIUSA board=${boardId} per inattività.`);
             }
         });
     } catch (err) {
@@ -299,35 +201,26 @@ cronAdd("watchdog_device_silence", "* * * * *", () => {
 
 
 // ═══════════════════════════════════════════════════════════════
-//  CRON 2: Mezzanotte — split giornaliero
-//
-//  FIX7: il cron gira alle 21:59 UTC come base, ma la logica interna
-//  usa getItalyTime() per calcolare l'ora italiana reale e verificare
-//  che sia effettivamente mezzanotte (23:00-00:00) prima di procedere.
-//  Questo gestisce automaticamente ora legale (UTC+2) e solare (UTC+1).
+// CRON MEZZANOTTE: split giornaliero
 // ═══════════════════════════════════════════════════════════════
-cronAdd("midnight_sleep_split", "59 21 * * *", () => {
+
+cronAdd("midnight_sleep_split", "59 21 * * *", () => { // Trigger UTC
     const utils = require(`${__hooks}/utils.js`);
-    const SLEEP_TO_ACTIVE_MAP = { d: "i", p: "s", z: "w", a: "v" };
+    const SLEEP_TO_ACTIVE_MAP = { d: "i", p: "s", z: "w", a: "v" }; // Mapping stati
     const WATCHDOG_TIMEOUT_MS = 10 * 60 * 1000;
 
-    // FIX7: calcola l'ora italiana reale con offset dinamico
-    const italyNowMs   = utils.getItalyTime();
+    const italyNowMs   = utils.getItalyTime(); // Timestamp Italia
     const italyNow     = new Date(italyNowMs);
     const italyHour    = italyNow.getUTCHours();
     const italyMinute  = italyNow.getUTCMinutes();
 
-    // Verifica che sia effettivamente le 23:59 in Italia
-    // Il cron gira alle 21:59 UTC (ora legale) e alle 22:59 UTC (ora solare).
-    // Se non è 23:59 in Italia, esci senza fare nulla.
-    if (italyHour !== 23 || italyMinute !== 59) {
+    if (italyHour !== 23 || italyMinute !== 59) { // Sicurezza orario reale
         console.log(`[MEZZANOTTE] ora Italia: ${italyHour}:${italyMinute < 10 ? "0" : ""}${italyMinute} — skip`);
         return;
     }
 
     console.log(`[MEZZANOTTE] ora Italia: 23:59 — avvio split giornaliero`);
-
-    // Calcola fine giorno e inizio giorno successivo in ora italiana
+    
     const fineGiornoISO   = new Date(italyNow.getFullYear(), italyNow.getMonth(), italyNow.getDate(), 23, 59, 59).toISOString();
     const inizioGiornoISO = new Date(italyNow.getFullYear(), italyNow.getMonth(), italyNow.getDate() + 1, 0, 0, 0).toISOString();
 
@@ -335,20 +228,23 @@ cronAdd("midnight_sleep_split", "59 21 * * *", () => {
         const targetActivities = $app.findRecordsByFilter(
             "activities",
             "is_active = true || (is_active = false && (status = 'd' || status = 'p' || status = 'z' || status = 'a'))",
-            "", 500, 0
+            "",
+            500,
+            0
         );
         if (!targetActivities) return;
 
-        // Raggruppa per board, tieni solo la più recente
-        const latestByBoard = {};
+        const latestByBoard = {}; // Raggruppamento per board
+
         targetActivities.forEach(activity => {
             const boardId    = activity.getString("board_id");
             const lastSeenMs = Date.parse(activity.getString("end_time").replace(" ", "T"));
+
             if (!latestByBoard[boardId] || lastSeenMs > latestByBoard[boardId].lastSeenMs) {
-                latestByBoard[boardId] = { activity, lastSeenMs };
+                latestByBoard[boardId] = { activity, lastSeenMs }; // Tiene solo la più recente
             }
         });
-
+        
         Object.entries(latestByBoard).forEach(([boardId, { activity, lastSeenMs }]) => {
             try {
                 const isActive = activity.getBool("is_active");
@@ -367,7 +263,7 @@ cronAdd("midnight_sleep_split", "59 21 * * *", () => {
 
                 const col = $app.findCollectionByNameOrId("activities");
 
-                if (isActive) {
+                if (isActive) { // Se attiva → spezza tra i due giorni
                     activity.set("is_active", false);
                     activity.set("end_time",  fineGiornoISO);
                     $app.save(activity);
@@ -380,8 +276,7 @@ cronAdd("midnight_sleep_split", "59 21 * * *", () => {
                     newRec.set("status",     status);
                     $app.save(newRec);
 
-                } else if (SLEEP_TO_ACTIVE_MAP[status]) {
-                    // Tutti gli sleep uniformi, nessun caso speciale per "a"
+                } else if (SLEEP_TO_ACTIVE_MAP[status]) { // Se sleep → conversione
                     const attivo = SLEEP_TO_ACTIVE_MAP[status];
                     activity.set("status",   attivo);
                     activity.set("end_time", fineGiornoISO);
@@ -395,8 +290,11 @@ cronAdd("midnight_sleep_split", "59 21 * * *", () => {
                     newSleep.set("status",     status);
                     $app.save(newSleep);
                 }
-
-            } catch (err) { console.log("Errore board " + boardId + ": " + err); }
+            } catch (err) {
+                console.log("Errore board " + boardId + ": " + err);
+            }
         });
-    } catch (err) { console.log("Errore Mezzanotte: " + err); }
+    } catch (err) {
+        console.log("Errore Mezzanotte: " + err);
+    }
 });
