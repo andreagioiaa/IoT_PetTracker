@@ -1,5 +1,6 @@
 import 'package:pocketbase/pocketbase.dart';
 
+// Rappresenta un record della tabella "boards"
 class Boards {
   final String id;
   final String userID;

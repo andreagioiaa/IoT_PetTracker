@@ -101,7 +101,7 @@ class PositionGpsService {
   //        LOGICA MATEMATICA E GEOFENCING
   // ==============================================
 
-  /// Calcola in quale zona si trova attualmente il punto fornito
+  // Calcola in quale zona si trova attualmente il punto fornito
   static Future<String> calcolaZonaDalPunto(LatLng petPos) async {
     try {
       final geoResult = await scambio.pb.collection('geofences').getFullList();

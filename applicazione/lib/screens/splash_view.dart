@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-import 'package:latlong2/latlong.dart';
 import 'login.dart';
 import 'home.dart';
 import '../models/positions.dart';
 import '../repositories/users_repo.dart';
 import '../repositories/positions_repo.dart';
 import '../repositories/activities_repo.dart';
-import '../repositories/geofences_repo.dart';
 import '../services/authentication.dart' as scambio;
+import '../models/statistics.dart';
 
 class SplashScreen extends StatefulWidget {
   final bool isAlreadyAuthenticated;
@@ -19,7 +18,6 @@ class SplashScreen extends StatefulWidget {
     final usersRepo = UsersRepository();
     final positionsRepo = PositionsRepository(scambio.pb);
     final activitiesRepo = ActivitiesRepository(scambio.pb);
-    final geofenceRepo = GeofenceRepository(scambio.pb);
 
     try {
       final user = await usersRepo.getCurrentUser();
@@ -31,18 +29,28 @@ class SplashScreen extends StatefulWidget {
 
       // Eseguiamo il download in parallelo per dimezzare i tempi di caricamento
       final results = await Future.wait([
-        usersRepo.getAlarmStatus(),
-        positionsRepo.getLatestPosition(),
+        usersRepo.getAlarmFromBoard(),
+        positionsRepo.getLatestPosition(boardId),
         activitiesRepo.fetchActivitiesByDate(boardId, DateTime.now()),
+        activitiesRepo.getDailyStatistics(boardId, DateTime.now()),
+        activitiesRepo.getLatestActivityStatus(boardId),
       ]);
 
       final bool? alarm = results[0] as bool?;
       final pos = results[1] as Positions?;
       final activities = results[2];
+      final stats = results[3] as DailyStats;
+      final String currentStatus = results[4] as String;
 
-      String zona = "Posizione sconosciuta";
+      // Inizializziamo una mappa di default
+      Map<String, dynamic> configZona = {
+        'titolo': 'Posizione sconosciuta',
+        'colore': Colors.grey,
+        'icona': Icons.help_outline
+      };
+
       if (pos != null) {
-        zona = await geofenceRepo.getZoneForPoint(LatLng(pos.lat, pos.lon));
+        configZona = await activitiesRepo.getActivityStatus(boardId);
       }
 
       return {
@@ -50,7 +58,9 @@ class SplashScreen extends StatefulWidget {
         'alarm': alarm ?? false,
         'lastPosition': pos,
         'activities': activities,
-        'zone': zona,
+        'daily_stats': stats,
+        'status': currentStatus,
+        'zone': configZona,
         'boardId': boardId,
       };
     } catch (e) {
@@ -61,7 +71,11 @@ class SplashScreen extends StatefulWidget {
         'alarm': false,
         'lastPosition': null,
         'activities': [],
-        'zone': "Errore connessione",
+        'zone': {
+          'titolo': 'Errore connessione',
+          'colore': Colors.grey,
+          'icona': Icons.error_outline
+        }, // Fallback mappa
         'boardId': null,
       };
     }

@@ -7,6 +7,7 @@ import "../repositories/geofences_repo.dart";
 
 class PolygonEditorScreen extends StatefulWidget {
   final GeofenceRepository repository;
+  final String boardId;
   final String? placeId;
   final Map<String, dynamic>? newZoneData;
   final String placeName;
@@ -16,6 +17,7 @@ class PolygonEditorScreen extends StatefulWidget {
   const PolygonEditorScreen({
     super.key,
     required this.repository,
+    required this.boardId,
     this.placeId,
     this.newZoneData,
     required this.placeName,
@@ -139,7 +141,7 @@ class _PolygonEditorScreenState extends State<PolygonEditorScreen> {
       // 3. CONTROLLO DI SOVRAPPOSIZIONE (Utilizzando la Repository)
       // ---------------------------------------------------------
       // Recuperiamo tutti i record tramite la repository e controlliamo se c'è sovrapposizione con il disegno attuale
-      final records = await widget.repository.fetchGeofences();
+      final records = await widget.repository.fetchGeofences(widget.boardId);
 
       String? overlappingZoneName;
 

@@ -8,6 +8,8 @@ class Activities {
   final DateTime? startTime;
   final DateTime? endTime;
   final bool isActive;
+  final String status;
+  final bool anomaly;
 
   Activities({
     required this.id,
@@ -16,6 +18,8 @@ class Activities {
     this.startTime,
     this.endTime,
     required this.isActive,
+    required this.status,
+    this.anomaly = false,
   });
 
   // Crea un'istanza di Activities a partire da un RecordModel di PocketBase
@@ -25,6 +29,7 @@ class Activities {
       boardId: record.getStringValue('board_id'),
       totalSteps: record.getIntValue('total_steps'),
       // Gestione dei campi data nullable per evitare crash se il campo è vuoto
+      // Parsing della data con conversione al fuso locale
       startTime: record.getStringValue('start_time').isNotEmpty
           ? DateTime.parse(record.getStringValue('start_time')).toLocal()
           : null,
@@ -32,6 +37,8 @@ class Activities {
           ? DateTime.parse(record.getStringValue('end_time')).toLocal()
           : null,
       isActive: record.getBoolValue('is_active'),
+      status: record.getStringValue('status'),
+      anomaly: record.getBoolValue('anomaly'),
     );
   }
 
@@ -43,6 +50,8 @@ class Activities {
       'start_time': startTime?.toUtc().toIso8601String(),
       'end_time': endTime?.toUtc().toIso8601String(),
       'is_active': isActive,
+      'status': status,
+      'anomaly': anomaly,
     };
   }
 }

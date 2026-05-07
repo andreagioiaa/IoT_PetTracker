@@ -17,7 +17,7 @@ const String tabella_activities = "activities";
 const String tabella_batteryData = "battery_data";
 const String tabella_boards = "boards";
 const String tabella_geofences = "geofences";
-const String tabella_positions = "positions_duplicate";
+const String tabella_positions = "positions";
 const String tabella_positions_duplicate = "positions_duplicate";
 
 // ==============================================
@@ -90,7 +90,7 @@ void inizializzaClient() {
     httpClientFactory: () => NgrokClient(),
     authStore: secureStore,
   );
-  print('🚀 Client PocketBase inizializzato su: $url');
+  print('🚀 [authentication.dart] Client PocketBase inizializzato su: $url');
 }
 
 // Funzione di autenticazione che prova a ripristinare la sessione esistente
@@ -104,15 +104,15 @@ Future<bool> autenticazione() async {
       try {
         await pb.collection('users').authRefresh();
         isReady = true;
-        print('✅ Sessione utente ripristinata.');
+        print('✅ [authentication.dart] Sessione utente ripristinata.');
       } catch (e) {
         pb.authStore.clear();
-        print('⚠️ Sessione scaduta.');
+        print('⚠️ [authentication.dart] Sessione scaduta.');
       }
     }
     return true; // Server raggiungibile
   } catch (e) {
-    print('❌ Errore critico: $e');
+    print('❌ [authentication.dart] Errore critico: $e');
     return false;
   }
 }
@@ -128,7 +128,7 @@ void eseguiLogout(BuildContext context) async {
   isReady = false;
 
   print(
-      "✅ Logout effettuato con pulizia flag alle ${DateTime.now().hour}:${DateTime.now().minute}");
+      "✅ [authentication.dart] Logout effettuato con pulizia flag alle ${DateTime.now().hour}:${DateTime.now().minute}");
 
   Navigator.pushAndRemoveUntil(
     context,

@@ -16,17 +16,17 @@ void main() async {
   // 2. Localizzazione
   try {
     await initializeDateFormatting('it_IT', null);
-    print('✅ Localizzazione it_IT pronta.');
+    print('✅ [main.dart] Localizzazione it_IT pronta.');
   } catch (e) {
-    print('⚠️ Errore localizzazione: $e');
+    print('⚠️ [main.dart] Errore localizzazione: $e');
   }
 
   // 3. Variabili d'ambiente
   try {
     await dotenv.load(fileName: ".env");
-    print('✅ File .env caricato.');
+    print('✅ [main.dart] File .env caricato.');
   } catch (e) {
-    print('⚠️ Errore .env: $e');
+    print('⚠️ [main.dart] Errore .env: $e');
   }
 
   // 4. Preferenze Locali (Mappa)
@@ -37,7 +37,7 @@ void main() async {
       mapFocusPreference.value = savedFocus;
     }
   } catch (e) {
-    print('⚠️ Errore SharedPreferences: $e');
+    print('⚠️ [main.dart] Errore SharedPreferences: $e');
   }
 
   // 5. PocketBase Auth & Sync Token
@@ -45,12 +45,12 @@ void main() async {
   bool canConnect = await scambio.autenticazione();
 
   if (canConnect && scambio.pb.authStore.isValid) {
-    print('✅ Autenticato come: ${scambio.pb.authStore.model.id}');
+    print('✅ [main.dart] Autenticato come: ${scambio.pb.authStore.model.id}');
 
     // Sincronizza il token FCM con PocketBase
     await NotificationService.syncToken();
   } else {
-    print('❌ Errore connessione o sessione non valida.');
+    print('❌ [main.dart] Errore connessione o sessione non valida (token mancante -- primo accesso).');
   }
 
   runApp(PetTrackerApp(isAuthSuccessful: canConnect));

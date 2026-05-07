@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:pet_tracker/utils/helpers.dart';
 import 'dart:async';
 import '../services/authentication.dart' as scambio;
 import '../services/position_gps.dart';
@@ -10,6 +11,7 @@ import 'polygon_editor.dart';
 import './globals/app_state.dart';
 import "../repositories/positions_repo.dart";
 import "../repositories/geofences_repo.dart";
+import "../repositories/users_repo.dart";
 
 // Schermata principale per la gestione delle Aree Sicure (Geofencing)
 enum ActiveCard { none, zone, user, pet }
@@ -28,9 +30,13 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
   // Stato di caricamento generale per la schermata
   bool isLoading = true;
 
+  // Variabile per memorizzare l'id della board dell'utente
+  String? _currentBoardId;
+
   // Variabili per la posizione dell'utente e dell'animale
   LatLng? _petLocation;
   StreamSubscription? _streamSubscription;
+  StreamSubscription<Position>? _userLocationStream;
 
   late final PositionsRepository _positionsRepo =
       PositionsRepository(scambio.pb);
@@ -56,11 +62,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     // Esegui un controllo iniziale
     _checkPermissionAtStartup();
 
-    // Carica le zone salvate e attiva la sottoscrizione alle posizioni
-    _caricaZoneDalDatabase();
-
     // Sottoscrizione in tempo reale alle posizioni dell'animale
-    _positionsRepo.subscribeToPositions();
     _streamSubscription =
         _positionsRepo.positionsStream.listen((nuovaPosizione) {
       if (mounted) {
@@ -71,7 +73,8 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
       }
     });
 
-    _scaricaPosizioneInizialeAnimale();
+    // Carica le zone salvate e attiva la sottoscrizione alle posizioni
+    _caricaZoneDalDatabase();
     _avviaGeolocalizzazioneSePermessa();
   }
 
@@ -82,29 +85,40 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
         permission == LocationPermission.whileInUse) {
       hasLocationPermission.value = true;
 
-      Position? position = await PositionGpsService.ottieniPosizioneUtente();
+      _avviaStreamPosizioneUtente();
+    } else {
+      hasLocationPermission.value = false;
+    }
+  }
 
-      if (position != null && mounted) {
-        setState(
-            () => _myLocation = LatLng(position.latitude, position.longitude));
+  // Funzione per avviare lo stream della posizione dell'utente
+  void _avviaStreamPosizioneUtente() {
+    _userLocationStream ??= Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high, distanceFilter: 5),
+    ).listen((Position pos) {
+      if (mounted) {
+        bool isFirstTime = _myLocation == null;
 
-        // LOGICA DI FOCUS E CARD
-        // Se l'utente preferisce il Dispositivo, ora che abbiamo il GPS apriamo la sua card
-        if (mapFocusPreference.value == 'Dispositivo') {
+        setState(() {
+          _myLocation = LatLng(pos.latitude, pos.longitude);
+        });
+
+        // Applica il focus e apre la card SOLO la prima volta che ci trova
+        if (isFirstTime && mapFocusPreference.value == 'Dispositivo') {
           _mapController.move(_myLocation!, 18.0);
           _activeCard.value = ActiveCard.user;
           _resolveAddress(_myLocation!, false);
         }
       }
-    } else {
-      hasLocationPermission.value = false;
-    }
+    });
   }
 
   @override
   void dispose() {
     hasLocationPermission.removeListener(_onPermissionChanged);
     _streamSubscription?.cancel();
+    _userLocationStream?.cancel();
     _positionsRepo.dispose();
 
     _nameController.dispose();
@@ -129,8 +143,8 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
   }
 
   // Recupera la posizione iniziale dell'animale
-  Future<void> _scaricaPosizioneInizialeAnimale() async {
-    final posizione = await _positionsRepo.getLatestPosition();
+  Future<void> _scaricaPosizioneInizialeAnimale(String boardId) async {
+    final posizione = await _positionsRepo.getLatestPosition(boardId);
 
     if (posizione != null && mounted) {
       setState(() {
@@ -153,6 +167,21 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
 
     if (!scambio.isReady) await scambio.autenticazione();
 
+    // Recupera l'id della board associata all'utente per filtrare le zone (se necessario)
+    final usersRepo = UsersRepository();
+    _currentBoardId = await usersRepo.getBoardIdFromBoards();
+
+    // Nessuna board associata, non ha senso fare il fetch delle zone
+    if (_currentBoardId == null) {
+      if (mounted) setState(() => isLoading = false);
+      return;
+    }
+
+    // Sottoscrizione allo stream delle posizioni
+    _positionsRepo.subscribeToPositions(_currentBoardId!);
+    _scaricaPosizioneInizialeAnimale(_currentBoardId!);
+
+    // Logica per mantenere la selezione dopo un aggiornamento:
     String? idAttuale = forceSelectId;
 
     if (idAttuale == null &&
@@ -163,41 +192,11 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     }
 
     try {
-      final records = await scambio.pb
-          .collection('geofences')
-          .getFullList(sort: '-created');
+      // 1. Usa la repository: fa il fetch, filtra per boardId e fa la mappatura in automatico!
+      final List<Map<String, dynamic>> nuoveZone =
+          await _geofenceRepo.fetchGeofences(_currentBoardId!);
 
-      final List<Map<String, dynamic>> nuoveZone = records.map((res) {
-        List<LatLng> polygonPts = [];
-
-        try {
-          final rawList = res.getListValue<dynamic>('vertices');
-
-          for (var pt in rawList) {
-            if (pt is List && pt.length >= 2) {
-              polygonPts.add(LatLng(double.parse(pt[0].toString()),
-                  double.parse(pt[1].toString())));
-            }
-          }
-        } catch (e) {
-          debugPrint('Nessun vertice trovato per ${res.id}');
-        }
-
-        return {
-          "id": res.id,
-          "name": res.getStringValue('name'),
-          "street": res.getStringValue('street'),
-          "civic": res.getStringValue('civic'),
-          "city": res.getStringValue('city'),
-          "cap": res.getStringValue('cap'),
-          "center": LatLng(res.getDoubleValue('center_lat'),
-              res.getDoubleValue('center_lon')),
-          "is_active": res.getBoolValue('is_active'),
-          "vertices": polygonPts,
-        };
-      }).toList();
-
-      // Ordina le zone: prima le attive, poi in ordine alfabetico
+      // 2. Ordina le zone: prima le attive, poi in ordine alfabetico
       nuoveZone.sort((a, b) {
         bool isActiveA = a['is_active'] ?? false;
         bool isActiveB = b['is_active'] ?? false;
@@ -211,6 +210,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
             .compareTo(b['name'].toString().toLowerCase());
       });
 
+      // 3. Aggiorna l'interfaccia
       setState(() {
         savedPlaces = nuoveZone;
         isLoading = false;
@@ -319,15 +319,17 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
   bool isSatelliteMap = false;
   LatLng? _myLocation;
 
+  // Getter per accedere al MapController in modo sicuro, evitando errori se viene chiamato fuori contesto
   Future<void> _determinePosition() async {
     try {
-      // 1. Chiamiamo il nostro servizio che gestisce il pop-up e i permessi!
       await PositionGpsService.richiediPermessi(context);
 
-      // 2. Se l'utente ha accettato, recuperiamo la posizione
       if (hasLocationPermission.value) {
-        Position? position = await PositionGpsService.ottieniPosizioneUtente();
+        // 1. Assicuriamoci che lo stream continuo sia acceso!
+        _avviaStreamPosizioneUtente();
 
+        // 2. Forza subito la posizione per centrare la mappa (azione del bottone)
+        Position? position = await PositionGpsService.ottieniPosizioneUtente();
         if (position != null && mounted) {
           setState(() {
             _myLocation = LatLng(position.latitude, position.longitude);
@@ -476,6 +478,10 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
       return {'error': "Esiste già un'Area in questo indirizzo!"};
     }
 
+    // Prepara i dati per il salvataggio o l'aggiornamento
+    final usersRepo = UsersRepository();
+    final String? boardId = await usersRepo.getBoardIdFromBoards();
+
     final body = {
       "name": rawName,
       "center_lat": newCenter.latitude,
@@ -484,7 +490,8 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
       "civic": finalCivic,
       "city": finalCity,
       "cap": finalCap,
-      "is_active": true
+      "is_active": true,
+      "board_id": boardId,
     };
 
     try {
@@ -564,12 +571,14 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
         context,
         MaterialPageRoute(
             builder: (context) => PolygonEditorScreen(
-                repository: _geofenceRepo,
-                placeId: placeId,
-                newZoneData: newZoneData,
-                placeName: placeName,
-                initialCenter: center,
-                initialVertices: initialVertices)));
+                  repository: _geofenceRepo,
+                  placeId: placeId,
+                  newZoneData: newZoneData,
+                  placeName: placeName,
+                  initialCenter: center,
+                  initialVertices: initialVertices,
+                  boardId: _currentBoardId!,
+                )));
 
     if (result != null && result is String) {
       await _caricaZoneDalDatabase(forceSelectId: result);
@@ -801,6 +810,11 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                             return;
                           }
 
+                          // Recupera la board
+                          final usersRepo = UsersRepository();
+                          final String? boardId =
+                              await usersRepo.getBoardIdFromBoards();
+
                           final body = {
                             "name": name,
                             "center_lat": gpsLocation.latitude,
@@ -809,6 +823,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
                             "civic": civic,
                             "city": city,
                             "cap": cap,
+                            "board_id": boardId,
                             "is_active": true
                           };
 
@@ -933,8 +948,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
     LatLng initialCenter = const LatLng(41.8719, 12.5674);
     double initialZoom = 6.0;
 
-    double screenWidth = MediaQuery.of(context).size.width;
-    double scale = (screenWidth / 400).clamp(0.75, 1.1);
+    double scale = dimensioniSchermo(context);
 
     return Scaffold(
       body: Stack(

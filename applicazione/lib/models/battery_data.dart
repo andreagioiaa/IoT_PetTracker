@@ -23,7 +23,7 @@ class BatteryData {
     return BatteryData(
       id: record.id,
       boardId: record.getStringValue('board_id'),
-      // Parsing della data con conversione al fuso locale.
+      // Parsing della data con conversione al fuso locale
       timestamp: DateTime.parse(record.getStringValue('timestamp')).toLocal(),
       battery: record.getDoubleValue('battery'),
       batteryPercent: record.getIntValue('battery_percent'),

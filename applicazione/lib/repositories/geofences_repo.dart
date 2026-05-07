@@ -7,7 +7,7 @@ class GeofenceRepository {
 
   GeofenceRepository(this._pb);
 
-  // Metodo per recuperare i record grezzi (utile per logiche interne come l'overlap)
+  // Metodo per recuperare tutte le zone (usato principalmente per debug o funzioni avanzate)
   Future<List<RecordModel>> getFullList() async {
     return await _pb.collection('geofences').getFullList();
   }
@@ -25,10 +25,12 @@ class GeofenceRepository {
   }
 
   // Recupera tutte le zone e gestisce il parsing dei vertici
-  Future<List<Map<String, dynamic>>> fetchGeofences() async {
+  Future<List<Map<String, dynamic>>> fetchGeofences(String boardId) async {
     try {
-      final records =
-          await _pb.collection('geofences').getFullList(sort: '-created');
+      final records = await _pb.collection('geofences').getFullList(
+            sort: '-created',
+            filter: 'board_id = "$boardId"',
+          );
 
       return records.map((res) {
         List<LatLng> polygonPts = [];
@@ -84,9 +86,9 @@ class GeofenceRepository {
   }
 
   // Determina se un punto è dentro una zona attiva e restituisce il nome della zona o "Fuori zona sicura"
-  Future<String> getZoneForPoint(LatLng point) async {
+  Future<String> getZoneForPoint(LatLng point, String boardId) async {
     try {
-      final geofences = await fetchGeofences();
+      final geofences = await fetchGeofences(boardId);
       for (var zone in geofences) {
         if (zone['is_active'] == true) {
           final List<LatLng> vertices = zone['vertices'];
