@@ -423,50 +423,6 @@ Questa implementazione riflette i principi del Modello IoTWF in due punti chiave
     \item \textbf{Ottimizzazione del Livello 5 (Data Abstraction):} L'applicazione Flutter non deve processare dati grezzi; interroga API già normalizzate dal trigger, garantendo una visualizzazione fluida della cronologia.
 \end{enumerate}
 
-\section{Sistema di Notifiche Push}
-L'implementazione di un sistema di notifiche push è fondamentale per un dispositivo di tracciamento animali, in quanto permette di avvisare tempestivamente l'utente in caso di pericoli (uscita dal perimetro sicuro) o problemi tecnici (batteria scarica).
-\subsection{Analisi dei Vincoli Tecnologici: Incompatibilità Goja e Firebase}
-Durante la fase di sviluppo, è emerso un vincolo tecnico significativo riguardante l'integrazione tra il backend PocketBase e l'SDK ufficiale di Firebase. 
-PocketBase è scritto in linguaggio Go e utilizza \textbf{Goja} come motore di esecuzione JavaScript per la gestione della logica server-side (hooks). Goja è un'implementazione di ECMAScript 5.1 che presenta limitazioni strutturali rispetto a un ambiente Node.js \cite{nodejs} standard:
-\begin{itemize}
-    \item \textbf{Mancanza di moduli nativi}: Goja non supporta i moduli core di Node.js (come \texttt{fs}, \texttt{crypto} o \texttt{net}), indispensabili per il funzionamento dell'SDK di Firebase.
-    \item \textbf{Runtime isolato}: L'SDK \texttt{firebase-admin} \cite{firebase_admin} richiede un ambiente di esecuzione completo per gestire l'autenticazione tramite Service Account e le connessioni persistenti ai server Google.
-\end{itemize}
-Per superare queste limitazioni, è stata adottata un'architettura a \textbf{Bridge}, separando la logica di business dall'invio fisico dei messaggi.
-\subsection{Architettura del FCM Bridge}
-Il sistema si basa su un microservizio esterno sviluppato in Node.js \cite{nodejs}, denominato \textit{FCM Bridge}. L'interazione avviene secondo il seguente flusso:
-\begin{enumerate}
-    \item \textbf{PocketBase (Goja)}: Rileva un evento (es. batteria scarica) e invia una richiesta HTTP POST al bridge tramite il modulo interno \texttt{\$http.send}.
-    \item \textbf{FCM Bridge (Node.js)}: Riceve la richiesta, carica il Service Account di Firebase e inoltra la notifica tramite l'SDK ufficiale \cite{firebase_admin}.
-    \item \textbf{Feedback e pulizia token}: Il bridge restituisce lo stato della consegna. In caso di errore \texttt{404} (token non registrato, app disinstallata) o \texttt{400} (token malformato), il backend provvede alla rimozione automatica del token dal profilo utente. I token FCM sono memorizzati come array JSON per supportare più dispositivi per singolo utente.
-\end{enumerate}
-\subsection{Logica di Invio e Trigger}
-Le notifiche vengono scatenate dai seguenti eventi, ciascuno con logica contestuale per evitare invii ridondanti:
-
-\begin{table}[H]
-\centering
-\begin{tabular}{@{}lp{4.5cm}p{5cm}@{}}
-\toprule
-\textbf{Evento} & \textbf{Condizione di trigger} & \textbf{Nota} \\
-\midrule
-Uscita dalla zona      & \texttt{i} $\to$ \texttt{s} oppure \texttt{i} $\to$ \texttt{w} & Dipende dalla presenza di allarme utente \\
-Rientro in zona        & \texttt{s} $\to$ \texttt{i} oppure \texttt{w} $\to$ \texttt{i} & \\
-Allarme da passeggiata & \texttt{w} $\to$ \texttt{s}                                    & Allarme riattivato mentre fuori zona \\
-Inizio viaggio confermato & qualsiasi $\to$ \texttt{v}                                  & Solo dopo il secondo \texttt{trip=true} consecutivo \\
-Fine viaggio in zona   & \texttt{v} $\to$ \texttt{i}                                    & Arrivato a destinazione \\
-Fine viaggio fuori zona (allarme) & \texttt{v} $\to$ \texttt{s}                        & Animale fuggito dal veicolo \\
-Fine viaggio fuori zona (libero)  & \texttt{v} $\to$ \texttt{w}                        & Passeggiata post-viaggio \\
-Nessuna geofence       & \texttt{i} o \texttt{s} $\to$ \texttt{w}               & Zone disattivate \\
-Batteria bassa         & $\leq 20\%$ (cambio soglia)                                    & Solo al cambio di fascia \\
-Batteria critica       & $\leq 10\%$ (cambio soglia)                                    & Solo al cambio di fascia \\
-Batteria in carica     & \texttt{charging} passa a \texttt{true}                        & Solo al cambio di stato \\
-Watchdog               & Silenzio $>$ 10 minuti                                         & Chiusura automatica sessione \\
-\bottomrule
-\end{tabular}
-\caption{Trigger del sistema di notifiche push}
-\label{tab:notifiche}
-\end{table}
-
 \section{Front-end e Applicazione Mobile}
 
 L'applicazione mobile è stata sviluppata in Flutter \cite{flutter}, un framework
@@ -554,24 +510,6 @@ ogni sottoscrizione viene rigorosamente interrotta tramite il comando
 Questa accortezza evita di mantenere attive connessioni inutili in background, 
 ottimizzando l'uso della batteria e del traffico dati.
 
-\subsection{Permessi per Notifiche Push e Localizzazione}
-
-Le notifiche push sono gestite tramite \texttt{Firebase Cloud Messaging}. Al primo
-avvio, l'app mostra un dialog personalizzato che spiega all'utente il motivo della
-richiesta del permesso, prima di invocare la richiesta di sistema. Una volta ottenuto
-il consenso, il token FCM del dispositivo viene sincronizzato con il profilo utente su
-PocketBase, nel campo \texttt{tokenFCM} modellato come una lista, permettendo
-all'utente di ricevere notifiche su più dispositivi contemporaneamente. 
-Prima del salvataggio, un controllo di duplicazione verifica che il token del dispositivo 
-corrente non sia già presente nella lista, evitando ricezioni di notifiche ridondanti.
-
-Analogamente alla gestione delle notifiche, l'app mostra al primo avvio un dialog personalizzato per spiegare 
-le finalità del monitoraggio della poszione dell'utente prima di attivare la richiesta di sistema. 
-Il consenso ottenuto viene poi incrociato con l'effettivo stato dell'antenna GPS tramite un controllo centralizzato, 
-che aggiorna una variabile di stato globale per abilitare il recupero della posizione con alta precisione. 
-Infine, l'utilizzo di SharedPreferences permette di memorizzare l'avvenuta visualizzazione dell'informativa, 
-evitando che il pop-up esplicativo appaia ripetutamente ad ogni avvio dell'applicazione.
-
 \subsection{Geofencing e Geocoding}
 
 La logica di geofencing è implementata anche dal lato client tramite l'algoritmo
@@ -635,6 +573,68 @@ toccando i vertici direttamente sulla mappa; al salvataggio, le coordinate dei v
 e il centroide del poligono vengono persistiti su PocketBase. L'indirizzo associato
 alla zona viene ricavato automaticamente tramite geocoding inverso a partire dal
 centroide.
+
+\section{Sistema di Notifiche Push}
+L'implementazione di un sistema di notifiche push è fondamentale per un dispositivo di tracciamento animali, in quanto permette di avvisare tempestivamente l'utente in caso di pericoli (uscita dal perimetro sicuro) o problemi tecnici (batteria scarica).
+\subsection{Analisi dei Vincoli Tecnologici: Incompatibilità Goja e Firebase}
+Durante la fase di sviluppo, è emerso un vincolo tecnico significativo riguardante l'integrazione tra il backend PocketBase e l'SDK ufficiale di Firebase. 
+PocketBase è scritto in linguaggio Go e utilizza \textbf{Goja} come motore di esecuzione JavaScript per la gestione della logica server-side (hooks). Goja è un'implementazione di ECMAScript 5.1 che presenta limitazioni strutturali rispetto a un ambiente Node.js \cite{nodejs} standard:
+\begin{itemize}
+    \item \textbf{Mancanza di moduli nativi}: Goja non supporta i moduli core di Node.js (come \texttt{fs}, \texttt{crypto} o \texttt{net}), indispensabili per il funzionamento dell'SDK di Firebase.
+    \item \textbf{Runtime isolato}: L'SDK \texttt{firebase-admin} \cite{firebase_admin} richiede un ambiente di esecuzione completo per gestire l'autenticazione tramite Service Account e le connessioni persistenti ai server Google.
+\end{itemize}
+Per superare queste limitazioni, è stata adottata un'architettura a \textbf{Bridge}, separando la logica di business dall'invio fisico dei messaggi.
+\subsection{Architettura del FCM Bridge}
+Il sistema si basa su un microservizio esterno sviluppato in Node.js \cite{nodejs}, denominato \textit{FCM Bridge}. L'interazione avviene secondo il seguente flusso:
+\begin{enumerate}
+    \item \textbf{PocketBase (Goja)}: Rileva un evento (es. batteria scarica) e invia una richiesta HTTP POST al bridge tramite il modulo interno \texttt{\$http.send}.
+    \item \textbf{FCM Bridge (Node.js)}: Riceve la richiesta, carica il Service Account di Firebase e inoltra la notifica tramite l'SDK ufficiale \cite{firebase_admin}.
+    \item \textbf{Feedback e pulizia token}: Il bridge restituisce lo stato della consegna. In caso di errore \texttt{404} (token non registrato, app disinstallata) o \texttt{400} (token malformato), il backend provvede alla rimozione automatica del token dal profilo utente. I token FCM sono memorizzati come array JSON per supportare più dispositivi per singolo utente.
+\end{enumerate}
+\subsection{Logica di Invio e Trigger}
+Le notifiche vengono scatenate dai seguenti eventi, ciascuno con logica contestuale per evitare invii ridondanti:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}lp{4.5cm}p{5cm}@{}}
+\toprule
+\textbf{Evento} & \textbf{Condizione di trigger} & \textbf{Nota} \\
+\midrule
+Uscita dalla zona      & \texttt{i} $\to$ \texttt{s} oppure \texttt{i} $\to$ \texttt{w} & Dipende dalla presenza di allarme utente \\
+Rientro in zona        & \texttt{s} $\to$ \texttt{i} oppure \texttt{w} $\to$ \texttt{i} & \\
+Allarme da passeggiata & \texttt{w} $\to$ \texttt{s}                                    & Allarme riattivato mentre fuori zona \\
+Inizio viaggio confermato & qualsiasi $\to$ \texttt{v}                                  & Solo dopo il secondo \texttt{trip=true} consecutivo \\
+Fine viaggio in zona   & \texttt{v} $\to$ \texttt{i}                                    & Arrivato a destinazione \\
+Fine viaggio fuori zona (allarme) & \texttt{v} $\to$ \texttt{s}                        & Animale fuggito dal veicolo \\
+Fine viaggio fuori zona (libero)  & \texttt{v} $\to$ \texttt{w}                        & Passeggiata post-viaggio \\
+Nessuna geofence       & \texttt{i} o \texttt{s} $\to$ \texttt{w}               & Zone disattivate \\
+Batteria bassa         & $\leq 20\%$ (cambio soglia)                                    & Solo al cambio di fascia \\
+Batteria critica       & $\leq 10\%$ (cambio soglia)                                    & Solo al cambio di fascia \\
+Batteria in carica     & \texttt{charging} passa a \texttt{true}                        & Solo al cambio di stato \\
+Watchdog               & Silenzio $>$ 10 minuti                                         & Chiusura automatica sessione \\
+\bottomrule
+\end{tabular}
+\caption{Trigger del sistema di notifiche push}
+\label{tab:notifiche}
+\end{table}
+
+\subsection{Permessi e Localizzazione}
+
+Le notifiche push sono gestite tramite \texttt{Firebase Cloud Messaging}. Al primo
+avvio, l'app mostra un dialog personalizzato che spiega all'utente il motivo della
+richiesta del permesso, prima di invocare la richiesta di sistema. Una volta ottenuto
+il consenso, il token FCM del dispositivo viene sincronizzato con il profilo utente su
+PocketBase, nel campo \texttt{tokenFCM} modellato come una lista, permettendo
+all'utente di ricevere notifiche su più dispositivi contemporaneamente. 
+Prima del salvataggio, un controllo di duplicazione verifica che il token del dispositivo 
+corrente non sia già presente nella lista, evitando ricezioni di notifiche ridondanti.
+
+Analogamente alla gestione delle notifiche, l'app mostra al primo avvio un dialog personalizzato per spiegare 
+le finalità del monitoraggio della poszione dell'utente prima di attivare la richiesta di sistema. 
+Il consenso ottenuto viene poi incrociato con l'effettivo stato dell'antenna GPS tramite un controllo centralizzato, 
+che aggiorna una variabile di stato globale per abilitare il recupero della posizione con alta precisione. 
+Infine, l'utilizzo di SharedPreferences permette di memorizzare l'avvenuta visualizzazione dell'informativa, 
+evitando che il pop-up esplicativo appaia ripetutamente ad ogni avvio dell'applicazione.
 
 \section{Test e Risultati}
 

@@ -29,22 +29,22 @@
 \contentsline {subsubsection}{\numberline {4.6.5}Gestione del Risveglio e Deduplicazione delle Sessioni}{10}{subsubsection.4.6.5}%
 \contentsline {subsubsection}{\numberline {4.6.6}Watchdog di Inattività e Split Notturno}{11}{subsubsection.4.6.6}%
 \contentsline {subsubsection}{\numberline {4.6.7}Vantaggi Architetturali e Corrispondenza IoTWF}{11}{subsubsection.4.6.7}%
-\contentsline {section}{\numberline {5}Sistema di Notifiche Push}{12}{section.5}%
-\contentsline {subsection}{\numberline {5.1}Analisi dei Vincoli Tecnologici: Incompatibilità Goja e Firebase}{12}{subsection.5.1}%
-\contentsline {subsection}{\numberline {5.2}Architettura del FCM Bridge}{12}{subsection.5.2}%
-\contentsline {subsection}{\numberline {5.3}Logica di Invio e Trigger}{13}{subsection.5.3}%
-\contentsline {section}{\numberline {6}Front-end e Applicazione Mobile}{13}{section.6}%
-\contentsline {subsection}{\numberline {6.1}Architettura a livelli}{13}{subsection.6.1}%
-\contentsline {subsection}{\numberline {6.2}Autenticazione e persistenza della sessione}{14}{subsection.6.2}%
-\contentsline {subsection}{\numberline {6.3}Splash Screen e Caricamento Parallelo}{14}{subsection.6.3}%
-\contentsline {subsection}{\numberline {6.4}Comunicazione in Tempo Reale}{14}{subsection.6.4}%
-\contentsline {subsection}{\numberline {6.5}Permessi per Notifiche Push e Localizzazione}{15}{subsection.6.5}%
-\contentsline {subsection}{\numberline {6.6}Geofencing e Geocoding}{15}{subsection.6.6}%
-\contentsline {subsection}{\numberline {6.7}Funzionalità Principali}{16}{subsection.6.7}%
-\contentsline {paragraph}{Mappa in Tempo Reale}{16}{paragraph*.3}%
-\contentsline {paragraph}{Riepilogo Giornaliero}{16}{paragraph*.4}%
-\contentsline {paragraph}{Stato della batteria}{16}{paragraph*.5}%
-\contentsline {paragraph}{Gestione delle Zone Sicure}{16}{paragraph*.6}%
+\contentsline {section}{\numberline {5}Front-end e Applicazione Mobile}{12}{section.5}%
+\contentsline {subsection}{\numberline {5.1}Architettura a livelli}{12}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}Autenticazione e persistenza della sessione}{12}{subsection.5.2}%
+\contentsline {subsection}{\numberline {5.3}Splash Screen e Caricamento Parallelo}{13}{subsection.5.3}%
+\contentsline {subsection}{\numberline {5.4}Comunicazione in Tempo Reale}{13}{subsection.5.4}%
+\contentsline {subsection}{\numberline {5.5}Geofencing e Geocoding}{13}{subsection.5.5}%
+\contentsline {subsection}{\numberline {5.6}Funzionalità Principali}{14}{subsection.5.6}%
+\contentsline {paragraph}{Mappa in Tempo Reale}{14}{paragraph*.2}%
+\contentsline {paragraph}{Riepilogo Giornaliero}{14}{paragraph*.3}%
+\contentsline {paragraph}{Stato della batteria}{14}{paragraph*.4}%
+\contentsline {paragraph}{Gestione delle Zone Sicure}{14}{paragraph*.5}%
+\contentsline {section}{\numberline {6}Sistema di Notifiche Push}{14}{section.6}%
+\contentsline {subsection}{\numberline {6.1}Analisi dei Vincoli Tecnologici: Incompatibilità Goja e Firebase}{15}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}Architettura del FCM Bridge}{15}{subsection.6.2}%
+\contentsline {subsection}{\numberline {6.3}Logica di Invio e Trigger}{15}{subsection.6.3}%
+\contentsline {subsection}{\numberline {6.4}Permessi e Localizzazione}{16}{subsection.6.4}%
 \contentsline {section}{\numberline {7}Test e Risultati}{16}{section.7}%
 \contentsline {section}{\numberline {8}Limiti del Sistema}{16}{section.8}%
 \contentsline {section}{\numberline {9}Implementazioni Future}{17}{section.9}%
