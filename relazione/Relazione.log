@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (MiKTeX 24.1) (preloaded format=pdflatex 2025.4.18)  7 MAY 2026 09:15
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (MiKTeX 24.1) (preloaded format=pdflatex 2025.4.18)  7 MAY 2026 18:32
 entering extended mode
  restricted \write18 enabled.
  file:line:error style messages enabled.
@@ -722,7 +722,7 @@ Package hyperref Info: Link coloring ON on input line 109.
 \@outlinefile=\write4
 \openout4 = `Relazione.out'.
 
-<immagini/Logo.pdf, id=186, 225.84375pt x 225.84375pt>
+<immagini/Logo.pdf, id=202, 225.84375pt x 225.84375pt>
 File: immagini/Logo.pdf Graphic file (type pdf)
 <use immagini/Logo.pdf>
 Package pdftex.def Info: immagini/Logo.pdf  used on input line 121.
@@ -812,54 +812,54 @@ Overfull \hbox (5.1001pt too wide) in paragraph at lines 494--500
 \T1/lmtt/m/n/12 Stream<Positions>\T1/lmr/m/n/12 ) a cui le scher-ma-te si sot-to-scri-vo-no tra-mi-te una \T1/lmtt/m/n/12 StreamSubscription\T1/lmr/m/n/12 . 
  []
 
-[13] [14]
-Underfull \hbox (badness 1701) in paragraph at lines 605--606
+[13] [14] [15]
+Underfull \hbox (badness 1701) in paragraph at lines 680--681
 []\T1/lmr/m/n/12 Allarme riat-ti-va-to men-tre
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 606--607
+Underfull \hbox (badness 10000) in paragraph at lines 681--682
 []\T1/lmr/m/n/12 Solo do-po il se-con-do
  []
 
 
-Overfull \hbox (7.96135pt too wide) in paragraph at lines 599--617
+Overfull \hbox (7.96135pt too wide) in paragraph at lines 674--692
  [][] 
  []
 
-[15] [16] [17]
-Overfull \hbox (14.20894pt too wide) in paragraph at lines 658--658
+[16] [17] [18]
+Overfull \hbox (14.20894pt too wide) in paragraph at lines 758--758
 \T1/lmtt/m/n/12 LilyGo -[] Modem -[] Series / blob / main / datasheet / LTE % 20Antenna % 20Specifications .
  []
 
 
-Overfull \hbox (14.20894pt too wide) in paragraph at lines 658--658
+Overfull \hbox (14.20894pt too wide) in paragraph at lines 758--758
 \T1/lmtt/m/n/12 LilyGo -[] Modem -[] Series / blob / main / datasheet / GPS % 20Antenna % 20Specifications .
  []
 
-[18] (Relazione.aux)
+[19] (Relazione.aux)
  ***********
 LaTeX2e <2023-11-01> patch level 1
 L3 programming layer <2024-01-04>
  ***********
 Package rerunfilecheck Info: File `Relazione.out' has not changed.
-(rerunfilecheck)             Checksum: 42C1ABEEFB7B28D8E3C5BABA39F39550;10027.
+(rerunfilecheck)             Checksum: 63F0A3D54735D543F2152ED5C1440869;10838.
 Package logreq Info: Writing requests to 'Relazione.run.xml'.
 \openout1 = `Relazione.run.xml'.
 
  ) 
 Here is how much of TeX's memory you used:
- 22770 strings out of 474486
- 400603 string characters out of 5744227
+ 22773 strings out of 474486
+ 400688 string characters out of 5744227
  1943542 words of memory out of 5000000
- 44682 multiletter control sequences out of 15000+600000
+ 44684 multiletter control sequences out of 15000+600000
  615075 words of font info for 65 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 69i,11n,81p,1245b,1638s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 69i,11n,81p,1245b,1658s stack positions out of 10000i,1000n,20000p,200000b,200000s
 <C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmbx10.pfb><C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmbx12.pfb><C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmbxi10.pfb><C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmcsc10.pfb><C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmmi12.pfb><C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmr10.pfb><C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmr12.pfb><C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmri12.pfb><C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmsy10.pfb><C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmtk10.pfb><C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmtt12.pfb>
-Output written on Relazione.pdf (19 pages, 372389 bytes).
+Output written on Relazione.pdf (20 pages, 380230 bytes).
 PDF statistics:
- 480 PDF objects out of 1000 (max. 8388607)
- 101 named destinations out of 1000 (max. 500000)
- 374 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 500 PDF objects out of 1000 (max. 8388607)
+ 102 named destinations out of 1000 (max. 500000)
+ 406 words of extra memory for PDF output out of 10000 (max. 10000000)
 

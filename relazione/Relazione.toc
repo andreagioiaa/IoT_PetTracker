@@ -35,18 +35,18 @@
 \contentsline {subsection}{\numberline {5.3}Splash Screen e Caricamento Parallelo}{13}{subsection.5.3}%
 \contentsline {subsection}{\numberline {5.4}Comunicazione in Tempo Reale}{13}{subsection.5.4}%
 \contentsline {subsection}{\numberline {5.5}Geofencing e Geocoding}{13}{subsection.5.5}%
-\contentsline {subsection}{\numberline {5.6}Funzionalità Principali}{14}{subsection.5.6}%
-\contentsline {paragraph}{Mappa in Tempo Reale}{14}{paragraph*.2}%
-\contentsline {paragraph}{Riepilogo Giornaliero}{14}{paragraph*.3}%
-\contentsline {paragraph}{Stato della batteria}{14}{paragraph*.4}%
-\contentsline {paragraph}{Gestione delle Zone Sicure}{14}{paragraph*.5}%
-\contentsline {section}{\numberline {6}Sistema di Notifiche Push}{14}{section.6}%
-\contentsline {subsection}{\numberline {6.1}Analisi dei Vincoli Tecnologici: Incompatibilità Goja e Firebase}{15}{subsection.6.1}%
-\contentsline {subsection}{\numberline {6.2}Architettura del FCM Bridge}{15}{subsection.6.2}%
-\contentsline {subsection}{\numberline {6.3}Logica di Invio e Trigger}{15}{subsection.6.3}%
-\contentsline {subsection}{\numberline {6.4}Permessi e Localizzazione}{16}{subsection.6.4}%
-\contentsline {section}{\numberline {7}Test e Risultati}{16}{section.7}%
-\contentsline {section}{\numberline {8}Limiti del Sistema}{16}{section.8}%
-\contentsline {section}{\numberline {9}Implementazioni Future}{17}{section.9}%
-\contentsline {section}{\numberline {10}Conclusioni}{17}{section.10}%
-\contentsline {section}{Riferimenti bibliografici}{18}{section.10}%
+\contentsline {subsection}{\numberline {5.6}Schermate e Funzionalità Principali}{14}{subsection.5.6}%
+\contentsline {subsubsection}{\numberline {5.6.1}Analisi delle Attività}{14}{subsubsection.5.6.1}%
+\contentsline {subsubsection}{\numberline {5.6.2}Mappe in Tempo Reale}{14}{subsubsection.5.6.2}%
+\contentsline {subsubsection}{\numberline {5.6.3}Gestione delle Zone Sicure}{15}{subsubsection.5.6.3}%
+\contentsline {subsubsection}{\numberline {5.6.4}Stato della batteria}{15}{subsubsection.5.6.4}%
+\contentsline {section}{\numberline {6}Sistema di Notifiche Push}{15}{section.6}%
+\contentsline {subsection}{\numberline {6.1}Analisi dei Vincoli Tecnologici: Incompatibilità Goja e Firebase}{16}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}Architettura del FCM Bridge}{16}{subsection.6.2}%
+\contentsline {subsection}{\numberline {6.3}Logica di Invio e Trigger}{16}{subsection.6.3}%
+\contentsline {subsection}{\numberline {6.4}Permessi e Localizzazione}{17}{subsection.6.4}%
+\contentsline {section}{\numberline {7}Test e Risultati}{17}{section.7}%
+\contentsline {section}{\numberline {8}Limiti del Sistema}{17}{section.8}%
+\contentsline {section}{\numberline {9}Implementazioni Future}{18}{section.9}%
+\contentsline {section}{\numberline {10}Conclusioni}{18}{section.10}%
+\contentsline {section}{Riferimenti bibliografici}{19}{section.10}%

@@ -1,12 +1,12 @@
 # Fdb version 4
-["biber Relazione"] 1778137978.02509 "Relazione.bcf" "Relazione.bbl" "Relazione" 1778138122.02934 0
-  "Relazione.bcf" 1778138121 107850 88664087bb10559231e2f48c602400b3 "pdflatex"
+["biber Relazione"] 0 "Relazione.bcf" "Relazione.bbl" "Relazione" 1778171561.39337 -1
+  "Relazione.bcf" 1778171561 107850 88664087bb10559231e2f48c602400b3 "pdflatex"
   "riferimenti.bib" 1778137216 1990 5ca67921b5155896c7d7131012194cc4 ""
   (generated)
   "Relazione.bbl"
   "Relazione.blg"
   (rewritten before read)
-["pdflatex"] 1778138120.37198 "c:/Users/Nick/Desktop/IoT_PetTracker/relazione/Relazione.tex" "Relazione.pdf" "Relazione" 1778138122.03013 0
+["pdflatex"] 1778171559.91661 "c:/Users/Nick/Desktop/IoT_PetTracker/relazione/Relazione.tex" "Relazione.pdf" "Relazione" 1778171561.3942 0
   "C:/Users/Nick/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map" 1777386588 82507 a9eef8696c92627b87e9975edea03b2a ""
   "C:/Users/Nick/AppData/Local/MiKTeX/miktex/data/le/pdftex/pdflatex.fmt" 1744982882 24224574 724fb4a8a0018dba2026f16b2ba2f41d ""
   "C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-ec.enc" 1256929440 2375 baa924870cfb487815765f9094cf3728 ""
@@ -145,13 +145,13 @@
   "C:/Users/Nick/AppData/Local/Programs/MiKTeX/tex/latex/tools/verbatim.sty" 1700599895 7500 db31c3d04f8bc9010e47a5efbbace9ff ""
   "C:/Users/Nick/AppData/Local/Programs/MiKTeX/tex/latex/url/url.sty" 1388490452 12796 8edb7d69a20b857904dd0ea757c14ec9 ""
   "C:/Users/Nick/AppData/Local/Programs/MiKTeX/tex/latex/xcolor/xcolor.sty" 1700127522 55487 80a65caedd3722f4c20a14a69e785d8f ""
-  "Relazione.aux" 1778138121 9481 cfa69606003d95be9ff111b1ba6c9a08 "pdflatex"
+  "Relazione.aux" 1778171561 9615 853a589433ad946c6362b260113e77c6 "pdflatex"
   "Relazione.bbl" 1778137980 6248 37de79d9324c0f69e112f4f189fa8137 "biber Relazione"
-  "Relazione.out" 1778138121 10027 42c1abeefb7b28d8e3c5baba39f39550 "pdflatex"
-  "Relazione.run.xml" 1778138121 2341 a3aeab3158afcf997ac94a94f45afe90 "pdflatex"
-  "Relazione.tex" 1778138116 45563 68b2eba1ca6b771dc14d8f1374fbd3d1 ""
-  "Relazione.toc" 1778138121 4752 e126312a135f9ca25d9a9885d8186388 "pdflatex"
-  "c:/Users/Nick/Desktop/IoT_PetTracker/relazione/Relazione.tex" 1778138116 45563 68b2eba1ca6b771dc14d8f1374fbd3d1 ""
+  "Relazione.out" 1778171561 10838 63f0a3d54735d543f2152ed5c1440869 "pdflatex"
+  "Relazione.run.xml" 1778171561 2341 a3aeab3158afcf997ac94a94f45afe90 "pdflatex"
+  "Relazione.tex" 1778171559 50696 044bfa75b3702cb09279a3dc84007250 ""
+  "Relazione.toc" 1778171561 4886 7d27f64acf19731f3dede5febecccec9 "pdflatex"
+  "c:/Users/Nick/Desktop/IoT_PetTracker/relazione/Relazione.tex" 1778171559 50696 044bfa75b3702cb09279a3dc84007250 ""
   "immagini/Logo.pdf" 1773844185 15330 5bc3b136079bbc27fcb2f8cb8b225995 ""
   (generated)
   "Relazione.aux"
