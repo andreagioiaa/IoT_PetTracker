@@ -411,7 +411,7 @@ function getGeofenceStatus(app, boardId, lat, lon) {
  * @param {string|null}  prevStatus  - stato attivo o sleep (normalizzato internamente)
  * @returns {string}                 - nuovo stato attivo
  */
-function computeStatus(app, board, boardId, lat, lon, isTrip, steps, prevStatus) {
+function computeStatus(app, board, boardId, lat, lon, isTrip, steps, prevStatus){
 
     // Normalizza prevStatus sleep → attivo: "a"→"v", "d"→"i", "p"→"s", "z"→"w"
     let effectivePrev = prevStatus;

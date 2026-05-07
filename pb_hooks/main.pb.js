@@ -1,10 +1,17 @@
-// ═══════════════════════════════════════════════════════════════
-//  HOOK PRINCIPALE: Smistamento dati — data_sent_raw
-// ═══════════════════════════════════════════════════════════════
-
 onRecordAfterCreateSuccess((e) => {
-    const utils = require(`${__hooks}/utils.js`);
+    console.log("[DEBUG] Hook data_sent_raw attivato per record " + e.record.id);
 
+    let utils;
+    try {
+        utils = require(`${__hooks}/utils.js`);
+    } catch (err) {
+        console.log("[DEBUG] ERRORE CRITICO: Impossibile caricare utils.js: " + err);
+        e.next();
+        return;
+    }
+
+    console.log('[DEBUG] utils.js caricato correttamente, inizio estrazione dati...');
+    
     const raw       = e.record;
     const imei      = raw.getString("board_id");
     const timestamp = raw.getString("timestamp");
@@ -23,8 +30,9 @@ onRecordAfterCreateSuccess((e) => {
         }
 
         console.log(`[DEBUG] Inizio processing pacchetto | BoardID: ${board.id} | Status: Sleep=${sleep}, Trip=${trip}, Steps=${steps}`);
-
+        
         // ── 1. BATTERIA ──────────────────────────────────────────────────────
+        console.log(`[DEBUG] Salvataggio dati batteria: level=${raw.getInt("battery_percent")}% | charging=${raw.getBool("charging")}`);
         utils.saveBattery(
             e.app,
             board.id,
@@ -50,6 +58,12 @@ onRecordAfterCreateSuccess((e) => {
 
         let currentActivity = activeList.length > 0 ? activeList[0] : null;
         console.log(`[DEBUG] Activity attiva trovata: ${currentActivity ? currentActivity.id : "nessuna"}`);
+
+        // ── STEP 3 anticipato: scarta subito sleep senza activity attiva ─────
+        if (!currentActivity && sleep) {
+            console.log(`[DEBUG] Pacchetto sleep senza activity attiva → scartato`);
+            return;
+        }
 
         // ── STEP 2: Calcolo nuovo stato ──────────────────────────────────────
         // Va fatto PRIMA del risveglio per confrontare col wakeStatus
@@ -78,32 +92,25 @@ onRecordAfterCreateSuccess((e) => {
             );
             const recentClosed = recentList.length > 0 ? recentList[0] : null;
 
-            // Log diagnostico: cosa ha trovato la query di risveglio
             console.log(`[DEBUG] Risveglio query: trovato=${recentClosed ? recentClosed.id : "null"} | status="${recentClosed ? recentClosed.getString("status") : "-"}" | anomaly=${recentClosed ? recentClosed.getBool("anomaly") : "-"} | isSleep=${recentClosed ? utils.SLEEP_STATES.has(recentClosed.getString("status")) : "-"}`);
 
             if (recentClosed && utils.SLEEP_STATES.has(recentClosed.getString("status"))) {
-                const sleepStatus = recentClosed.getString("status");       // es. "p"
-                const wakeStatus  = utils.SLEEP_TO_ACTIVE[sleepStatus];     // es. "p" → "s"
+                const sleepStatus = recentClosed.getString("status");
+                const wakeStatus  = utils.SLEEP_TO_ACTIVE[sleepStatus];
 
-                // Converte SEMPRE il record sleep nel suo attivo corrispondente.
-                // Chiude correttamente il periodo sleep indipendentemente dal nuovo stato.
                 recentClosed.set("status", wakeStatus);
                 e.app.save(recentClosed);
                 console.log(`[DEBUG] Sleep chiuso correttamente: ${sleepStatus} -> ${wakeStatus}`);
 
                 if (wakeStatus === newActiveStatus) {
-                    // Stato conforme: riapre la sessione esistente
                     recentClosed.set("is_active", true);
                     e.app.save(recentClosed);
                     currentActivity = recentClosed;
                     console.log(`[DEBUG] Risveglio conforme: sessione ${recentClosed.id} riaperta in stato "${wakeStatus}"`);
                 } else {
-                    // Stato non conforme: sessione sleep resta chiusa col suo attivo,
-                    // sotto verrà creata una nuova sessione col nuovo stato.
                     console.log(`[DEBUG] Risveglio non conforme: sleep="${sleepStatus}" wake="${wakeStatus}" nuovo="${newActiveStatus}" → nuova sessione`);
                 }
             }
-            // Se anomaly=true → currentActivity resta null → crea nuova sessione sotto
         }
 
         // ── STEP 4: Macchina a stati ─────────────────────────────────────────
@@ -112,7 +119,6 @@ onRecordAfterCreateSuccess((e) => {
             const normalizedPrev = utils.SLEEP_TO_ACTIVE[rawPrevStatus] ?? rawPrevStatus;
 
             if (sleep) {
-                // Dispositivo in sleep: chiude la sessione con lo stato sleep corrispondente
                 const sleepStatus = utils.ACTIVE_TO_SLEEP[newActiveStatus] ?? "z";
                 currentActivity.set("is_active", false);
                 currentActivity.set("end_time",  timestamp);
@@ -122,14 +128,12 @@ onRecordAfterCreateSuccess((e) => {
                 console.log(`[DEBUG] Dispositivo in sleep: sessione chiusa con stato "${sleepStatus}"`);
 
             } else if (newActiveStatus === normalizedPrev) {
-                // Stesso stato: estende la sessione corrente
                 currentActivity.set("total_steps", currentActivity.getInt("total_steps") + steps);
                 currentActivity.set("end_time", timestamp);
                 e.app.save(currentActivity);
                 activeActivity = currentActivity;
 
             } else {
-                // Cambio stato: chiude la sessione corrente e ne apre una nuova
                 console.log(`[DEBUG] Transizione stato: ${normalizedPrev} -> ${newActiveStatus}`);
                 currentActivity.set("is_active", false);
                 currentActivity.set("end_time",  timestamp);
@@ -145,7 +149,6 @@ onRecordAfterCreateSuccess((e) => {
             }
 
         } else if (!sleep) {
-            // Nessuna activity attiva e dispositivo sveglio → crea nuova sessione
             activeActivity = utils.createNewActivity(
                 e.app,
                 board.id,
@@ -154,7 +157,6 @@ onRecordAfterCreateSuccess((e) => {
                 steps
             );
         }
-        // sleep=true e currentActivity=null → dispositivo già in sleep, non fare nulla
 
         // ── 3. POSIZIONI ─────────────────────────────────────────────────────
         if (hasCoords && activeActivity) {
@@ -186,17 +188,24 @@ onRecordAfterCreateSuccess((e) => {
     } catch (err) {
         console.log("[DEBUG] ERRORE CRITICO HOOK: " + err);
     } finally {
+        /*try {
+            e.delete();
+        }  catch (delErr) {
+            console.log("[DEBUG] ERRORE ELIMINAZIONE RECORD: " + delErr);
+        }
+        console.log("[DEBUG] Record raw eliminato con successo da data_sent_raw");
+        */
         e.next();
     }
 }, "data_sent_raw");
 
 
 // ═══════════════════════════════════════════════════════════════
-// WATCHDOG: chiude attività ferme
+// WATCHDOG: chiude attività bloccate in stato attivo da troppo tempo
 // ═══════════════════════════════════════════════════════════════
 
 cronAdd("watchdog_device_silence", "* * * * *", () => {
-    const WATCHDOG_TIMEOUT_MS = 10 * 60 * 1000; // 10 minuti
+    const WATCHDOG_TIMEOUT_MS = 10 * 60 * 1000;
     const oraAttualeMS = Date.now();
 
     try {
@@ -230,10 +239,8 @@ cronAdd("watchdog_device_silence", "* * * * *", () => {
 // ═══════════════════════════════════════════════════════════════
 // CRON MEZZANOTTE: split giornaliero
 // ═══════════════════════════════════════════════════════════════
-
-cronAdd("midnight_sleep_split", "59 21 * * *", () => { // 21:59 UTC = 23:59 ora italiana (CEST)
+cronAdd("midnight_sleep_split", "59 21 * * *", () => {
     const utils = require(`${__hooks}/utils.js`);
-    const SLEEP_TO_ACTIVE_MAP = { d: "i", p: "s", z: "w", a: "v" };
     const WATCHDOG_TIMEOUT_MS = 10 * 60 * 1000;
 
     const italyNowMs  = utils.getItalyTime();
@@ -248,13 +255,20 @@ cronAdd("midnight_sleep_split", "59 21 * * *", () => { // 21:59 UTC = 23:59 ora 
 
     console.log(`[MEZZANOTTE] ora Italia: 23:59 — avvio split giornaliero`);
 
-    const fineGiornoISO   = new Date(italyNow.getFullYear(), italyNow.getMonth(), italyNow.getDate(), 23, 59, 59).toISOString();
-    const inizioGiornoISO = new Date(italyNow.getFullYear(), italyNow.getMonth(), italyNow.getDate() + 1, 0, 0, 0).toISOString();
+    const italyMidnightUTC = new Date(Date.UTC(
+        italyNow.getUTCFullYear(),
+        italyNow.getUTCMonth(),
+        italyNow.getUTCDate() + 1,
+        0, 0, 0
+    ));
+
+    const fineGiornoISO   = new Date(italyMidnightUTC.getTime() - 1000).toISOString(); // 21:59:59 UTC
+    const inizioGiornoISO = italyMidnightUTC.toISOString();                            // 22:00:00 UTC
 
     try {
         const targetActivities = $app.findRecordsByFilter(
             "activities",
-            "is_active = true || (is_active = false && (status = 'd' || status = 'p' || status = 'z' || status = 'a'))",
+            "is_active = true || (is_active = false && anomaly != true && (status = 'd' || status = 'p' || status = 'z' || status = 'a'))",
             "",
             500,
             0
@@ -276,12 +290,11 @@ cronAdd("midnight_sleep_split", "59 21 * * *", () => { // 21:59 UTC = 23:59 ora 
                 const isActive = activity.getBool("is_active");
                 const status   = activity.getString("status");
 
+                // Activity attiva scaduta: il watchdog se ne è già occupato → skip
                 if (isActive) {
                     const elapsed = italyNowMs - lastSeenMs;
                     if (!isNaN(elapsed) && elapsed >= WATCHDOG_TIMEOUT_MS) {
-                        activity.set("is_active", false);
-                        activity.set("anomaly",   true);
-                        $app.save(activity);
+                        console.log(`[MEZZANOTTE] Board ${boardId} scaduta (watchdog) → skip`);
                         return;
                     }
                 }
@@ -289,6 +302,7 @@ cronAdd("midnight_sleep_split", "59 21 * * *", () => { // 21:59 UTC = 23:59 ora 
                 const col = $app.findCollectionByNameOrId("activities");
 
                 if (isActive) {
+                    // Chiude la sessione attiva e apre quella del giorno nuovo
                     activity.set("is_active", false);
                     activity.set("end_time",  fineGiornoISO);
                     $app.save(activity);
@@ -300,10 +314,12 @@ cronAdd("midnight_sleep_split", "59 21 * * *", () => { // 21:59 UTC = 23:59 ora 
                     newRec.set("is_active",  true);
                     newRec.set("status",     status);
                     $app.save(newRec);
+                    console.log(`[MEZZANOTTE] Board ${boardId} attiva → split con status "${status}"`);
 
-                } else if (SLEEP_TO_ACTIVE_MAP[status]) {
-                    const attivo = SLEEP_TO_ACTIVE_MAP[status];
-                    activity.set("status",   attivo);
+                } else if (utils.SLEEP_STATES.has(status)) {
+                    // Chiude il record sleep del giorno corrente e apre quello del giorno nuovo
+                    const wakeStatus = utils.SLEEP_TO_ACTIVE[status];
+                    activity.set("status",   wakeStatus);
                     activity.set("end_time", fineGiornoISO);
                     $app.save(activity);
 
@@ -314,12 +330,15 @@ cronAdd("midnight_sleep_split", "59 21 * * *", () => { // 21:59 UTC = 23:59 ora 
                     newSleep.set("is_active",  false);
                     newSleep.set("status",     status);
                     $app.save(newSleep);
+                    console.log(`[MEZZANOTTE] Board ${boardId} sleep "${status}" → split, sveglia come "${wakeStatus}"`);
                 }
+
             } catch (err) {
-                console.log("Errore board " + boardId + ": " + err);
+                console.log(`[MEZZANOTTE] Errore board ${boardId}: ` + err);
             }
         });
+
     } catch (err) {
-        console.log("Errore Mezzanotte: " + err);
+        console.log("[MEZZANOTTE] Errore generale: " + err);
     }
 });
