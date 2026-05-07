@@ -483,10 +483,10 @@ Il codice è strutturato in quattro livelli principali, per separare le diverse 
 \begin{itemize}
   \item \textbf{Repositories}: accesso ai dati remoti tramite PocketBase SDK,
     fornendo alle schermate dati in tempo reale e pronti all'uso.
-  \item \textbf{Models}: definiscono la struttura dei dati (es. Utente, Posizione) 
+  \item \textbf{Models}: definiscono la struttura dei dati 
     convertendo i record JSON del backend in oggetti Dart.
   \item \textbf{Services}: gestiscono le funzionalità di sistema e le integrazioni esterne 
-    (es. autenticazione, mappe, tracciamento GPS e notifiche).
+    (autenticazione, mappe, tracciamento GPS e notifiche).
   \item \textbf{Screens}: interfaccia utente che si limita a richiedere i dati ai
     repository e a reagire ai loro aggiornamenti.
 \end{itemize}
@@ -594,7 +594,7 @@ basato sulle API di \textit{Nominatim} \cite{nominatim}.
 Quest'ultimo agisce come motore di ricerca che interroga il database 
 cartografico open-source di OpenStreetMap, permettendo di:
 \begin{itemize}
-  \item \textbf{Reverse Geocoding}: tradurre le coordinate GPS in indirizzi testuali completi 
+  \item \textbf{Reverse Geocoding}: tradurre le coordinate GPS in un indirizzo testuale completo 
   (Via, Civico, CAP e Città) per facilitare la lettura all'utente;
   \item \textbf{Forward Geocoding}: consentire all'utente di creare nuove zone inserendo 
   un indirizzo testuale, che il sistema converte automaticamente in coordinate geografiche 
@@ -647,6 +647,8 @@ Nonostante i risultati ottenuti, il sistema presenta alcune limitazioni:
     \item \textbf{Consumo energetico del modem LTE:} la trasmissione dati rappresenta la principale fonte di consumo.
     \item \textbf{Race condition sui pacchetti simultanei:} in caso di ricezione quasi-simultanea di due pacchetti dallo stesso dispositivo, entrambi potrebbero leggere \texttt{pending\_trip = null} prima che il primo abbia completato la scrittura, impedendo la corretta conferma del viaggio. PocketBase non espone transazioni atomiche sui record, rendendo questo scenario non eliminabile per via software; in pratica la frequenza di invio dei pacchetti rende l'evento raro.
 \end{itemize}
+
+\section{Implementazioni Future}
 
 \section{Conclusioni}
 

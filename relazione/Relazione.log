@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (MiKTeX 24.1) (preloaded format=pdflatex 2025.4.18)  6 MAY 2026 17:03
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (MiKTeX 24.1) (preloaded format=pdflatex 2025.4.18)  7 MAY 2026 08:45
 entering extended mode
  restricted \write18 enabled.
  file:line:error style messages enabled.
@@ -722,7 +722,7 @@ Package hyperref Info: Link coloring ON on input line 109.
 \@outlinefile=\write4
 \openout4 = `Relazione.out'.
 
-<immagini/Logo.pdf, id=182, 225.84375pt x 225.84375pt>
+<immagini/Logo.pdf, id=186, 225.84375pt x 225.84375pt>
 File: immagini/Logo.pdf Graphic file (type pdf)
 <use immagini/Logo.pdf>
 Package pdftex.def Info: immagini/Logo.pdf  used on input line 121.
@@ -823,43 +823,43 @@ Overfull \hbox (7.96135pt too wide) in paragraph at lines 448--466
  []
 
 [12] [13]
-Overfull \hbox (5.1001pt too wide) in paragraph at lines 536--542
+Overfull \hbox (5.1001pt too wide) in paragraph at lines 538--544
 \T1/lmtt/m/n/12 Stream<Positions>\T1/lmr/m/n/12 ) a cui le scher-ma-te si sot-to-scri-vo-no tra-mi-te una \T1/lmtt/m/n/12 StreamSubscription\T1/lmr/m/n/12 . 
  []
 
-[14] [15] [16]
-Overfull \hbox (14.20894pt too wide) in paragraph at lines 652--652
+[14] [15] [16] [17]
+Overfull \hbox (14.20894pt too wide) in paragraph at lines 658--658
 \T1/lmtt/m/n/12 LilyGo -[] Modem -[] Series / blob / main / datasheet / LTE % 20Antenna % 20Specifications .
  []
 
 
-Overfull \hbox (14.20894pt too wide) in paragraph at lines 652--652
+Overfull \hbox (14.20894pt too wide) in paragraph at lines 658--658
 \T1/lmtt/m/n/12 LilyGo -[] Modem -[] Series / blob / main / datasheet / GPS % 20Antenna % 20Specifications .
  []
 
-[17] (Relazione.aux)
+[18] (Relazione.aux)
  ***********
 LaTeX2e <2023-11-01> patch level 1
 L3 programming layer <2024-01-04>
  ***********
 Package rerunfilecheck Info: File `Relazione.out' has not changed.
-(rerunfilecheck)             Checksum: 7B2FF72A842E5D61D1703F6F6739DE04;9871.
+(rerunfilecheck)             Checksum: 69D51560A50D64A0C718BBABB6740459;10131.
 Package logreq Info: Writing requests to 'Relazione.run.xml'.
 \openout1 = `Relazione.run.xml'.
 
  ) 
 Here is how much of TeX's memory you used:
- 22767 strings out of 474486
- 400574 string characters out of 5744227
+ 22770 strings out of 474486
+ 400603 string characters out of 5744227
  1943542 words of memory out of 5000000
- 44681 multiletter control sequences out of 15000+600000
+ 44682 multiletter control sequences out of 15000+600000
  615075 words of font info for 65 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  69i,11n,81p,1245b,1638s stack positions out of 10000i,1000n,20000p,200000b,200000s
 <C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmbx10.pfb><C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmbx12.pfb><C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmbxi10.pfb><C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmcsc10.pfb><C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmmi12.pfb><C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmr10.pfb><C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmr12.pfb><C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmri12.pfb><C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmsy10.pfb><C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmtk10.pfb><C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmtt12.pfb>
-Output written on Relazione.pdf (18 pages, 370492 bytes).
+Output written on Relazione.pdf (19 pages, 372514 bytes).
 PDF statistics:
- 470 PDF objects out of 1000 (max. 8388607)
- 99 named destinations out of 1000 (max. 500000)
- 366 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 480 PDF objects out of 1000 (max. 8388607)
+ 101 named destinations out of 1000 (max. 500000)
+ 374 words of extra memory for PDF output out of 10000 (max. 10000000)
 
