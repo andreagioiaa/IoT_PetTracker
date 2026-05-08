@@ -1,36 +1,35 @@
 // ═══════════════════════════════════════════════════════════════
 // File: utils.js
+// Funzioni helper: board, batteria, posizioni, notifiche, geofence, computeStatus
 // ═══════════════════════════════════════════════════════════════
-//
-// STATI ATTIVI  : i (inside), v (trip/viaggio), s (search), w (walk)
-// STATI SLEEP   : d (←i), a (←v), p (←s), z (←w)
 //
 // MACCHINA A STATI (priorità: trip → inside → alarm):
 //
-//  1. trip=true                      → "v"  (sempre, solo dopo conferma 2° pacchetto)
-//  2. trip=false && era "v" o "a":
-//       steps==0 (ancora fermo)      → rimane "v"
-//       steps>0  (ha ripreso)        → ricalcola geofence → i/s/w
-//  3. inside=true                    → "i"
-//  4. inside=false && alarm=true     → "s"
-//  5. inside=false && alarm=false    → "w"
+//  1. trip=true && steps==0              → "v"
+//  2. trip=false && era "v":
+//       steps==0 (ancora fermo)          → rimane "v"
+//       steps>0  (ha ripreso)            → ricalcola geofence → i/s/w
+//  3. inside=true                        → "i"
+//  4. inside=false && alarm=true         → "s"
+//  5. inside=false && alarm=false        → "w"
 //
 // NOTE:
-//  - getBoardRecord va chiamata UNA SOLA VOLTA per pacchetto e passata ai metodi
+//  - getBoardRecord va chiamata UNA SOLA VOLTA per pacchetto
 //  - getItalyTime() calcola l'offset Italia dinamicamente (ora legale/solare)
-//  - saveBattery: salva il record battery_data E controlla notifiche
+//  - saveBattery: salva battery_data E controlla notifiche
 //  - createNewActivity: crea e salva una nuova activity, ritorna il record
+//  - notifyBoardUsers: usa /send-batch → 1 chiamata HTTP per tutti i token
 //
 // ═══════════════════════════════════════════════════════════════
 
-const BRIDGE_URL           = "http://127.0.0.1:3000/send";
-
-// Mappe bidirezionali sleep ↔ attivo
-const SLEEP_TO_ACTIVE = { d: "i", a: "v", p: "s", z: "w" };
-const ACTIVE_TO_SLEEP = { i: "d", v: "a", s: "p", w: "z" };
-
-const ACTIVE_STATES = new Set(["i", "v", "s", "w"]);
-const SLEEP_STATES  = new Set(["d", "a", "p", "z"]);
+const {
+    BRIDGE_URL_BATCH,
+    SLEEP_TO_ACTIVE,
+    ACTIVE_TO_SLEEP,
+    ACTIVE_STATES,
+    SLEEP_STATES,
+    GEOFENCE_STATES,
+} = require(`${__hooks}/constants.js`);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ORA ITALIANA DINAMICA
@@ -46,15 +45,13 @@ function getItalyTime() {
     const now  = new Date();
     const year = now.getUTCFullYear();
 
-    // Ultima domenica di marzo (inizio ora legale)
     const lastSundayMarch = new Date(Date.UTC(year, 2, 31));
     lastSundayMarch.setUTCDate(31 - lastSundayMarch.getUTCDay());
 
-    // Ultima domenica di ottobre (fine ora legale)
     const lastSundayOctober = new Date(Date.UTC(year, 9, 31));
     lastSundayOctober.setUTCDate(31 - lastSundayOctober.getUTCDay());
 
-    const isDST   = now >= lastSundayMarch && now < lastSundayOctober;
+    const isDST    = now >= lastSundayMarch && now < lastSundayOctober;
     const offsetMs = isDST ? 2 * 60 * 60 * 1000 : 1 * 60 * 60 * 1000;
 
     return now.getTime() + offsetMs;
@@ -67,8 +64,7 @@ function getItalyTime() {
 /**
  * Restituisce il record board cercando prima per campo "board" (IMEI),
  * poi come fallback per id record PocketBase.
- * Chiamare questa funzione UNA SOLA VOLTA per pacchetto e passare
- * il risultato ai metodi successivi.
+ * Chiamare UNA SOLA VOLTA per pacchetto e passare il risultato ai metodi successivi.
  */
 function getBoardRecord(app, boardId) {
     try {
@@ -83,7 +79,6 @@ function getBoardRecord(app, boardId) {
 
 /**
  * Restituisce l'array di userId collegati alla board.
- * Accetta il record board già letto per evitare query ridondanti.
  */
 function getBoardUsers(board) {
     try {
@@ -98,7 +93,6 @@ function getBoardUsers(board) {
 
 /**
  * Restituisce il valore del campo alarm sulla board.
- * Accetta il record board già letto per evitare query ridondanti.
  */
 function getBoardAlarm(board) {
     try {
@@ -133,7 +127,6 @@ function salvaEvento(app, boardId, type, detail) {
 
 /**
  * Salva il record battery_data e controlla se inviare notifica.
- * Accetta il record board già letto per evitare query ridondanti.
  *
  * @param {object}  app
  * @param {string}  boardId
@@ -158,9 +151,8 @@ function saveBattery(app, boardId, timestamp, battery, batteryPercent, isChargin
         console.log(`[BATTERY SAVE] board=${boardId} errore: ` + err);
     }
 
-    // 2. Controlla e invia notifica se lo stato è cambiato
-    // Se board non è passata, skip delle notifiche (es. pacchetto pending
-    // processato prima di avere il contesto completo)
+    // 2. Controlla e invia notifica se lo stato è cambiato.
+    // Se board non è passata, skip delle notifiche.
     if (!board) return;
 
     try {
@@ -188,7 +180,7 @@ function saveBattery(app, boardId, timestamp, battery, batteryPercent, isChargin
                 const notificationMap = {
                     "carica":   { title: "⚡ Batteria in carica", body: "Batteria in caricamento" },
                     "critical": { title: "🪫 Batteria critica",   body: `Livello critico: ${batteryPercent}% — caricare subito` },
-                    "low":      { title: "🔋 Batteria bassa",     body: `Livello basso: ${batteryPercent}%` }
+                    "low":      { title: "🔋 Batteria bassa",     body: `Livello basso: ${batteryPercent}%` },
                 };
                 const content = notificationMap[newStatus] || { title: "🔋 Stato Batteria", body: `Livello: ${batteryPercent}%` };
                 notifyBoardUsers(app, board, boardId, content.title, content.body);
@@ -206,35 +198,33 @@ function saveBattery(app, boardId, timestamp, battery, batteryPercent, isChargin
 
 /**
  * Crea e salva una nuova activity con is_active=true.
- * Ritorna il record creato.
  *
  * @param {object} app
- * @param {string} boardId
+ * @param {string} boardRecordId  - id PocketBase della board (non IMEI)
  * @param {string} timestamp
- * @param {string} status       - stato attivo (i, v, s, w)
+ * @param {string} status         - stato attivo (i, v, s, w)
  * @param {number} steps
- * @returns {object}            - il record activity creato
+ * @returns {object}              - il record activity creato
  */
 function createNewActivity(app, boardRecordId, timestamp, status, steps) {
     const col = app.findCollectionByNameOrId("activities");
     const rec = new Record(col);
-    rec.set("board_id",    boardRecordId); // Deve essere l'id di PocketBase (es. 'u1p2sh...')[cite: 1, 2]
+    rec.set("board_id",    boardRecordId);
     rec.set("start_time",  timestamp);
     rec.set("end_time",    timestamp);
     rec.set("is_active",   true);
     rec.set("status",      status);
     rec.set("total_steps", steps);
     app.save(rec);
-    console.log(`[DEBUG] Activity CREATA: ${rec.id} | Status: ${status}`);
+    console.log(`[ACTIVITY] Creata: ${rec.id} | status: ${status}`);
     return rec;
 }
 
 /**
  * Salva una posizione GPS agganciandola ad una activity.
- * Se activityId è null, salva la posizione senza aggancio.
  *
  * @param {object}      app
- * @param {string}      boardId
+ * @param {string}      boardRecordId
  * @param {string}      timestamp
  * @param {number}      lat
  * @param {number}      lon
@@ -250,8 +240,9 @@ function savePosition(app, boardRecordId, timestamp, lat, lon, activityId) {
         recP.set("lon",       lon);
         if (activityId) recP.set("activity", activityId);
         app.save(recP);
+        console.log(`[POSITION] Salvata per activity: ${activityId ?? "nessuna"}`);
     } catch (err) {
-        console.log("[DEBUG] Errore salvataggio posizione: " + err);
+        console.log("[POSITION ERRORE] " + err);
     }
 }
 
@@ -259,20 +250,9 @@ function savePosition(app, boardRecordId, timestamp, lat, lon, activityId) {
 // NOTIFICHE FCM
 // ─────────────────────────────────────────────────────────────────────────────
 
-function getTokenUsers(app, userId) {
-    try {
-        const user = app.findRecordById("users", userId);
-        if (!user) return null;
-        const tokenString = user.getString("tokenFCM");
-        if (!tokenString) return null;
-        const tokens = JSON.parse(tokenString);
-        return Array.isArray(tokens) && tokens.length > 0 ? tokens : null;
-    } catch (err) {
-        console.log(`[GET TOKEN] utente ${userId} errore: ` + err);
-        return null;
-    }
-}
-
+/**
+ * Rimuove un token FCM invalido dal record utente.
+ */
 function removeToken(app, userId, tokenToRemove) {
     try {
         const user = app.findRecordById("users", userId);
@@ -294,7 +274,17 @@ function removeToken(app, userId, tokenToRemove) {
 
 /**
  * Invia una notifica push a TUTTI gli utenti collegati alla board.
- * Accetta il record board già letto per evitare query ridondanti.
+ *
+ * Ottimizzazioni:
+ *  - 1 query DB per tutti gli utenti invece di N query separate
+ *  - 1 chiamata HTTP batch al bridge invece di N chiamate singole
+ *  - Il bridge parallelizza internamente con Promise.all
+ *
+ * @param {object} app
+ * @param {object} board    - record board già letto
+ * @param {string} boardId
+ * @param {string} title
+ * @param {string} body
  */
 function notifyBoardUsers(app, board, boardId, title, body) {
     try {
@@ -304,33 +294,76 @@ function notifyBoardUsers(app, board, boardId, title, body) {
             return;
         }
 
-        userIds.forEach(userId => {
+        // ── 1 query per tutti gli utenti ─────────────────────────────────────
+        const users = app.findRecordsByFilter(
+            "users",
+            `id in (${userIds.map(id => `"${id}"`).join(",")})`,
+            "", 0, 0
+        );
+
+        if (!users || users.length === 0) {
+            console.log(`[NOTIFY] Nessun record utente trovato per board=${boardId}`);
+            return;
+        }
+
+        // Raccoglie tutti i token e mappa token → userId per cleanup
+        const allTokens    = [];
+        const tokenUserMap = {}; // token → userId
+
+        users.forEach(user => {
             try {
-                const fcmTokens = getTokenUsers(app, userId);
-                if (!fcmTokens || fcmTokens.length === 0) return;
-
-                fcmTokens.forEach(token => {
-                    const response = $http.send({
-                        url:     BRIDGE_URL,
-                        method:  "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body:    JSON.stringify({
-                            token: token,
-                            title: title,
-                            body:  `Board ${boardId}: ${body}`
-                        })
-                    });
-
-                    // 404 = UNREGISTERED, 400 = INVALID_ARGUMENT → rimuovi token
-                    if (response.statusCode === 404 || response.statusCode === 400) {
-                        console.log(`[FCM] Token non valido utente ${userId}. Rimozione.`);
-                        removeToken(app, userId, token);
-                    }
+                const tokenString = user.getString("tokenFCM");
+                if (!tokenString) return;
+                const tokens = JSON.parse(tokenString);
+                if (!Array.isArray(tokens) || tokens.length === 0) return;
+                tokens.forEach(token => {
+                    allTokens.push(token);
+                    tokenUserMap[token] = user.id;
                 });
-            } catch (uErr) {
-                console.log(`[NOTIFY] Errore utente ${userId}: ` + uErr);
+            } catch (parseErr) {
+                console.log(`[NOTIFY] Errore parsing token utente ${user.id}: ` + parseErr);
             }
         });
+
+        if (allTokens.length === 0) {
+            console.log(`[NOTIFY] Nessun token FCM valido per board=${boardId}`);
+            return;
+        }
+
+        // ── 1 chiamata HTTP batch al bridge ───────────────────────────────────
+        const response = $http.send({
+            url:     BRIDGE_URL_BATCH,
+            method:  "POST",
+            headers: { "Content-Type": "application/json" },
+            body:    JSON.stringify({
+                tokens: allTokens,
+                title:  title,
+                body:   `Board ${boardId}: ${body}`
+            })
+        });
+
+        console.log(`[NOTIFY] Batch inviato per board=${boardId} | token=${allTokens.length} | status=${response.statusCode}`);
+
+        // ── Cleanup token invalidi segnalati dal bridge ───────────────────────
+        if (response.statusCode === 200) {
+            try {
+                const data         = JSON.parse(response.body);
+                const invalidList  = data.invalidTokens || [];
+
+                if (invalidList.length > 0) {
+                    console.log(`[NOTIFY] Token invalidi da rimuovere: ${invalidList.length}`);
+                    invalidList.forEach(token => {
+                        const userId = tokenUserMap[token];
+                        if (userId) removeToken(app, userId, token);
+                    });
+                }
+            } catch (parseErr) {
+                console.log(`[NOTIFY] Errore parsing risposta bridge: ` + parseErr);
+            }
+        } else {
+            console.log(`[NOTIFY] Bridge ha risposto con status ${response.statusCode}`);
+        }
+
     } catch (err) {
         console.log("[NOTIFY ERRORE] " + err);
     }
@@ -371,7 +404,7 @@ function getGeofenceStatus(app, boardId, lat, lon) {
 
         for (const fence of geofences) {
             try {
-                let raw = typeof fence.get === "function" ? fence.get("vertices") : fence.vertices;
+                let raw      = typeof fence.get === "function" ? fence.get("vertices") : fence.vertices;
                 let vertices = raw;
 
                 if (typeof vertices === "string") {
@@ -411,7 +444,7 @@ function getGeofenceStatus(app, boardId, lat, lon) {
  * @param {string|null}  prevStatus  - stato attivo o sleep (normalizzato internamente)
  * @returns {string}                 - nuovo stato attivo
  */
-function computeStatus(app, board, boardId, lat, lon, isTrip, steps, prevStatus){
+function computeStatus(app, board, boardId, lat, lon, isTrip, steps, prevStatus) {
 
     // Normalizza prevStatus sleep → attivo: "a"→"v", "d"→"i", "p"→"s", "z"→"w"
     let effectivePrev = prevStatus;
@@ -420,8 +453,8 @@ function computeStatus(app, board, boardId, lat, lon, isTrip, steps, prevStatus)
     }
 
     // ── 1. TRIP ──────────────────────────────────────────────────────────────
-    // Raggiunto solo per trip=true confermato (secondo pacchetto consecutivo).
-    if (isTrip && steps === 0) {    //Aggiunta condizione steps==0 per evitare falsi positivi trip quando l'animale è già in movimento
+    // steps==0 evita falsi positivi quando l'animale è già in movimento
+    if (isTrip && steps === 0) {
         if (effectivePrev !== "v") {
             notifyBoardUsers(app, board, boardId, "🚗 Animale in viaggio", "L'animale è su un veicolo");
             console.log(`[TRIP] board=${boardId} ingresso in viaggio (era: ${effectivePrev})`);
@@ -430,28 +463,24 @@ function computeStatus(app, board, boardId, lat, lon, isTrip, steps, prevStatus)
     }
 
     // ── 2. ERA IN VIAGGIO (trip=false) ───────────────────────────────────────
-    // "a" normalizzato a "v": steps==0 mantiene "v" anche dopo trip-sleep.
+    // steps==0 mantiene "v" anche dopo trip-sleep
     if (effectivePrev === "v") {
         if (steps === 0) {
             console.log(`[TRIP] board=${boardId} trip=false ma steps==0, manteniamo "v"`);
             return "v";
         }
         console.log(`[TRIP] board=${boardId} uscita viaggio con steps=${steps}, ricalcolo geofence`);
-        // effectivePrev rimane "v" così i blocchi inside/outside sanno che
-        // l'animale è appena sceso dal veicolo
     }
 
     // ── 3. INSIDE / OUTSIDE ──────────────────────────────────────────────────
     const hasCoords = !(lat === 0.0 && lon === 0.0);
-    if (!hasCoords) {
-        return effectivePrev ?? "w";
-    }
+    if (!hasCoords) return effectivePrev ?? "w";
 
     const geoResult = getGeofenceStatus(app, boardId, lat, lon);
 
     if (geoResult === "no_geofence") {
-        const geofenceStates = new Set(["i", "s"]);
-        if (effectivePrev && geofenceStates.has(effectivePrev)) {
+        // GEOFENCE_STATES = Set["i", "s"] — stati che richiedono geofence attiva
+        if (effectivePrev && GEOFENCE_STATES.has(effectivePrev)) {
             console.log(`[GEOFENCE] board=${boardId} nessuna geofence, stato "${effectivePrev}" non valido → "w"`);
             notifyBoardUsers(app, board, boardId, "Nessuna zona configurata", "Le zone di monitoraggio sono state disattivate");
             return "w";
@@ -515,13 +544,21 @@ function computeStatus(app, board, boardId, lat, lon, isTrip, steps, prevStatus)
 // ─────────────────────────────────────────────────────────────────────────────
 
 module.exports = {
-    SLEEP_TO_ACTIVE, ACTIVE_TO_SLEEP, ACTIVE_STATES, SLEEP_STATES,
+    SLEEP_TO_ACTIVE,
+    ACTIVE_TO_SLEEP,
+    ACTIVE_STATES,
+    SLEEP_STATES,
+    GEOFENCE_STATES,
     getItalyTime,
-    salvaEvento,
+    getBoardRecord,
+    getBoardUsers,
+    getBoardAlarm,
     saveBattery,
     createNewActivity,
     savePosition,
+    salvaEvento,
     notifyBoardUsers,
-    pointInPolygon, getGeofenceStatus, computeStatus,
-    getBoardRecord, getBoardUsers, getBoardAlarm,
+    pointInPolygon,
+    getGeofenceStatus,
+    computeStatus,
 };
