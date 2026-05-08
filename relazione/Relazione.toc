@@ -39,14 +39,14 @@
 \contentsline {subsubsection}{\numberline {5.6.1}Analisi delle Attività}{14}{subsubsection.5.6.1}%
 \contentsline {subsubsection}{\numberline {5.6.2}Mappe in Tempo Reale}{14}{subsubsection.5.6.2}%
 \contentsline {subsubsection}{\numberline {5.6.3}Gestione delle Zone Sicure}{15}{subsubsection.5.6.3}%
-\contentsline {subsubsection}{\numberline {5.6.4}Stato della batteria}{15}{subsubsection.5.6.4}%
-\contentsline {section}{\numberline {6}Sistema di Notifiche Push}{15}{section.6}%
+\contentsline {subsubsection}{\numberline {5.6.4}Stato della batteria}{16}{subsubsection.5.6.4}%
+\contentsline {section}{\numberline {6}Sistema di Notifiche Push}{16}{section.6}%
 \contentsline {subsection}{\numberline {6.1}Analisi dei Vincoli Tecnologici: Incompatibilità Goja e Firebase}{16}{subsection.6.1}%
-\contentsline {subsection}{\numberline {6.2}Architettura del FCM Bridge}{16}{subsection.6.2}%
-\contentsline {subsection}{\numberline {6.3}Logica di Invio e Trigger}{16}{subsection.6.3}%
-\contentsline {subsection}{\numberline {6.4}Permessi e Localizzazione}{17}{subsection.6.4}%
-\contentsline {section}{\numberline {7}Test e Risultati}{17}{section.7}%
-\contentsline {section}{\numberline {8}Limiti del Sistema}{17}{section.8}%
-\contentsline {section}{\numberline {9}Implementazioni Future}{18}{section.9}%
-\contentsline {section}{\numberline {10}Conclusioni}{18}{section.10}%
-\contentsline {section}{Riferimenti bibliografici}{19}{section.10}%
+\contentsline {subsection}{\numberline {6.2}Architettura del FCM Bridge}{17}{subsection.6.2}%
+\contentsline {subsection}{\numberline {6.3}Logica di Invio e Trigger}{17}{subsection.6.3}%
+\contentsline {subsection}{\numberline {6.4}Permessi e Localizzazione}{18}{subsection.6.4}%
+\contentsline {section}{\numberline {7}Test e Risultati}{18}{section.7}%
+\contentsline {section}{\numberline {8}Limiti del Sistema}{18}{section.8}%
+\contentsline {section}{\numberline {9}Implementazioni Future}{19}{section.9}%
+\contentsline {section}{\numberline {10}Conclusioni}{19}{section.10}%
+\contentsline {section}{Riferimenti bibliografici}{20}{section.10}%

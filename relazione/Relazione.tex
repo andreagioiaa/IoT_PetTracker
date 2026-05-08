@@ -425,12 +425,22 @@ Questa implementazione riflette i principi del Modello IoTWF in due punti chiave
 
 \section{Front-end e Applicazione Mobile}
 
-L'applicazione mobile è stata sviluppata in Flutter \cite{flutter}, un framework
-cross-platform che permette di produrre un'unica base di codice per Android e iOS.
-La comunicazione con il backend avviene tramite il PocketBase SDK ufficiale per
-\texttt{Dart}, che gestisce internamente le chiamate REST e i meccanismi di autenticazione.
+L'applicazione mobile è stata sviluppata 
+in \textit{Flutter} \cite{flutter}, un framework
+cross-platform che consente di produrre un'unica 
+base di codice per Android e iOS.
+I test sono stati condotti \textbf{esclusivamente su 
+ambiente Android} a causa di vincoli tecnici, 
+tra cui l'assenza di postazioni di lavoro con macOS, 
+requisito necessario per il processo di build in ambiente Apple, 
+e la mancanza di una licenza \textit{Apple Developer Program}, 
+indispensabile per garantire la persistenza dell'applicazione 
+su dispositivo fisico oltre il limite di sette 
+giorni previsto per i profili gratuiti.
+La comunicazione con il backend avviene tramite 
+il PocketBase SDK ufficiale per \texttt{Dart}, 
+che gestisce le chiamate REST e i meccanismi di autenticazione.
 
-A differenza della natura multi-piattaforma del framework, i test sono stati condotti esclusivamente su ambiente Android. Tale decisione è stata dettata da vincoli tecnici: l'assenza di postazioni di lavoro equipaggiate con macOS, requisito necessario per il processo di build in ambiente Apple, e la mancanza di una licenza \textit{Apple Developer Program}, necessaria per garantire la persistenza dell'applicazione sul dispositivo fisico oltre il limite di sette giorni previsto per i profili gratuiti.
 
 \subsection{Architettura a livelli}
 
@@ -574,6 +584,25 @@ garantendo l'immediata visibilità dell'intero tragitto.
 Inoltre, la schermata ripropone le statistiche di passi, chilometri e durata, 
 ricalcolate specificamente per l'attività selezionata.
 
+\begin{figure}[htbp]
+    \centering
+    % Prima immagine (Sinistra)
+    \begin{subfigure}[b]{0.47\textwidth}
+        \centering
+        \includegraphics[width=\textwidth, height=8cm, keepaspectratio]{Immagini/Capitolo_5/photo_6.jpg}
+        \caption{Visualizzazione di tutte le attività.}
+        \label{fig:activity_list}
+    \end{subfigure}
+    \hfill 
+    % Seconda immagine (Destra)
+    \begin{subfigure}[b]{0.47\textwidth}
+        \centering
+        \includegraphics[width=\textwidth, height=8cm, keepaspectratio]{Immagini/Capitolo_5/photo_3.jpg}
+        \caption{Dettagli di un'attività.}
+        \label{fig:a_form}
+    \end{subfigure}
+\end{figure}
+
 \subsubsection{Mappe in Tempo Reale}
 
 L’app utilizza mappe interattive sviluppate con \texttt{flutter\_map}, 
@@ -617,7 +646,7 @@ verso la sua posizione o per segnalarne il ritrovamento disattivando così l'all
 
 Dopo l’inserimento di un indirizzo (manuale o GPS) o 
 la selezione di una zona dalla pagina di geofencing,
-la creazione e modifica delle aree avvengono tramite \texttt{polygon\_editor.dart}.
+la creazione e modifica delle aree avviene tramite \texttt{polygon\_editor.dart}.
 L’utente può definire il perimetro toccando lo schermo per aggiungere i vertici.
 L'interfaccia è progettata per essere estremamente flessibile, 
 consentendo all'utente non solo di aggiungere o annullare i vertici, 
@@ -626,11 +655,39 @@ Oltre a richiedere un minimo di tre vertici per formare una figura geometrica ch
 un'area può essere creata solo se rispetta due controlli di validità:
 
 \begin{itemize}
-    \item Il \textbf{baricentro dell'area} non deve esseretroppo distante dall'indirizzo selezionato, 
+    \item Il \textbf{baricentro dell'area} non deve essere troppo distante dall'indirizzo selezionato, 
     impedendo così la creazione di zone a più di 50 metri dal segnaposto reale.
-    \item Non deve esserci \textbf{alcuna sovrapposizione con zone già esistenti} al fine di garantire 
+    \item Non deve esserci alcuna \textbf{sovrapposizione con zone già esistenti} al fine di garantire 
     l'univocità dei perimetri ed evitare conflitti logici durante il tracciamento.
 \end{itemize}
+
+\begin{figure}[htbp]
+    \centering
+    % Prima immagine (Sinistra)
+    \begin{subfigure}[b]{0.31\textwidth}
+        \centering
+        \includegraphics[width=\textwidth, height=8cm, keepaspectratio]{Immagini/Capitolo_5/photo_5.jpg}
+        \caption{Scelta dell'inserimento.}
+        \label{fig:area_choose}
+    \end{subfigure}
+    \hfill 
+    % Seconda immagine (Centro)
+    \begin{subfigure}[b]{0.31\textwidth}
+        \centering
+        \includegraphics[width=\textwidth, height=8cm, keepaspectratio]{Immagini/Capitolo_5/photo_4.jpg}
+        \caption{Compilazione indirizzo.}
+        \label{fig:area_form}
+    \end{subfigure}
+    \hfill 
+    % Terza immagine (Destra)
+    \begin{subfigure}[b]{0.31\textwidth}
+        \centering
+        \includegraphics[width=\textwidth, height=8cm, keepaspectratio]{Immagini/Capitolo_5/photo_2.jpg}
+        \caption{Disegno dell'area.}
+        \label{fig:area_mappa}
+    \end{subfigure}
+    \label{fig:creazione_area}
+\end{figure}
 
 \subsubsection{Stato della batteria}
 
@@ -646,8 +703,6 @@ l'interfaccia transita automaticamente in uno stato dedicato.
 Il sistema elabora ... \textbf{DA FINIRE QUANDO FAREMO CON TUTTI} ...  
 per fornire all'utente una stima in giorni dell'autonomia rimanente,
 solo quando il dispositivo non è in ricarica.
-
-
 
 \section{Sistema di Notifiche Push}
 L'implementazione di un sistema di notifiche push è fondamentale per un dispositivo di tracciamento animali, in quanto permette di avvisare tempestivamente l'utente in caso di pericoli (uscita dal perimetro sicuro) o problemi tecnici (batteria scarica).
@@ -695,27 +750,29 @@ Watchdog               & Silenzio $>$ 10 minuti                                 
 
 \subsection{Permessi e Localizzazione}
 
-Al primo avvio, l'app mostra un dialog personalizzato che spiega 
-all'utente il motivo della richiesta del permesso, 
-prima di invocare la richiesta di sistema. 
-Una volta ottenuto il consenso, il token FCM del dispositivo 
-viene sincronizzato con il profilo utente su PocketBase, 
-nel campo \texttt{tokenFCM} modellato come una lista, 
-permettendo all'utente di ricevere notifiche su più dispositivi contemporaneamente. 
-Prima del salvataggio, un controllo di duplicazione verifica che il token del dispositivo 
-corrente non sia già presente nella lista, evitando ricezioni di notifiche ridondanti.
+Al primo avvio, l’app mostra un \textit{dialog} personalizzato 
+per spiegare le finalità del monitoraggio della posizione 
+dell’utente prima di attivare la richiesta di sistema. 
+Una volta concesso il permesso, viene verificata che 
+l'antenna GPS del dispositivo sia effettivamente accesa. 
+Se entrambi i requisiti sono soddisfatti, 
+viene aggiornata una variabile globale 
+che sblocca il recupero delle coordinate ad alta precisione. 
+Infine, per evitare di riproporre il \textit{pop-up} ai successivi avvii, 
+viene salvata localmente tramite \texttt{SharedPreferences}, 
+un'apposita variabile booleana che funge da indicatore 
+dell'avvenuta lettura dell'informativa.
 
-Analogamente alla gestione delle notifiche, 
-l'app mostra al primo avvio un dialog personalizzato per spiegare 
-le finalità del monitoraggio della poszione dell'utente 
-prima di attivare la richiesta di sistema. 
-Il consenso ottenuto viene poi incrociato con l'effettivo stato 
-dell'antenna GPS tramite un controllo centralizzato, 
-che aggiorna una variabile di stato globale per abilitare 
-il recupero della posizione con alta precisione. 
-Infine, l'utilizzo di SharedPreferences permette 
-di memorizzare l'avvenuta visualizzazione dell'informativa, 
-evitando che il pop-up esplicativo appaia ripetutamente ad ogni avvio dell'applicazione.
+Un approccio del tutto analogo viene addottato per la gestione delle notifiche. 
+Una volta ottenuto il consenso, viene creato e salvato un \textbf{token FCM},
+ovvero un identificativo univoco del dispositivo. 
+Questo viene prima salvato localmente e poi sincronizzato 
+con il profilo utente su PocketBase 
+all'interno del campo \texttt{tokenFCM}, modellato come una lista, 
+permettendo all’utente di ricevere le allerte su più dispositivi contemporaneamente. 
+Prima del salvataggio, un controllo di duplicazione verifica che il \textit{token} 
+del dispositivo corrente non sia già presente nella lista, 
+evitando così la ricezione di notifiche ridondanti.
 
 \section{Test e Risultati}
 
