@@ -527,8 +527,10 @@ La logica di geofencing è implementata anche dal lato client tramite l'algoritm
 definito da una lista di vertici, l'algoritmo traccia un raggio orizzontale dal punto
 verso l'infinito e conta le intersezioni con i lati del poligono, se il numero è dispari
 indica che il punto è interno al poligono, altrimenti è esterno. 
-Questa scelta progettuale permette di gestire recinti virtuali di qualsiasi forma, 
-adattandosi efficacemente ai confini del mondo reale.
+L'implementazione locale di questo algoritmo serve principalmente a evitare 
+un numero eccessivo di chiamate di rete verso il server. 
+Inoltre, l'esecuzione sul dispositivo permette di gestire funzionalità 
+visive specifiche dell'interfaccia, distinte dalle logiche di competenza del \textit{backend}.
 
 Le zone vengono recuperate dalla collezione \texttt{geofences} su PocketBase, dove
 ogni record memorizza il nome della zona, i dati dell'indirizzo e la lista dei vertici
