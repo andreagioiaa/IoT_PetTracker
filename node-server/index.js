@@ -74,7 +74,7 @@ app.post("/send", async (req, res) => {
 //     { token, success: true,  response: "..." },
 //     { token, success: false, code: "messaging/..." }
 //   ],
-//   invalidTokens: ["token1", "token2"]  ← da rimuovere dal DB
+//   invalidTokens: ["token1", "token2"]  <- da rimuovere dal DB
 // }
 //
 // ─────────────────────────────────────────────────────────────────────────────

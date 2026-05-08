@@ -4,7 +4,7 @@
 // ═══════════════════════════════════════════════════════════════
 //
 // STATI ATTIVI : i (inside), v (trip/viaggio), s (search), w (walk)
-// STATI SLEEP  : d (←i),    a (←v),           p (←s),    z (←w)
+// STATI SLEEP  : d (<-i),    a (<-v),           p (<-s),    z (<-w)
 //
 // ═══════════════════════════════════════════════════════════════
 
@@ -24,7 +24,7 @@ const ACTIVE_STATES   = new Set(["i", "v", "s", "w"]);
 const SLEEP_STATES    = new Set(["d", "a", "p", "z"]);
 
 // Stati che richiedono una geofence attiva per essere validi.
-// Se non c'è geofence e lo stato corrente è uno di questi → fallback a "w"
+// Se non c'è geofence e lo stato corrente è uno di questi -> fallback a "w"
 const GEOFENCE_STATES = new Set(["i", "s"]);
 
 module.exports = {

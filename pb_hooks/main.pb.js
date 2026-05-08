@@ -9,7 +9,6 @@
 //
 // ═══════════════════════════════════════════════════════════════
 
-
 // ═══════════════════════════════════════════════════════════════
 // HOOK: Smistamento dati — data_sent_raw
 // ═══════════════════════════════════════════════════════════════
@@ -169,10 +168,10 @@ cronAdd("watchdog_device_silence", "* * * * *", () => {
 // CRON MEZZANOTTE: split giornaliero a mezzanotte italiana
 //
 // Schedulato su "59 21,22 * * *" per coprire ora legale e solare:
-//  - Estate CEST (UTC+2): scatta alle 21:59 UTC = 23:59 italiana ✓
-//                         scatta alle 22:59 UTC = 00:59 italiana → skip
-//  - Inverno CET (UTC+1): scatta alle 22:59 UTC = 23:59 italiana ✓
-//                         scatta alle 21:59 UTC = 22:59 italiana → skip
+//  - Estate CEST (UTC+2): scatta alle 21:59 UTC = 23:59 italiana -> ok
+//                         scatta alle 22:59 UTC = 00:59 italiana -> skip
+//  - Inverno CET (UTC+1): scatta alle 22:59 UTC = 23:59 italiana -> ok
+//                         scatta alle 21:59 UTC = 22:59 italiana -> skip
 //
 // Il check interno italyHour===23 filtra il tick non pertinente.
 //

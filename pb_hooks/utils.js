@@ -5,13 +5,13 @@
 //
 // MACCHINA A STATI (priorità: trip → inside → alarm):
 //
-//  1. trip=true && steps==0              → "v"
+//  1. trip=true && steps==0              -> "v"
 //  2. trip=false && era "v":
-//       steps==0 (ancora fermo)          → rimane "v"
-//       steps>0  (ha ripreso)            → ricalcola geofence → i/s/w
-//  3. inside=true                        → "i"
-//  4. inside=false && alarm=true         → "s"
-//  5. inside=false && alarm=false        → "w"
+//       steps==0 (ancora fermo)          -> rimane "v"
+//       steps>0  (ha ripreso)            -> ricalcola geofence -> i/s/w
+//  3. inside=true                        -> "i"
+//  4. inside=false && alarm=true         -> "s"
+//  5. inside=false && alarm=false        -> "w"
 //
 // NOTE:
 //  - getBoardRecord va chiamata UNA SOLA VOLTA per pacchetto
