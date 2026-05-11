@@ -752,29 +752,48 @@ Watchdog               & Silenzio $>$ 10 minuti                                 
 
 \subsection{Permessi e Localizzazione}
 
-Al primo avvio, l’app mostra un \textit{dialog} personalizzato 
-per spiegare le finalità del monitoraggio della posizione 
-dell’utente prima di attivare la richiesta di sistema. 
-Una volta concesso il permesso, viene verificata che 
-l'antenna GPS del dispositivo sia effettivamente accesa. 
-Se entrambi i requisiti sono soddisfatti, 
-viene aggiornata una variabile globale 
-che sblocca il recupero delle coordinate ad alta precisione. 
+Per abilitare la ricezione delle notifiche lato client, 
+è stato fondamentale integrare 
+il file di configurazione \texttt{google-services.json}, 
+generato direttamente dalla console di Firebase 
+e inserito all'interno della directory \texttt{android/app} del codice sorgente.
+Questo file contiene le chiavi API, l'identificativo del progetto (\texttt{Project ID}) 
+e i dettagli di configurazione necessari per autenticare in modo sicuro 
+l'applicazione mobile con i servizi Google, 
+senza esporre le credenziali nel codice in chiaro. 
+Durante la fase di build, il \textit{plugin Gradle} di Google Services,
+che si occupa di mappare i parametri di configurazione nel codice Android,
+processa questo file per inizializzare automaticamente 
+l'SDK di Firebase all'avvio dell'app,
+abilitando così la connessione sicura a FCM 
+e la generazione del token univoco del dispositivo.
+Quest'ultimo viene dapprima salvato localmente 
+e poi sincronizzato con il profilo utente su PocketBase 
+all'interno del campo \texttt{tokenFCM}. 
+Tale campo è modellato come una lista 
+per permettere all'utente di ricevere le allerte 
+su più dispositivi contemporaneamente; 
+prima di ogni salvataggio, un controllo di duplicazione 
+verifica che il \textit{token} non sia già presente, 
+evitando così la ricezione di notifiche ridondanti.
+
+Dal punto di vista dell'interazione utente, 
+l'attivazione dei servizi, sia di notifica che di tracciamento,
+richiede una corretta gestione dei permessi di sistema.
+Al primo avvio l'applicazione mostra un \textit{dialog} informativo 
+che spiega le finalità del monitoraggio geografico 
+dell’utente prima di attivare la richiesta di autorizzazione. 
+Acquisito il consenso, il software verifica l'attivazione 
+del modulo GPS e se entrambi i requisiti sono soddisfatti, 
+vengono recuperate le coordinate.
+Subito dopo, con un approccio del tutto analogo, 
+viene presentata la richiesta per le notifiche push, 
+passaggio indispensabile per autorizzare la generazione 
+del \textit{token FCM} descritto in precedenza. 
 Infine, per evitare di riproporre il \textit{pop-up} ai successivi avvii, 
-viene salvata localmente tramite \texttt{SharedPreferences}, 
+viene salvata localmente tramite \texttt{SharedPreferences} 
 un'apposita variabile booleana che funge da indicatore 
 dell'avvenuta lettura dell'informativa.
-
-Un approccio del tutto analogo viene addottato per la gestione delle notifiche. 
-Una volta ottenuto il consenso, viene creato e salvato un \textbf{token FCM},
-ovvero un identificativo univoco del dispositivo. 
-Questo viene prima salvato localmente e poi sincronizzato 
-con il profilo utente su PocketBase 
-all'interno del campo \texttt{tokenFCM}, modellato come una lista, 
-permettendo all’utente di ricevere le allerte su più dispositivi contemporaneamente. 
-Prima del salvataggio, un controllo di duplicazione verifica che il \textit{token} 
-del dispositivo corrente non sia già presente nella lista, 
-evitando così la ricezione di notifiche ridondanti.
 
 \section{Test e Risultati}
 
