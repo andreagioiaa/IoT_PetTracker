@@ -331,9 +331,8 @@ Per garantire l'integrità e la riservatezza dei dati, sono state configurate sp
 Per ottimizzare la gestione dei dati e garantire la separazione delle responsabilità, è stata implementata una logica di smistamento automatico lato server tramite i \textit{JavaScript Event Hooks} di PocketBase. L'hook \texttt{onRecordAfterCreateSuccess} si attiva immediatamente dopo il salvataggio di ogni pacchetto grezzo, smista i dati nelle collezioni specializzate e infine elimina il record da \texttt{data\_sent\_raw} nel blocco \texttt{finally}, garantendo la pulizia anche in caso di errori parziali.
  
 \subsubsection{Ottimizzazione delle query: lettura centralizzata della board}
- 
-Il record board viene letto una sola volta all'inizio dell'hook tramite \texttt{getBoardRecord} e passato come parametro a tutte le funzioni che ne hanno bisogno (\texttt{computeStatus}, \texttt{saveBattery}, \texttt{notifyBoardUsers}). Nella versione precedente ogni funzione eseguiva una query indipendente, producendo 3--4 letture ridondanti per ogni pacchetto ricevuto. La versione attuale elimina completamente questo overhead.
- 
+Il record board viene letto una sola volta all'inizio dell'hook tramite \texttt{getBoardRecord} e passato come parametro a tutte le funzioni che ne hanno bisogno (\texttt{computeStatus}, \texttt{saveBattery}, \texttt{notifyBoardUsers}), eliminando query ridondanti per ogni pacchetto ricevuto. 
+
 \subsubsection{Funzionamento del Trigger onRecordAfterCreateSuccess}
 Il trigger elabora ogni pacchetto in cinque fasi sequenziali:
  
@@ -722,10 +721,10 @@ Le notifiche vengono scatenate dai seguenti eventi, ciascuno con logica contestu
 Uscita dalla zona      & \texttt{i} $\to$ \texttt{s} oppure \texttt{i} $\to$ \texttt{w} & Dipende dalla presenza di allarme utente \\
 Rientro in zona        & \texttt{s} $\to$ \texttt{i} oppure \texttt{w} $\to$ \texttt{i} & \\
 Allarme da passeggiata & \texttt{w} $\to$ \texttt{s}                                    & Allarme riattivato mentre fuori zona \\
-Inizio viaggio confermato & qualsiasi $\to$ \texttt{v}                                  & Solo dopo il secondo \texttt{trip=true} consecutivo \\
-Fine viaggio in zona   & \texttt{v} $\to$ \texttt{i}                                    & Arrivato a destinazione \\
-Fine viaggio fuori zona (allarme) & \texttt{v} $\to$ \texttt{s}                        & Animale fuggito dal veicolo \\
-Fine viaggio fuori zona (libero)  & \texttt{v} $\to$ \texttt{w}                        & Passeggiata post-viaggio \\
+Inizio viaggio confermato & qualsiasi $\to$ \texttt{v/r}                     & Dipende dallo stato dell'allarme\\
+Fine viaggio in zona   & \texttt{v/r} $\to$ \texttt{i}                                    & \\
+Fine viaggio fuori zona (allarme) & \texttt{v/r} $\to$ \texttt{s}                        & \\
+Fine viaggio fuori zona (libero)  & \texttt{v/r} $\to$ \texttt{w}                        & \\
 Nessuna geofence       & \texttt{i} o \texttt{s} $\to$ \texttt{w}               & Zone disattivate \\
 Batteria bassa         & $\leq 20\%$ (cambio soglia)                                    & Solo al cambio di fascia \\
 Batteria critica       & $\leq 10\%$ (cambio soglia)                                    & Solo al cambio di fascia \\
@@ -785,7 +784,6 @@ dell'avvenuta lettura dell'informativa.
 \section{Test e Risultati}
 
 \section{Limiti del Sistema}
-
 Nonostante i risultati ottenuti, il sistema presenta alcune limitazioni:
 \begin{itemize}
     \item \textbf{Dipendenza dalla rete LTE}: in assenza di copertura, 
@@ -797,12 +795,17 @@ Nonostante i risultati ottenuti, il sistema presenta alcune limitazioni:
         rappresenta la principale fonte di consumo.
     \item \textbf{Race condition sui pacchetti simultanei}: in caso di ricezione 
         quasi-simultanea di due pacchetti dallo stesso dispositivo, 
-        entrambi potrebbero leggere \texttt{pending\_trip = null} 
-        prima che il primo abbia completato la scrittura, 
-        impedendo la corretta conferma del viaggio. 
-        PocketBase non espone transazioni atomiche sui record,
-        rendendo questo scenario non eliminabile per via software; 
-        in pratica la frequenza di invio dei pacchetti rende l'evento raro.
+        entrambi potrebbero leggere lo stesso record activity prima che il primo 
+        abbia completato la scrittura. Gli scenari più critici sono due: 
+        nel caso di cambio di stato, il secondo pacchetto potrebbe riscrivere 
+        un record già chiuso dal primo, generando inconsistenze strutturali; 
+        nel caso di risveglio simultaneo dal Deep Sleep, entrambi i pacchetti 
+        potrebbero riattivare lo stesso record sleep e creare due sessioni attive 
+        contemporaneamente, violando l'invariante del sistema. 
+        PocketBase non espone transazioni atomiche sui record, 
+        rendendo questi scenari non eliminabili per via software; 
+        in pratica la frequenza di invio dei pacchetti (ogni 30 secondi o più) 
+        rende l'evento estremamente raro.
     \item \textbf{Fallimento nella geolocalizzazione}: l'eventuale mancato rilevamento 
         di indirizzi, solitamente nei comuni minori, non è imputabile al codice, 
         bensì a un limite legato alla densità dei metadati cartografici. 

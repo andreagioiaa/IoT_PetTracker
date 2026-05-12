@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.4.14)  12 MAY 2026 10:54
+This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.4.14)  12 MAY 2026 11:10
 entering extended mode
  restricted \write18 enabled.
  file:line:error style messages enabled.
@@ -811,12 +811,12 @@ Overfull \hbox (11.94272pt too wide) in paragraph at lines 330--330
  []
 
 [8]
-Overfull \hbox (10.3339pt too wide) in paragraph at lines 368--369
+Overfull \hbox (10.3339pt too wide) in paragraph at lines 367--368
 []\T1/lmr/m/n/12 Tutti gli sta-ti sleep si com-por-ta-no in mo-do \T1/lmr/bx/n/12 uni-for-me\T1/lmr/m/n/12 : ven-go-no sem-pre chiu-si con \T1/lmtt/m/n/12 is_active
  []
 
 [9] [10{C:/Program Files/MiKTeX/fonts/enc/dvips/lm/lm-mathsy.enc}] [11]
-Overfull \hbox (5.1001pt too wide) in paragraph at lines 491--497
+Overfull \hbox (5.1001pt too wide) in paragraph at lines 490--496
 \T1/lmtt/m/n/12 Stream<Positions>\T1/lmr/m/n/12 ) a cui le scher-ma-te si sot-to-scri-vo-no tra-mi-te una \T1/lmtt/m/n/12 StreamSubscription\T1/lmr/m/n/12 . 
  []
 
@@ -824,51 +824,46 @@ Overfull \hbox (5.1001pt too wide) in paragraph at lines 491--497
 <Immagini/Capitolo_5/photo_6.jpg, id=353, 1084.05pt x 1964.33875pt>
 File: Immagini/Capitolo_5/photo_6.jpg Graphic file (type jpg)
 <use Immagini/Capitolo_5/photo_6.jpg>
-Package pdftex.def Info: Immagini/Capitolo_5/photo_6.jpg  used on input line 581.
+Package pdftex.def Info: Immagini/Capitolo_5/photo_6.jpg  used on input line 580.
 (pdftex.def)             Requested size: 125.61424pt x 227.61768pt.
 <Immagini/Capitolo_5/photo_3.jpg, id=354, 1084.05pt x 1954.30125pt>
 File: Immagini/Capitolo_5/photo_3.jpg Graphic file (type jpg)
 <use Immagini/Capitolo_5/photo_3.jpg>
-Package pdftex.def Info: Immagini/Capitolo_5/photo_3.jpg  used on input line 589.
+Package pdftex.def Info: Immagini/Capitolo_5/photo_3.jpg  used on input line 588.
 (pdftex.def)             Requested size: 126.25935pt x 227.61757pt.
  [14 <./Immagini/Capitolo_5/photo_6.jpg> <./Immagini/Capitolo_5/photo_3.jpg>]
 <Immagini/Capitolo_5/photo_5.jpg, id=360, 1084.05pt x 1951.29pt>
 File: Immagini/Capitolo_5/photo_5.jpg Graphic file (type jpg)
 <use Immagini/Capitolo_5/photo_5.jpg>
-Package pdftex.def Info: Immagini/Capitolo_5/photo_5.jpg  used on input line 658.
+Package pdftex.def Info: Immagini/Capitolo_5/photo_5.jpg  used on input line 657.
 (pdftex.def)             Requested size: 126.44131pt x 227.59436pt.
 <Immagini/Capitolo_5/photo_4.jpg, id=361, 1084.05pt x 1960.32375pt>
 File: Immagini/Capitolo_5/photo_4.jpg Graphic file (type jpg)
 <use Immagini/Capitolo_5/photo_4.jpg>
-Package pdftex.def Info: Immagini/Capitolo_5/photo_4.jpg  used on input line 666.
+Package pdftex.def Info: Immagini/Capitolo_5/photo_4.jpg  used on input line 665.
 (pdftex.def)             Requested size: 125.86237pt x 227.60112pt.
 <Immagini/Capitolo_5/photo_2.jpg, id=362, 1084.05pt x 1948.27875pt>
 File: Immagini/Capitolo_5/photo_2.jpg Graphic file (type jpg)
 <use Immagini/Capitolo_5/photo_2.jpg>
-Package pdftex.def Info: Immagini/Capitolo_5/photo_2.jpg  used on input line 674.
+Package pdftex.def Info: Immagini/Capitolo_5/photo_2.jpg  used on input line 673.
 (pdftex.def)             Requested size: 126.6398pt x 227.59987pt.
- [15 <./Immagini/Capitolo_5/photo_5.jpg> <./Immagini/Capitolo_5/photo_4.jpg> <./Immagini/Capitolo_5/photo_2.jpg>] [16]
-Underfull \hbox (badness 1701) in paragraph at lines 724--725
+ [15 <./Immagini/Capitolo_5/photo_5.jpg> <./Immagini/Capitolo_5/photo_4.jpg> <./Immagini/Capitolo_5/photo_2.jpg>]
+Underfull \hbox (badness 1701) in paragraph at lines 723--724
 []\T1/lmr/m/n/12 Allarme riat-ti-va-to men-tre
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 725--726
-[]\T1/lmr/m/n/12 Solo do-po il se-con-do
- []
-
-
-Overfull \hbox (7.96135pt too wide) in paragraph at lines 718--736
+Overfull \hbox (7.96135pt too wide) in paragraph at lines 717--735
  [][] 
  []
 
-[17] [18]
-Overfull \hbox (14.20894pt too wide) in paragraph at lines 823--823
+[16] [17] [18]
+Overfull \hbox (14.20894pt too wide) in paragraph at lines 826--826
 \T1/lmtt/m/n/12 LilyGo -[] Modem -[] Series / blob / main / datasheet / LTE % 20Antenna % 20Specifications .
  []
 
 
-Overfull \hbox (14.20894pt too wide) in paragraph at lines 823--823
+Overfull \hbox (14.20894pt too wide) in paragraph at lines 826--826
 \T1/lmtt/m/n/12 LilyGo -[] Modem -[] Series / blob / main / datasheet / GPS % 20Antenna % 20Specifications .
  []
 
@@ -892,7 +887,7 @@ Here is how much of TeX's memory you used:
  1141 hyphenation exceptions out of 8191
  69i,11n,79p,1302b,2154s stack positions out of 10000i,1000n,20000p,200000b,200000s
 <C:/Program Files/MiKTeX/fonts/type1/public/lm/lmbx10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmbx12.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmbxi10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmcsc10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmmi12.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmr10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmr12.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmri12.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmsy10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmtt12.pfb>
-Output written on Relazione.pdf (20 pages, 1322832 bytes).
+Output written on Relazione.pdf (20 pages, 1322916 bytes).
 PDF statistics:
  492 PDF objects out of 1000 (max. 8388607)
  98 named destinations out of 1000 (max. 500000)
