@@ -72,7 +72,7 @@ Color getColoreStato(DateTime? ultimoInvio) {
 }
 
 class PetTrackerNavigation extends StatefulWidget {
-  final Map<String, dynamic>? preloadedData; // Aggiungi questo
+  final Map<String, dynamic>? preloadedData;
   const PetTrackerNavigation({super.key, this.preloadedData});
 
   @override
@@ -184,7 +184,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
 
   // Variabile per fare da "Mutex" (Lock) durante la chiamata di rete
   bool _isUpdatingAlarm = false;
-  // Nuova variabile per tenere traccia dello stato operativo (s, p, n)
+  // Nuova variabile per tenere traccia dello stato operativo (s, p, r, q, n)
   String _currentStatus = 'n';
 
   @override
@@ -198,7 +198,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     _attivaRealTimeStatus();
 
     // 3. INIEZIONE DATI PRE-CARICATI (Dalla Splash)
-    // Questo elimina il testo "Caricamento..." istantaneamente se i dati ci sono
+    // Elimina il testo "Caricamento..." istantaneamente se i dati ci sono
     if (widget.preloadedData != null) {
       _displayUsername = widget.preloadedData!['username'];
 
@@ -217,7 +217,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
         _elaboraAttivita(widget.preloadedData!['activities']);
       }
 
-      // E infine, se la Splash ci ha passato anche lo stato operativo, usiamolo per aggiornare subito la UI
+      // Se la Splash ci ha passato lo stato operativo, aggiorniamo subito la UI
       if (widget.preloadedData!['status'] != null) {
         _currentStatus = widget.preloadedData!['status'];
       }
@@ -229,10 +229,10 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
       if (_currentBoardId != null) {
         _positionsRepo.subscribeToPositions(_currentBoardId!);
       }
-
-      _isLoading = false; // Fermiamo il caricamento UI subito!
+      // Fermiamo il caricamento UI
+      _isLoading = false;
     } else {
-      // Fallback: se la Splash fallisce, carichiamo i dati qui (vecchio metodo)
+      // Se la Splash fallisce, carica i dati qui
       _scaricaDatiIniziali();
     }
 
@@ -324,16 +324,21 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
   void _attivaRealTimeStatus() async {
     final boardId = await _usersRepo.getBoardIdFromBoards();
     if (boardId != null) {
-      await _activitiesRepo.subscribeToActivityUpdates(boardId, (data) {
-        if (mounted) {
-          // 1. Aggiorna SUBITO lo stato locale (così non si blocca il lucchetto)
-          setState(() {
-            _currentStatus = data['status'] ?? 'n';
-          });
-          debugPrint("📡 [home.dart] Nuovo status ricevuto: $_currentStatus");
+      await _activitiesRepo.subscribeToActivityUpdates(boardId, (data) async {
+        if (!mounted) return;
 
-          // 2. Chiama la funzione per aggiornare titoli, colori e icone (in background)
-          _aggiornaGraficaZonaDaFunzioni();
+        // 1. Aggiorna SUBITO lo stato locale sincrono
+        setState(() {
+          _currentStatus = data['status'] ?? 'n';
+        });
+        debugPrint("📡 [home.dart] Nuovo status ricevuto: $_currentStatus");
+
+        // 2. Aspettiamo che aggiorni la grafica
+        await _aggiornaGraficaZonaDaFunzioni();
+
+        // 3. Aspettiamo che scarichi i dati (se stiamo guardando oggi)
+        if (DateUtils.isSameDay(_dataSelezionata, DateTime.now())) {
+          await _scaricaDatiAttivita(_dataSelezionata);
         }
       });
     }
@@ -342,12 +347,11 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
   // Utilizza la logica di aggiornamento grafico basata sullo stato dell'attività
   Future<void> _aggiornaGraficaZonaDaFunzioni() async {
     try {
-      // Usa la TUA funzione che passa per getActivityStatus e _getNomeZonaDaPosizione
       Map<String, dynamic> nuovaZona = await _calculateCurrentZone();
 
       if (mounted) {
         setState(() {
-          _configZona = nuovaZona; // Applica la grafica aggiornata
+          _configZona = nuovaZona;
         });
       }
     } catch (e) {
@@ -367,7 +371,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
   void _elaboraAttivita(List<dynamic> attivita) {
     if (mounted) {
       setState(() {
-        // Zero calcoli nella UI: passiamo la palla direttamente alla repository!
+        // Zero calcoli nella UI lo fa la repo
         _statisticheOggi = ActivitiesRepository.parsePreloadedData(attivita);
       });
     }
@@ -424,8 +428,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
       isScrollControlled: true,
       builder: (context) {
         return Container(
-          height: MediaQuery.of(context).size.height *
-              0.40, // Altezza ridotta per il picker
+          height: MediaQuery.of(context).size.height * 0.40,
           decoration: const BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
@@ -459,7 +462,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
                     ),
                     GestureDetector(
                       onTap: () {
-                        Navigator.pop(context); // Chiude il modale
+                        Navigator.pop(context);
                         // Applica la data scelta e aggiorna i dati nella Home
                         if (mounted) {
                           setState(() {
@@ -473,8 +476,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
                         style: TextStyle(
                           fontSize: 16 * scale,
                           fontWeight: FontWeight.bold,
-                          color:
-                              const Color(0xFF00C6B8), // Il teal della tua app
+                          color: const Color(0xFF00C6B8),
                         ),
                       ),
                     ),
@@ -531,7 +533,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
     }
   }
 
-  // Nuova funzione per scaricare i dati di attività filtrati per giorno e aggiornare le statistiche
+  // Scarica i dati di attività filtrati per giorno e aggiornare le statistiche
   Future<void> _scaricaDatiAttivita(DateTime data) async {
     setState(() => _isActivityLoading = true);
 
@@ -691,14 +693,13 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
                   ValueListenableBuilder<bool>(
                     valueListenable: isTrackingMode,
                     builder: (context, isTracking, child) {
-                      // Estraiamo i valori direttamente dalla nostra _configZona!
+                      // Estraiamo i valori direttamente dalla nostra _configZona
                       String displayZone =
                           _configZona['titolo'] ?? 'Sconosciuta';
                       Color zoneColor = _configZona['colore'] ?? Colors.black;
                       IconData locationIcon =
                           _configZona['icona'] ?? Icons.location_on;
 
-                      // Mantengo la logica legacy per l'allarme hardcoded, nel caso fosse ancora necessaria
                       if (displayZone == "Fuori zona sicura") {
                         if (isTracking) {
                           displayZone = "ALLARME: È USCITO!";
@@ -807,24 +808,27 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
   }
 
   Widget _buildTrackingToggle(double scale, bool isActive) {
-    // BLOCCO CRITICO: Se l'allarme è ON ma lo stato è 's' (search) o 'p' (sleep search) significa che il cane è scappato
+    // BLOCCO CRITICO: Se l'allarme è ON ma lo stato è 's', 'p', 'r', 'q' significa che il cane è scappato
     // quindi blocchiamo la possibilità di spegnere l'allarme finché non tornerà in zona sicura (stato 'n')
-    final bool isLocked =
-        isActive && (_currentStatus == 's' || _currentStatus == 'p');
+    final bool isLocked = isActive &&
+        (_currentStatus == 's' ||
+            _currentStatus == 'p' ||
+            _currentStatus == 'r' ||
+            _currentStatus == 'q');
 
     return Container(
       padding:
           EdgeInsets.symmetric(horizontal: 15 * scale, vertical: 5 * scale),
       decoration: BoxDecoration(
           color: isLocked
-              ? Colors.red.withOpacity(0.08) // Mantiene il rossino di emergenza
+              ? Colors.red.withOpacity(0.08)
               : (isActive
                   ? Colors.red.withOpacity(0.08)
                   : const Color(0xFF00C6B8).withOpacity(0.08)),
           borderRadius: BorderRadius.circular(15 * scale),
           border: Border.all(
               color: isLocked
-                  ? Colors.red.withOpacity(0.4) // Bordo rosso ben visibile
+                  ? Colors.red.withOpacity(0.4)
                   : (isActive
                       ? Colors.red.withOpacity(0.3)
                       : const Color(0xFF00C6B8).withOpacity(0.3)))),
@@ -835,13 +839,11 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
             children: [
               Icon(
                   isLocked
-                      ? Icons.lock // Messo il lucchetto come nella tua foto
+                      ? Icons.lock
                       : (isActive
                           ? Icons.verified_user
                           : Icons.remove_moderator),
-                  color: isActive
-                      ? Colors.red
-                      : const Color(0xFF00C6B8), // Resta rosso!
+                  color: isActive ? Colors.red : const Color(0xFF00C6B8),
                   size: 24 * scale),
               SizedBox(width: 10 * scale),
               Column(
@@ -992,8 +994,7 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
               // Pulsante "Pillola" centrale con la data
               Expanded(
                 child: GestureDetector(
-                  onTap: () =>
-                      _selezionaData(context, scale), // Passiamo lo scale!
+                  onTap: () => _selezionaData(context, scale),
                   child: Container(
                     margin: EdgeInsets.symmetric(horizontal: 4 * scale),
                     padding: EdgeInsets.symmetric(
