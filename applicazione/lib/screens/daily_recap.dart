@@ -30,12 +30,13 @@ class _RecapScreenState extends State<RecapScreen> {
   // --- LOGICA FILTRI ---
   final Map<String, String> _filtriDisponibili = {
     's': 'Scappato',
+    'r': 'Scappato (In viaggio)',
     'w': 'Passeggiate',
     'i': 'Zone sicure',
     'v': 'In viaggio'
   };
 
-  Set<String> _filtriAttivi = {'s', 'w', 'i', 'v'};
+  Set<String> _filtriAttivi = {'s', 'r', 'w', 'i', 'v'};
 
   @override
   void initState() {
@@ -141,6 +142,7 @@ class _RecapScreenState extends State<RecapScreen> {
 
       // Associa lo stato deep sleep al suo corrispondente attivo
       if (stato == 'p') stato = 's';
+      if (stato == 'q') stato = 'r';
       if (stato == 'z') stato = 'w';
       if (stato == 'd') stato = 'i';
       if (stato == 'a') stato = 'v';

@@ -97,7 +97,7 @@ class ActivitiesRepository {
 
   // Filtra le attività restituite mantenendo solo quelle con status valido
   List<Activities> filterValidActivities(List<Activities> attivitaGrezze) {
-    final statusValidi = ['s', 'w', 'i', 'v', 'p', 'z', 'd', 'a'];
+    final statusValidi = ['s', 'w', 'i', 'v', 'p', 'z', 'd', 'a', 'r', 'q'];
     return attivitaGrezze.where((act) {
       return statusValidi.contains(act.status.toLowerCase());
     }).toList();
@@ -116,6 +116,7 @@ class ActivitiesRepository {
       if (stato == 'z') stato = 'w';
       if (stato == 'd') stato = 'i';
       if (stato == 'a') stato = 'v';
+      if (stato == 'q') stato = 'r';
     }
 
     switch (stato) {
@@ -125,6 +126,8 @@ class ActivitiesRepository {
         return "In passeggiata";
       case 'v':
         return "In viaggio";
+      case 'r':
+        return "Animale scappato in viaggio";
       // Questi casi verranno letti SOLO dalla Home
       case 'p':
         return "Animale scappato (Fermo)";
@@ -132,6 +135,8 @@ class ActivitiesRepository {
         return "Fermo in viaggio";
       case 'z':
         return "Fermo in passeggiata";
+      case 'q':
+        return "Animale scappato in viaggio (Fermo)";
       case 'd':
         final nomeZona = await _getNomeZonaDaPosizione(attivita.id);
         return nomeZona != null
@@ -194,11 +199,6 @@ class ActivitiesRepository {
       Activities attivita, String titolo) {
     switch (attivita.status.toLowerCase()) {
       case 's':
-        return {
-          'titolo': titolo,
-          'colore': Colors.red,
-          'icona': Icons.warning_amber_rounded
-        };
       case 'p':
         return {
           'titolo': titolo,
@@ -206,11 +206,6 @@ class ActivitiesRepository {
           'icona': Icons.warning_amber_rounded
         };
       case 'w':
-        return {
-          'titolo': titolo,
-          'colore': const Color(0xFF00C6B8),
-          'icona': Icons.directions_walk
-        };
       case 'z':
         return {
           'titolo': titolo,
@@ -224,15 +219,17 @@ class ActivitiesRepository {
           'icona': Icons.home_rounded
         };
       case 'v':
+      case 'a':
         return {
           'titolo': titolo,
           'colore': Colors.blue,
           'icona': Icons.directions_car
         };
-      case 'a':
+      case 'r':
+      case 'q':
         return {
           'titolo': titolo,
-          'colore': Colors.blue,
+          'colore': Colors.red,
           'icona': Icons.directions_car
         };
       default:
