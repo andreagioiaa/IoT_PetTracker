@@ -42,10 +42,12 @@
 \contentsline {section}{\numberline {6}Sistema di Notifiche Push}{16}{section.6}%
 \contentsline {subsection}{\numberline {6.1}Analisi dei Vincoli Tecnologici: Incompatibilità Goja e Firebase}{16}{subsection.6.1}%
 \contentsline {subsection}{\numberline {6.2}Architettura del FCM Bridge}{16}{subsection.6.2}%
-\contentsline {subsection}{\numberline {6.3}Logica di Invio e Trigger}{17}{subsection.6.3}%
+\contentsline {subsection}{\numberline {6.3}Logica di Invio e Trigger}{16}{subsection.6.3}%
 \contentsline {subsection}{\numberline {6.4}Permessi e Localizzazione}{17}{subsection.6.4}%
-\contentsline {section}{\numberline {7}Test e Risultati}{18}{section.7}%
-\contentsline {section}{\numberline {8}Limiti del Sistema}{18}{section.8}%
-\contentsline {section}{\numberline {9}Implementazioni Future}{18}{section.9}%
-\contentsline {section}{\numberline {10}Conclusioni}{18}{section.10}%
-\contentsline {section}{Riferimenti bibliografici}{19}{section.10}%
+\contentsline {section}{\numberline {7}Limiti del Sistema}{18}{section.7}%
+\contentsline {section}{\numberline {8}Implementazioni Future}{18}{section.8}%
+\contentsline {subsection}{\numberline {8.1}Stato della batteria}{18}{subsection.8.1}%
+\contentsline {subsection}{\numberline {8.2}Database e dominio}{18}{subsection.8.2}%
+\contentsline {subsection}{\numberline {8.3}Costruzione scheda}{19}{subsection.8.3}%
+\contentsline {section}{\numberline {9}Conclusioni}{19}{section.9}%
+\contentsline {section}{Riferimenti bibliografici}{20}{section.9}%

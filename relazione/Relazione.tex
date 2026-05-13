@@ -688,9 +688,6 @@ che mostra la percentuale residua
 e cambia colore dinamicamente al diminuire della carica.
 Nel momento in cui il dispositivo viene posto in ricarica, 
 l'interfaccia transita automaticamente in uno stato dedicato.
-Il sistema elabora ... \textbf{DA FINIRE QUANDO FAREMO CON TUTTI} ...  
-per fornire all'utente una stima in giorni dell'autonomia rimanente,
-solo quando il dispositivo non è in ricarica.
 
 \section{Sistema di Notifiche Push}
 L'implementazione di un sistema di notifiche push è fondamentale per un dispositivo di tracciamento animali, in quanto permette di avvisare tempestivamente l'utente in caso di pericoli (uscita dal perimetro sicuro) o problemi tecnici (batteria scarica).
@@ -781,8 +778,6 @@ viene salvata localmente tramite \texttt{SharedPreferences}
 un'apposita variabile booleana che funge da indicatore 
 dell'avvenuta lettura dell'informativa.
 
-\section{Test e Risultati}
-
 \section{Limiti del Sistema}
 Nonostante i risultati ottenuti, il sistema presenta alcune limitazioni:
 \begin{itemize}
@@ -817,6 +812,16 @@ Nonostante i risultati ottenuti, il sistema presenta alcune limitazioni:
 \end{itemize}
 
 \section{Implementazioni Future}
+Il progetto nel suo percorso di sviluppo ha trovato delle possibiità future di scalabilità dell'App, di seguito le idee che abbiamo accavallato per procedere nella migliore implementazione delle precedenti funzioni descritte.
+
+\subsection{Stato della batteria}
+Per garantire all'utente un corretto valore della batteria aggiornato sugli ultimi pacchetti è richiesto un calcolo con dati storici, questo è uno dei possibili ulteriori passaggi che può essere sviluppato all'interno dell'applicazione per quanto riguarda i dati da fornire all'utente. Non risulta come attività critica in quanto il sistema riesce a garantire all'utente una notifica nel momento in cui la batteria raggiunge (e scende) sotto il livello del 20\%.
+
+\subsection{Database e dominio}
+ToDo.
+
+\subsection{Costruzione scheda}
+ToDo.
 
 \section{Conclusioni}
 
