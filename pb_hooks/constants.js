@@ -3,28 +3,79 @@
 // Costanti condivise tra tutti i moduli
 // ═══════════════════════════════════════════════════════════════
 //
-// STATI ATTIVI : i (inside), v (trip/viaggio), s (search), w (walk)
-// STATI SLEEP  : d (<-i),    a (<-v),           p (<-s),    z (<-w)
+// TABELLA STATI
+// │ Attivo  │ Sleep │ Alarm │ Descrizione                     │
+// ├─────────┼───────┼───────┼─────────────────────────────────┤
+// │   i     │   d   │  any  │ Inside — dentro la geofence     │
+// │   v     │   a   │ false │ Trip   — in viaggio, alarm off  │
+// │   r     │   q   │ true  │ Trip   — in viaggio, alarm on   │
+// │   s     │   p   │ true  │ Search — fuori zona, alarm on   │
+// │   w     │   z   │ false │ Walk   — fuori zona, alarm off  │
+//
+// REGOLE TRANSIZIONE TRIP:
+//   trip=true  && alarm=false -> "v"
+//   trip=true  && alarm=true  -> "r"
+//   trip=false && era "v"/"r" && steps==0  -> mantieni "v"/"r"
+//   trip=false && era "v"/"r" && steps>0   -> ricalcola geofence
 //
 // ═══════════════════════════════════════════════════════════════
 
-// Timeout watchdog: se un'activity attiva non riceve pacchetti
-// per questo intervallo viene chiusa con anomaly=true
+/**
+ * Timeout watchdog in millisecondi.
+ * Se un'activity attiva non riceve pacchetti per questo intervallo
+ * viene chiusa automaticamente con anomaly=true.
+ */
 const WATCHDOG_TIMEOUT_MS = 10 * 60 * 1000; // 10 minuti
 
-// URL bridge notifiche FCM
-const BRIDGE_URL       = "http://127.0.0.1:3000/send";
+/** URL bridge notifiche FCM — endpoint singolo (legacy) */
+const BRIDGE_URL = "http://127.0.0.1:3000/send";
+
+/** URL bridge notifiche FCM — endpoint batch (ottimizzato) */
 const BRIDGE_URL_BATCH = "http://127.0.0.1:3000/send-batch";
 
-// Mappe bidirezionali sleep ↔ attivo
-const SLEEP_TO_ACTIVE = { d: "i", a: "v", p: "s", z: "w" };
-const ACTIVE_TO_SLEEP = { i: "d", v: "a", s: "p", w: "z" };
+/**
+ * Mappa sleep -> attivo.
+ * Usata per:
+ *  - risveglio: convertire lo stato sleep nel corrispondente attivo
+ *  - normalizzazione in computeStatus: capire da dove viene l'animale
+ */
+const SLEEP_TO_ACTIVE = {
+    d: "i", // dormiva dentro   -> inside
+    a: "v", // dormiva in trip  -> trip (alarm off)
+    q: "r", // dormiva in trip  -> trip (alarm on)
+    p: "s", // dormiva in cerca -> search
+    z: "w", // dormiva fuori    -> walk
+};
 
-const ACTIVE_STATES   = new Set(["i", "v", "s", "w"]);
-const SLEEP_STATES    = new Set(["d", "a", "p", "z"]);
+/**
+ * Mappa attivo -> sleep.
+ * Usata quando arriva sleep=true: determina lo stato sleep da assegnare
+ * in base allo stato attivo corrente.
+ */
+const ACTIVE_TO_SLEEP = {
+    i: "d", // inside     -> dormiva dentro
+    v: "a", // trip (off) -> dormiva in trip (off)
+    r: "q", // trip (on)  -> dormiva in trip (on)
+    s: "p", // search     -> dormiva in cerca
+    w: "z", // walk       -> dormiva fuori
+};
 
-// Stati che richiedono una geofence attiva per essere validi.
-// Se non c'è geofence e lo stato corrente è uno di questi -> fallback a "w"
+/**
+ * Set di tutti gli stati attivi validi.
+ * Usato per validazione e controlli di appartenenza.
+ */
+const ACTIVE_STATES = new Set(["i", "v", "r", "s", "w"]);
+
+/**
+ * Set di tutti gli stati sleep validi.
+ * Usato in risveglio e mezzanotte per identificare record dormenti.
+ */
+const SLEEP_STATES = new Set(["d", "a", "q", "p", "z"]);
+
+/**
+ * Set degli stati che richiedono una geofence attiva per essere validi.
+ * Se non c'è geofence e lo stato corrente è uno di questi -> fallback a "w".
+ */
 const GEOFENCE_STATES = new Set(["i", "s"]);
 
 module.exports = {
