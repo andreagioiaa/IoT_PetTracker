@@ -132,7 +132,6 @@ class _BatteryScreenState extends State<BatteryScreen>
     Color mainColor;
     String statusText;
     Widget centerWidget;
-    double estimatedDays = 0.0;
 
     double scale = dimensioniSchermo(context);
 
@@ -144,12 +143,10 @@ class _BatteryScreenState extends State<BatteryScreen>
       mainColor = Colors.green;
       statusText = "In Ricarica";
       centerWidget = Icon(Icons.bolt, size: 60 * scale, color: mainColor);
-      estimatedDays = 0.0;
     } else {
       // VISUALIZZAZIONE NORMALE BATTERIA
       final int batteryInt = _currentBattery!;
       batteryLevel = batteryInt / 100.0;
-      estimatedDays = (batteryInt / 100.0) * 7.0;
 
       if (batteryInt <= 0) {
         ringColors = [Colors.red.shade900, Colors.red.shade700];
@@ -233,22 +230,6 @@ class _BatteryScreenState extends State<BatteryScreen>
             ),
           ),
           const Spacer(flex: 2),
-          _buildBatteryDetailCard(
-            Icons.access_time,
-            "Durata Stimata",
-            _isCharging
-                ? "Dispositivo in ricarica"
-                : (_currentBattery! <= 0
-                    ? "Dispositivo spento"
-                    : "~ ${estimatedDays.toStringAsFixed(1)} giorni"),
-            _isCharging
-                ? Colors.green
-                : ((_currentBattery ?? 100) <= 20
-                    ? Colors.redAccent
-                    : Colors.blue),
-            scale,
-          ),
-          const Spacer(flex: 2),
           _buildTechDetail(
               "Capacità Batteria", "3000 mAh", Icons.battery_full, scale),
           SizedBox(height: 15 * scale),
@@ -257,63 +238,6 @@ class _BatteryScreenState extends State<BatteryScreen>
           SizedBox(height: 15 * scale),
           _buildTechDetail("Intervallo medio", "1 min", Icons.history, scale),
           const Spacer(flex: 2),
-          Center(
-            child: Text(
-              "Nota Bene: Stima basata sui dati inviati dal dispositivo",
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontStyle: FontStyle.italic,
-                color: Colors.grey,
-                fontSize: 10.5 * scale,
-              ),
-            ),
-          ),
-          SizedBox(height: 15 * scale),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBatteryDetailCard(
-      IconData icon, String title, String subtitle, Color color, double scale) {
-    return Container(
-      padding:
-          EdgeInsets.symmetric(horizontal: 20 * scale, vertical: 16 * scale),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22 * scale),
-        boxShadow: [
-          BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 15,
-              offset: const Offset(0, 5))
-        ],
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 24 * scale,
-            backgroundColor: color.withOpacity(0.1),
-            child: Icon(icon, color: color, size: 24 * scale),
-          ),
-          SizedBox(width: 20 * scale),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(title,
-                  style:
-                      TextStyle(fontSize: 14 * scale, color: Colors.black45)),
-              SizedBox(height: 4 * scale),
-              Text(subtitle,
-                  style: TextStyle(
-                      fontSize: 18 * scale,
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF2D3142))),
-            ],
-          ),
         ],
       ),
     );
