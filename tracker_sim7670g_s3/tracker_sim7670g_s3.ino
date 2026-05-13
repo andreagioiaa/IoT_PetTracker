@@ -466,6 +466,4 @@ void loop() {
   lastLat = gps.lat; 
   lastLon = gps.lon; 
   hasGpsFix = true;
-
-  delay(5000);
 }
