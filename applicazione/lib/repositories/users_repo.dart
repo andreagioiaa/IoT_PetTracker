@@ -97,12 +97,21 @@ class UsersRepository {
       final cleanBoardId = boardIdInput.trim();
       if (cleanBoardId.isEmpty) return "Codice Board vuoto.";
 
-      // 1. VERIFICA BOARD (Public View Rule: id != "")
+      // 1. VERIFICA BOARD E DISPONIBILITÀ (Relazione 1:1)
       RecordModel board;
       try {
         // Usiamo getOne perché ora la View Rule è aperta e conosciamo l'ID
         board = await pb.collection('boards').getOne(cleanBoardId);
         print("[DEBUG] Board verificata: ${board.id}");
+        
+        // CONTROLLO 1:1 -> Verifichiamo che la board non abbia già un utente
+        // Utilizziamo getStringValue che restituisce una stringa vuota se il campo è null/vuoto
+        final currentUser = board.getStringValue('user');
+        if (currentUser.isNotEmpty) {
+          print("[WARNING] Tentativo di registrazione su board già occupata: ${board.id}");
+          return "Errore: Questo codice Board è già associato a un altro utente.";
+        }
+
       } catch (e) {
         print("[ERROR] Board non trovata o permessi mancanti: $e");
         return "Codice Board inesistente o non accessibile.";
@@ -140,27 +149,25 @@ class UsersRepository {
         return "Errore critico durante l'autenticazione.";
       }
 
-      // 4. AGGIORNAMENTO BOARD (Associazione Utente)
+      // 4. AGGIORNAMENTO BOARD (Associazione Utente 1:1)
       try {
         // Verifichiamo la validità del token prima di procedere
         if (!pb.authStore.isValid) throw Exception("Token non valido");
 
-        // Usiamo l'operatore '+' per aggiungere l'ID alla lista esistente senza sovrascriverla
-        // Questo richiede che la 'Update Rule' su PB sia @request.auth.id != ""
+        // CORREZIONE: Essendo 1:1 non usiamo più 'user+' ma semplicemente 'user'
+        // Questo andrà a settare (o sovrascrivere in altre logiche, ma qui sappiamo essere vuoto) l'ID.
         await pb.collection('boards').update(board.id, body: {
-          'user+': userRecord.id,
+          'user': userRecord.id, 
         });
 
         print("[SUCCESS] Utente collegato correttamente alla board.");
         return null; // Tutto completato con successo!
       } catch (e) {
         // 🛑 ROLLBACK: Se l'associazione fallisce, eliminiamo l'account
-        // "L'utente dev'essere eliminato, non deve continuare ad esistere sul DB"
         if (createdUserId != null) {
           await pb.collection('users').delete(createdUserId);
           pb.authStore.clear(); // Puliamo la sessione fallita
-          print(
-              "[ROLLBACK] Utente eliminato per errore associazione board: $e");
+          print("[ROLLBACK] Utente eliminato per errore associazione board: $e");
         }
         return "Errore nell'attivazione della Board. Registrazione annullata.";
       }
