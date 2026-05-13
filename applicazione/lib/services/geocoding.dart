@@ -1,10 +1,26 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter/material.dart';
 
 class Geocoding {
   static const String _userAgent = 'PetTrackerApp_IoT_Project';
+
+  // Funzione per aprire il navigatore esterno con la posizione del pet
+  static Future<bool> openNavigator(LatLng loc) async {
+    final url = Uri.parse(
+        'https://www.google.com/maps/search/?api=1&query=${loc.latitude},${loc.longitude}');
+    try {
+      if (await canLaunchUrl(url)) {
+        await launchUrl(url, mode: LaunchMode.externalApplication);
+        return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
 
   // Trasforma coordinate (Lat, Lon) in una stringa indirizzo pronta per l'interfaccia
   static Future<String?> getAddressFromCoordinates(LatLng loc) async {

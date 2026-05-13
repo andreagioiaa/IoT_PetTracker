@@ -3,7 +3,6 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:pet_tracker/utils/helpers.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_compass/flutter_compass.dart';
 import 'dart:async';
 import 'dart:math' as math;
@@ -13,6 +12,7 @@ import './globals/app_state.dart';
 import '../repositories/users_repo.dart';
 import "../repositories/positions_repo.dart";
 import "../repositories/geofences_repo.dart";
+import '../services/geocoding.dart';
 
 class TrackingScreen extends StatefulWidget {
   const TrackingScreen({super.key});
@@ -28,6 +28,9 @@ class _TrackingScreenState extends State<TrackingScreen> {
   late final PositionsRepository _positionsRepo =
       PositionsRepository(scambio.pb);
   late final GeofenceRepository _geofenceRepo = GeofenceRepository(scambio.pb);
+
+  // Variabile per sicnronizzazione allarme
+  bool _isProcessingDiscovery = false;
 
   // Posizioni e cronologia
   LatLng? _petLocation;
@@ -217,21 +220,6 @@ class _TrackingScreenState extends State<TrackingScreen> {
     _userLocationStream?.cancel();
     _compassSubscription?.cancel();
     super.dispose();
-  }
-
-  // Funzione per aprire il navigatore esterno con la posizione del pet
-  Future<void> _apriNavigatore() async {
-    if (_petLocation == null) return;
-    final url = Uri.parse(
-        'https://www.google.com/maps/search/?api=1&query=${_petLocation!.latitude},${_petLocation!.longitude}');
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Impossibile aprire il navigatore.")));
-      }
-    }
   }
 
   // Funzione per calcolare il testo da mostrare nel banner in alto, con distanza e stato di rilevamento dell'animale e dell'utente
@@ -567,7 +555,18 @@ class _TrackingScreenState extends State<TrackingScreen> {
                                     style: TextStyle(
                                         fontSize: 14 * scale,
                                         fontWeight: FontWeight.bold)),
-                                onPressed: _apriNavigatore,
+                                onPressed: () async {
+                                  if (_petLocation != null) {
+                                    // Chiamata alla funzione dentro Geocoding
+                                    bool success = await Geocoding.openNavigator(_petLocation!);
+                                    
+                                    if (!success && mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text("Impossibile aprire il navigatore.")),
+                                      );
+                                    }
+                                  }
+                                },
                               ),
                             ),
                             const SizedBox(width: 15),
@@ -576,21 +575,43 @@ class _TrackingScreenState extends State<TrackingScreen> {
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFF00C6B8),
                                   foregroundColor: Colors.white,
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 15),
-                                  shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(15)),
-                                  elevation: 10,
                                 ),
-                                icon: const Icon(Icons.check_circle_outline),
-                                label: Text("Trovato!",
-                                    style: TextStyle(
-                                        fontSize: 14 * scale,
-                                        fontWeight: FontWeight.bold)),
-                                onPressed: () async {
-                                  await _usersRepo.updateAlarm(false);
-                                  isTrackingMode.value = false;
-                                },
+                                icon: _isProcessingDiscovery
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                            color: Colors.white,
+                                            strokeWidth: 2))
+                                    : const Icon(Icons.check_circle_outline),
+                                label: Text(_isProcessingDiscovery
+                                    ? "Sincronizzazione..."
+                                    : "Trovato!"),
+                                onPressed: _isProcessingDiscovery
+                                    ? null
+                                    : () async {
+                                        setState(() =>
+                                            _isProcessingDiscovery = true);
+                                        try {
+                                          // Aggiorna il DB
+                                          bool success = await _usersRepo
+                                              .updateAlarm(false);
+                                          if (success) {
+                                            isTrackingMode.value =
+                                                false; // Questo notifica la Home di cambiare tab
+                                          }
+                                        } catch (e) {
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(const SnackBar(
+                                                  content: Text(
+                                                      "Errore nel salvataggio. Riprova.")));
+                                        } finally {
+                                          if (mounted) {
+                                            setState(() =>
+                                                _isProcessingDiscovery = false);
+                                          }
+                                        }
+                                      },
                               ),
                             ),
                           ],

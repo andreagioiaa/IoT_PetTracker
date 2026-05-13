@@ -100,9 +100,16 @@ class _PetTrackerNavigationState extends State<PetTrackerNavigation> {
     }
 
     isTrackingMode.addListener(() {
-      if (mounted) setState(() {});
-    });
-  }
+    if (mounted) {
+      setState(() {
+        // Se l'allarme viene spento (es. cliccando "Trovato!")
+        if (isTrackingMode.value == false && _currentIndex == 1) {
+          _currentIndex = 0;
+        }
+      });
+    }
+  });
+}
 
   @override
   Widget build(BuildContext context) {
