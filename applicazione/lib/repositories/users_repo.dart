@@ -10,14 +10,21 @@ class UsersRepository {
     try {
       if (!pb.authStore.isValid || pb.authStore.model == null) return null;
 
+      
       final userId = pb.authStore.model!.id;
 
-      // Usiamo l'operatore '~' (contiene) per gestire il caso in cui 'user' sia una relazione o un array di relazioni
+      print("[users.repo - getBoardIdFromBoards()] Cerco di prendere BoardId");
+      print("Debug: Cerco board per userId -> " + userId);
+
+      // Utilizziamo l'operatore '=' per una corrispondenza esatta, 
+      // dato che 'user' ora è una relazione singola.
       final record = await pb.collection('boards').getFirstListItem(
-            'user ~ "$userId"',
+            'user = "$userId"',
           );
 
-      return record.getStringValue('board');
+      print("Successo: ${record.id}");
+
+      return record.id;
     } catch (e) {
       debugPrint('🚨 Errore getBoardIdFromBoards: $e');
       return null;

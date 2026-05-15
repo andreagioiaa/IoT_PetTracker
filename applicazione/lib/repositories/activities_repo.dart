@@ -50,24 +50,24 @@ class ActivitiesRepository {
 
   // Recupera l'ultimo oggetto Activities completo per la board
   Future<Activities?> _getLastActivity(String boardId) async {
+    print("🔍 [DEBUG]: Cerco attività per boardId: '$boardId'");
     try {
       final result = await _pb.collection('activities').getList(
             page: 1,
             perPage: 1,
-            filter: 'board_id = "$boardId"',
+            filter: 'board_id = "$boardId"', // Assicurati che il nome del campo sia corretto
             sort: '-start_time',
           );
 
-      // Verifica se c'è stato un risultato valido prima di accedere al primo elemento
+      print("📊 [DEBUG]: Trovati ${result.totalItems} record totali per questa query.");
+
       if (result.items.isNotEmpty) {
         return Activities.fromRecord(result.items.first);
       }
-
-      print(
-          "⚠️ [activities_repo]: Nessuna attività trovata per board $boardId.");
       return null;
     } catch (e) {
-      print("🚨 [activities_repo]: Errore critico in getLastActivity: $e");
+      // Questo catturerà errori di sintassi nel filtro o problemi di rete
+      print("🚨 [DEBUG]: Errore durante la getList: $e");
       return null;
     }
   }

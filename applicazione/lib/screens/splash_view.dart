@@ -23,6 +23,8 @@ class SplashScreen extends StatefulWidget {
       final user = await usersRepo.getCurrentUser();
       final String? boardId = await usersRepo.getBoardIdFromBoards();
 
+      print("[splash_view] BoardId di ricerca: $boardId");
+
       if (boardId == null || boardId.isEmpty) {
         throw Exception("Nessuna board trovata per questo utente");
       }
