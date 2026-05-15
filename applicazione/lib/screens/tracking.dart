@@ -594,17 +594,24 @@ class _TrackingScreenState extends State<TrackingScreen> {
                                             _isProcessingDiscovery = true);
                                         try {
                                           // Aggiorna il DB
-                                          bool success = await _usersRepo
-                                              .updateAlarm(false);
+                                          bool success = await _usersRepo.setBoardAlarm(false);
+                                          // Notifica la Home di cambiare tab
                                           if (success) {
-                                            isTrackingMode.value =
-                                                false; // Questo notifica la Home di cambiare tab
+                                            isTrackingMode.value = false; 
+                                          } else {
+                                            if (mounted) {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                const SnackBar(content: Text("Errore durante l'aggiornamento della board.")));
+                                            }
                                           }
                                         } catch (e) {
+                                          if (mounted) {
                                           ScaffoldMessenger.of(context)
                                               .showSnackBar(const SnackBar(
                                                   content: Text(
-                                                      "Errore nel salvataggio. Riprova.")));
+                                                      "Errore nel salvataggio. Riprova."))
+                                                      );
+                                          }
                                         } finally {
                                           if (mounted) {
                                             setState(() =>

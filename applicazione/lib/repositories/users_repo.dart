@@ -98,7 +98,8 @@ class UsersRepository {
   // Registra un nuovo utente su PocketBase e lo collega alla board
   Future<String?> register(String email, String password, String name,
       String surname, String username, String boardIdInput) async {
-    String? createdUserId; // Variabile per il rollback in caso di errore
+    // Variabile per il rollback in caso di errore
+    String? createdUserId; 
 
     try {
       final cleanBoardId = boardIdInput.trim();
