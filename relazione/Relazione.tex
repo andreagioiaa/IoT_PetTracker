@@ -135,13 +135,26 @@
 \end{titlepage}
 
 \begin{abstract}
-\noindent Il progetto Pet-Tracker propone la realizzazione di un sistema IoT per il tracciamento in tempo reale di animali domestici di taglia media o superiore, scelta dettata dal peso del dispositivo. 
-La soluzione integra un dispositivo embedded basato su ESP32-S3 con connettività LTE e modulo GNSS, in grado di acquisire e trasmettere dati di posizione, stato della batteria e attività motoria verso un backend remoto. \\
+\noindent 
+Il progetto Pet Tracker propone la realizzazione di un sistema IoT 
+per il tracciamento in tempo reale di animali domestici di taglia media o grande, 
+tramite un dispositivo embedded indossabile.
+La soluzione si basa su una piattaforma
+ESP32-S3 con connettività LTE e modulo GNSS, 
+in grado di acquisire e trasmettere dati relativi alla posizione geografica, 
+allo stato della batteria e all'attività motoria dell'animale verso un backend remoto. \\
 
-\noindent L'architettura segue il modello IoT World Forum (IoTWF) e adotta tecniche di ottimizzazione energetica, tra cui modalità Deep Sleep e strategie di Hot Start per il GPS. 
-I dati vengono elaborati e resi disponibili tramite API REST e visualizzati attraverso un'applicazione mobile dedicata. \\
+\noindent 
+L'architettura del sistema segue il modello IoT World Forum (IoTWF)
+e integra diverse tecniche di ottimizzazione energetica, 
+tra cui l'utilizzo della modalità Deep Sleep e di Hot Start per il GPS. 
+I dati raccolti vengono elaborati dal backend, resi accessibili tramite API REST 
+e visualizzati attraverso un'applicazione mobile dedicata. \\
 
-\noindent L'obiettivo principale è garantire un sistema affidabile, a basso consumo energetico e scalabile per il monitoraggio continuo dell'animale.
+\noindent 
+L'obiettivo del progetto è sviluppare una soluzione affidabile, 
+scalabile ed efficiente dal punto di vista energetico 
+per il tracciamento continuo degli animali domestici.
 \end{abstract}
 
 \newpage
@@ -474,7 +487,7 @@ vengono avviate in parallelo, le seguenti operazioni:
   \item recupero delle attività del giorno corrente filtrate per \texttt{board\_id}.
 \end{itemize}
 
-Il \texttt{board\_id}, identificativo univoco della board LilyGo associata a uno o più utenti,
+Il \texttt{board\_id}, identificativo univoco della board LilyGo associata a uno o più dispositivi per utente,
 viene risolto dinamicamente interrogando la collezione \texttt{boards} sul backend tramite repository.
 Questo permette all'app di trovare il dispositivo corretto automaticamente, 
 evitando di dover inserire il codice manualmente nel software.
@@ -507,15 +520,12 @@ ottimizzando l'uso della batteria e del traffico dati.
 
 \subsection{Geofencing e Geocoding}
 
-La logica di geofencing è implementata anche dal lato client tramite l'algoritmo
-\textit{Ray-Casting}. Dato un punto GPS (latitudine, longitudine) e un poligono
-definito da una lista di vertici, l'algoritmo traccia un raggio orizzontale dal punto
+La logica di geofencing è implementata anche dal lato client tramite algoritmo \mbox{\textit{Ray-Casting}}. 
+Dato un punto GPS e un poligono definito da una lista di vertici, l'algoritmo traccia un raggio orizzontale dal punto
 verso l'infinito e conta le intersezioni con i lati del poligono, se il numero è dispari
 indica che il punto è interno al poligono, altrimenti è esterno. 
-L'implementazione locale di questo algoritmo serve principalmente a evitare 
-un numero eccessivo di chiamate di rete verso il server. 
-Inoltre, l'esecuzione sul dispositivo permette di gestire funzionalità 
-visive specifiche dell'interfaccia, distinte dalle logiche di competenza del \textit{backend}.
+Questa implementazione sul dispositivo evita un sovraccarico di rete verso il server 
+e permette di gestire le funzionalità visive in tempo reale, in totale autonomia dal \textit{backend}.
 
 Le zone vengono recuperate dalla collezione \texttt{geofences} su PocketBase, dove
 ogni record memorizza il nome della zona, i dati dell'indirizzo e la lista dei vertici
@@ -524,10 +534,10 @@ vengono considerate nel calcolo. Il risultato della verifica è una stringa con 
 della zona di appartenenza, oppure \textit{``Fuori zona sicura''} se il punto non
 rientra in nessuna area attiva. 
 
-Per arricchire l'interfaccia, l'applicativo integra un servizio di \textbf{geocoding} 
-basato sulle API di \textit{Nominatim} \cite{nominatim}. 
-Quest'ultimo agisce come motore di ricerca che interroga il database 
-cartografico open-source di \texttt{OpenStreetMap}, permettendo di:
+L'app integra un servizio di \textbf{geocoding} 
+basato sulle API di \textit{Nominatim} \cite{nominatim},
+un motore di ricerca che interroga il database geografico 
+open-source di OpenStreetMap per consentire:
 \begin{itemize}
   \item \textbf{Reverse Geocoding}: tradurre le coordinate GPS in un indirizzo testuale completo 
   (Via, Civico, CAP e Città) per facilitare la lettura all'utente;
@@ -542,34 +552,29 @@ cartografico open-source di \texttt{OpenStreetMap}, permettendo di:
 
 L’architettura dell’applicazione ruota attorno alla dashboard principale in \texttt{home.dart}, 
 che funge da centro di controllo dinamico per il monitoraggio dell'animale, 
-aggiornando istantaneamente titoli e icone in base alla zona rilevata.
-Un'altra caratteristica importante della pagina 
-è il blocco di sicurezza del \textit{toggle} per l'allarme. 
+mostrandone l'ultima posizione rilevata.
+Un'altra caratteristica importante della pagina è l'interruttore dell'allarme.
 Se il sistema rileva che l'animale è in stato di fuga, 
 l'interfaccia attiva automaticamente un blocco di sicurezza 
-per impedire la disattivazione manuale dell'allarme, 
-segnalando lo stato di emergenza tramite un'icona a lucchetto. 
-Essendo una variabile condivisa, l'integrità dell'operazione 
-è garantita da un \textbf{mutex} basato sulla variabile 
-\texttt{\_isUpdatingAlarm}, che congela l'input dell'utente durante 
-la sincronizzazione asincrona con il database. 
-Oltre alla sicurezza, la home centralizza le statistiche quotidiane 
+per impedirne la disattivazione.
+Inoltre, poiché lo stato dell'allarme si basa sulla variabile condivisa \texttt{\_isUpdatingAlarm}, 
+l'integrità dell'operazione è garantita da un \textbf{mutex} 
+che congela l'input dell'utente durante la sincronizzazione asincrona con il database. 
+Infine, la schermata raccoglie le statistiche quotidiane 
 come passi, chilometri e tempo di attività dell'animale, 
 permettendo la consultazione dei dati storici tramite un selettore di data.
 
-L'analisi delle varie attività di una giornata prosegue in 
-\texttt{daily\_recap.dart}, che organizza ordinatamente ogni 
-spostamento registrato in una timeline cronologica dettagliata. 
-Questa sezione raccoglie ed espande le attività principali 
-monitorate nella dashboard, permettendo di isolare specifici eventi, 
-attraverso un sistema di filtraggio. 
-L'analisi si conclude in \texttt{activity\_details.dart}, 
-che visualizza il tracciato specifico della sessione 
-selezionata nel riepilogo tramite una scia continua sulla mappa.
-Il sistema utilizza la funzione \texttt{CameraFit} per centrare l'inquadratura all'apertura, 
-garantendo l'immediata visibilità dell'intero tragitto. 
+La visualizzazione dei dettagli delle attività di una giornata prosegue in 
+\texttt{daily\_recap.dart}, che raccoglie e organizza 
+in ordine cronologico ogni monitoraggio visualizzato nella dashboard, 
+con la possibilità di filtrare per specifiche attività.
+Selezionando una determinata sessione dal riepilogo, 
+si accede alla schermata \texttt{activity\_details.dart}, 
+che mostra il tracciato specifico del percorso tramite una scia continua sulla mappa. 
+Il sistema utilizza la funzione \texttt{CameraFit} per centrare l’inquadratura all’apertura, 
+garantendo l’immediata visibilità dell’intero tragitto. 
 Inoltre, la schermata ripropone le statistiche di passi, chilometri e durata, 
-ricalcolate specificamente per l'attività selezionata.
+ricalcolate specificamente per l’attività selezionata.
 
 \begin{figure}[htbp]
     \centering
@@ -604,30 +609,16 @@ inoltre l'utente viene localizzato solo se ha dato il permesso.
 Il sistema di controllo geografico si articola in due schermate principali 
 che si scambiano dinamicamente in base allo stato dell'allarme. 
 Quando l'allarme è disattivato, l'utente accede al sistema di \texttt{geofencing.dart}, 
-un robusto strumento di sicurezza preventiva che permette di definire, modificare 
-e monitorare confini virtuali rappresentati come poligoni sulla mappa. 
-Queste zone non sono semplici disegni statici, ma elementi interattivi 
-che possono essere selezionati per rivelare informazioni dettagliate 
-sull'indirizzo tramite i servizi di geocoding o per
-attivare e disattivare lo stato di allerta dell'area.
+un robusto strumento di sicurezza preventiva che permette di definire e gestire
+i confini virtuali rappresentati come poligoni sulla mappa. 
 
-Nel momento in cui l'allarme si attiva, l'interfaccia passa 
-automaticamente alla schermata di \texttt{tracking.dart}. 
+All'attivazione dell'allarme, la schermata \texttt{geofencing.dart} passa a \texttt{tracking.dart}. 
 In questa fase, il sistema adotta un approccio proattivo di sicurezza 
-implementando un'interfaccia adattiva che cambia tra una modalità di monitoraggio standard 
-e una di "inseguimento" qualora l’animale lasci la sua zona sicura attiva. 
-Tale transizione è evidenziata da un banner dinamico che adatta colori e testi 
-all'urgenza della situazione ospitando al suo interno la distanza 
-in tempo reale dall'animale affiancata da una bussola digitale. 
-Quest'ultima utilizza il magnetometro dello smartphone 
-e le coordinate GPS per puntare sempre verso l'animale, 
-indipendentemente da come l'utente sia orientato fisicamente. 
-Inoltre, sulla mappa viene renderizzata una scia storica 
+implementando un'interfaccia adattiva che cambia tra una modalità 
+di monitoraggio e una di "inseguimento" qualora l’animale lasci la sua zona sicura attiva. 
+Sulla mappa inoltre viene renderizzata una scia storica 
 delle ultime posizioni registrate, fornendo un percorso visivo immediato 
 che aiuta a comprendere la direzione del movimento recente dell’animale. 
-Se l'animale risulta fuori dal perimetro di sicurezza 
-appaiono dei pulsanti rapidi per avviare un’app di mappe esterna 
-verso la sua posizione o per segnalarne il ritrovamento disattivando così l'allarme.
 
 \subsubsection{Gestione delle Zone Sicure}
 
@@ -675,18 +666,6 @@ un'area può essere creata solo se rispetta due controlli di validità:
     \end{subfigure}
     \label{fig:creazione_area}
 \end{figure}
-
-\subsubsection{Stato della batteria}
-
-La schermata relativa allo stato del dispositivo, 
-implementata in \texttt{battery.dart}, 
-offre all'utente un monitoraggio in tempo reale della sua autonomia. 
-L'interfaccia grafica è focalizzata su un indicatore circolare 
-personalizzato \texttt{GradientCircularProgress}, 
-che mostra la percentuale residua 
-e cambia colore dinamicamente al diminuire della carica.
-Nel momento in cui il dispositivo viene posto in ricarica, 
-l'interfaccia transita automaticamente in uno stato dedicato.
 
 \section{Sistema di Notifiche Push}
 L'implementazione di un sistema di notifiche push è fondamentale per un dispositivo di tracciamento animali, in quanto permette di avvisare tempestivamente l'utente in caso di pericoli (uscita dal perimetro sicuro) o problemi tecnici (batteria scarica).
@@ -780,32 +759,33 @@ dell'avvenuta lettura dell'informativa.
 \section{Limiti del Sistema}
 Nonostante i risultati ottenuti, il sistema presenta alcune limitazioni:
 \begin{itemize}
-    \item \textbf{Dipendenza dalla rete LTE}: in assenza di copertura, 
-        la trasmissione dei dati non è garantita.
+    \item \textbf{Dipendenza dalla rete LTE}: senza copertura la trasmissione dati non è garantita.
     \item \textbf{Prestazioni indoor}: il modulo GNSS risulta poco affidabile in ambienti chiusi.
     \item \textbf{Backend locale}: l'utilizzo di PocketBase su macchina locale, 
         esposto tramite ngrok, introduce dipendenze da servizi esterni e limita la scalabilità.
-    \item \textbf{Consumo energetico del modem LTE}: la trasmissione dati 
-        rappresenta la principale fonte di consumo.
+    \item \textbf{Consumo del modem LTE}: la trasmissione dati ne rappresenta la fonte principale.
     \item \textbf{Race condition sui pacchetti simultanei}: in caso di ricezione 
-        quasi-simultanea di due pacchetti dallo stesso dispositivo, 
-        entrambi potrebbero leggere lo stesso record activity prima che il primo 
-        abbia completato la scrittura. Gli scenari più critici sono due: 
-        nel caso di cambio di stato, il secondo pacchetto potrebbe riscrivere 
+        quasi simultanea di due pacchetti dallo stesso dispositivo, 
+        entrambi potrebbero leggere lo stesso record \texttt{activity} 
+        prima del completamento della prima scrittura. 
+        Gli scenari più critici sono due: 
+        nel caso di cambio di stato, il secondo pacchetto potrebbe sovrascrivere 
         un record già chiuso dal primo, generando inconsistenze strutturali; 
-        nel caso di risveglio simultaneo dal Deep Sleep, entrambi i pacchetti 
-        potrebbero riattivare lo stesso record sleep e creare due sessioni attive 
+        nel caso di risveglio simultaneo dal \textbf{Deep Sleep}, 
+        entrambi i pacchetti potrebbero riattivare 
+        lo stesso record \texttt{sleep} e creare due sessioni attive 
         contemporaneamente, violando l'invariante del sistema. 
-        PocketBase non espone transazioni atomiche sui record, 
-        rendendo questi scenari non eliminabili per via software; 
-        in pratica la frequenza di invio dei pacchetti (ogni 30 secondi o più) 
-        rende l'evento estremamente raro.
+        L'impossibilità di gestire transazioni atomiche isolate 
+        sui singoli record tramite le API standard di PocketBase 
+        rende questo scenario non eliminabile lato applicativo. 
+        Tuttavia, la frequenza di invio (ogni 30 o più secondi) 
+        rende l’evento estremamente raro all'atto pratico.
     \item \textbf{Fallimento nella geolocalizzazione}: l'eventuale mancato rilevamento 
-        di indirizzi, solitamente nei comuni minori, non è imputabile al codice, 
-        bensì a un limite legato alla densità dei metadati cartografici. 
+        di indirizzi, solitamente nei nei centri abitati più piccoli, 
+        non è imputabile al codice, bensì a un limite legato alla densità dei metadati geografici. 
         Poiché \texttt{OpenStreetMap} si basa su contributi volontari, 
-        l'assenza di \textit{tag} specifici (come i numeri civici o il CAP associato alla via) 
-        rende inefficaci le \textit{query} strutturate inviate a Nominatim. 
+        l'assenza di tag specifici (come i numeri civici o il CAP associato alla via) 
+        rende inefficaci le query strutturate inviate a \texttt{Nominatim}. 
         Quest'ultimo, richiedendo una corrispondenza rigida ed esatta di tutti i parametri forniti, 
         non è in grado di compensare l'incompletezza dei dati.
 \end{itemize}
