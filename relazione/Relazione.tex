@@ -136,25 +136,25 @@
 
 \begin{abstract}
 \noindent 
-Il progetto Pet Tracker propone la realizzazione di un sistema IoT 
+Il progetto Pet Tracker propone la realizzazione di un sistema 
 per il tracciamento in tempo reale di animali domestici di taglia media o grande, 
-tramite un dispositivo embedded indossabile.
+tramite un dispositivo \textit{embedded} indossabile.
+L'obiettivo del lavoro è sviluppare una soluzione affidabile, 
+scalabile e a basso consumo per il monitoraggio continuo dell'animale. \\
+
+\noindent
 La soluzione si basa su una piattaforma
 ESP32-S3 con connettività LTE e modulo GNSS, 
-in grado di acquisire e trasmettere dati relativi alla posizione geografica, 
-allo stato della batteria e all'attività motoria dell'animale verso un backend remoto. \\
-
-\noindent 
+in grado di acquisire e trasmettere 
+lo stato della batteria del dispositivo, 
+insieme alla posizione geografica e 
+all'attività motoria dell'animale, 
+verso un \textit{backend} remoto.
 L'architettura del sistema segue il modello IoT World Forum (IoTWF)
 e integra diverse tecniche di ottimizzazione energetica, 
-tra cui l'utilizzo della modalità Deep Sleep e di Hot Start per il GPS. 
-I dati raccolti vengono elaborati dal backend, resi accessibili tramite API REST 
-e visualizzati attraverso un'applicazione mobile dedicata. \\
-
-\noindent 
-L'obiettivo del progetto è sviluppare una soluzione affidabile, 
-scalabile ed efficiente dal punto di vista energetico 
-per il tracciamento continuo degli animali domestici.
+tra cui l'utilizzo delle modalità \textit{Deep Sleep} e \textit{Hot Start}. 
+I dati raccolti vengono elaborati dal \textit{backend}, resi accessibili tramite API REST 
+e visualizzati attraverso un'applicazione mobile dedicata. 
 \end{abstract}
 
 \newpage
@@ -164,22 +164,24 @@ per il tracciamento continuo degli animali domestici.
 \newpage
 
 \section{Architettura del sistema}
-L'architettura del sistema Pet-Tracker segue il \textbf{Modello a 7 livelli dell'IoT World Forum (IoTWF)}, garantendo una transizione fluida dal dato fisico all'informazione per l'utente.
+L'architettura del sistema Pet Tracker segue il modello a sette livelli dell'IoTWF, 
+garantendo una transizione strutturata dal dato fisico all'informazione per l'utente.
 
 \subsection{Mappatura sul modello IoTWF}
 \begin{itemize}
-    \item \textbf{Livello 1 (Physical Devices):} Rappresentato dalla board LilyGo e dai sensori (GPS, Accelerometro).
-    \item \textbf{Livello 2 (Connectivity):} Gestito tramite il modem LTE e protocolli di trasporto sicuri.
-    \item \textbf{Livello 3 (Edge Computing):} Elaborazione locale sul microcontrollore per il filtraggio delle stringhe NMEA e il calcolo dei passi.
-    \item \textbf{Livello 4 (Data Accumulation):} Persistenza dei dati sul server PocketBase (database SQLite).
-    \item \textbf{Livello 5 (Data Abstraction):} Esposizione dei dati tramite API REST strutturate in formato JSON.
-    \item \textbf{Livello 6 (Application):} L'applicazione mobile dedicata che trasforma le coordinate in posizioni su mappa.
-    \item \textbf{Livello 7 (Collaboration and Processes):} L'interazione del proprietario con il sistema per il monitoraggio dell'animale.
+    \item \textbf{Livello 1 (Physical Devices):} rappresentato dalla scheda LilyGo e dai sensori GPS e accelerometro.
+    \item \textbf{Livello 2 (Connectivity):} gestito tramite il modem LTE e protocolli di comunicazione sicuri.
+    \item \textbf{Livello 3 (Edge Computing):} elaborazione locale sul microcontrollore per il filtraggio delle stringhe NMEA e il calcolo dei passi.
+    \item \textbf{Livello 4 (Data Accumulation):} persistenza dei dati sul server PocketBase basato su database SQLite.
+    \item \textbf{Livello 5 (Data Abstraction):} pubblicazione dei dati tramite API REST in formato JSON.
+    \item \textbf{Livello 6 (Application):} applicazione mobile per la visualizzazione delle informazioni e della posizione dell'animale su mappa.
+    \item \textbf{Livello 7 (Collaboration and Processes):} interazione dell'utente con il sistema per il monitoraggio dell'animale.
 \end{itemize}
 
 \section{Hardware}
-\subsection{LiLyGo T-SIM7670G-S3}
-Il dispositivo utilizza una board LiLyGo T-SIM7670G-S3 \cite{lilygo_specs} che si basa sul modulo \textbf{ESP32-S3} dual-core, che gestisce sia la logica applicativa che la comunicazione con il modem SIM7670G tramite interfaccia UART.
+\subsection{LilyGo T-SIM7670G-S3}
+Il dispositivo utilizza una board LilyGo T-SIM7670G-S3 \cite{lilygo_specs} basata sul modulo \textbf{ESP32-S3} dual-core,
+che gestisce la logica applicativa e la comunicazione con il modem SIM7670G tramite interfaccia UART.
 \subsection{Antenna GPS e LTE}
 Il sistema utilizza un'antenna flessibile LTE \cite{LTE} per la connettività dati e un'antenna ceramica attiva \cite{GPS} per il ricevitore GNSS integrato, essenziale per la precisione della localizzazione outdoor.
 \subsection{Batteria e Power Management}

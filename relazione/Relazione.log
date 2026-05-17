@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (MiKTeX 24.1) (preloaded format=pdflatex 2025.4.18)  16 MAY 2026 21:41
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (MiKTeX 24.1) (preloaded format=pdflatex 2025.4.18)  18 MAY 2026 01:56
 entering extended mode
  restricted \write18 enabled.
  file:line:error style messages enabled.
@@ -730,12 +730,7 @@ Package pdftex.def Info: immagini/Logo.pdf  used on input line 121.
  [1
 
 {C:/Users/Nick/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map}{C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-ec.enc} <./immagini/Logo.pdf>]
-Underfull \hbox (badness 10000) in paragraph at lines 138--146
-
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 147--153
+Underfull \hbox (badness 10000) in paragraph at lines 138--144
 
  []
 
@@ -772,97 +767,97 @@ LaTeX Font Info:    External font `lmex10' loaded for size
 \openout5 = `Relazione.toc'.
 
  [3]
-LaTeX Font Info:    Trying to load font information for TS1+lmr on input line 171.
+LaTeX Font Info:    Trying to load font information for TS1+lmr on input line 172.
  (C:\Users\Nick\AppData\Local\Programs\MiKTeX\tex/latex/lm\ts1lmr.fd
 File: ts1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
-LaTeX Font Info:    Trying to load font information for T1+lmtt on input line 186.
+LaTeX Font Info:    Trying to load font information for T1+lmtt on input line 188.
  (C:\Users\Nick\AppData\Local\Programs\MiKTeX\tex/latex/lm\t1lmtt.fd
 File: t1lmtt.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 ) [4{C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-ts1.enc}] [5]
-Overfull \hbox (4.19635pt too wide) in paragraph at lines 250--253
+Overfull \hbox (4.19635pt too wide) in paragraph at lines 252--255
 []\T1/lmr/bx/n/12 Invio Fi-na-le: \T1/lmr/m/n/12 se non vie-ne ri-le-va-ta at-ti-vi-tà per un tem-po su-pe-rio-re a \T1/lmtt/m/n/12 SLEEP_TIMEOUT
  []
 
 
-Overfull \hbox (26.805pt too wide) in paragraph at lines 271--278
+Overfull \hbox (26.805pt too wide) in paragraph at lines 273--280
 []\T1/lmr/bx/n/12 Stato USB: \T1/lmr/m/n/12 at-tra-ver-so la let-tu-ra del re-gi-stro hard-ware \T1/lmtt/m/n/12 USB_SERIAL_JTAG_EP1_CONF_REG
  []
 
 [6{C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-rm.enc}{C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-mathit.enc}]
-Overfull \hbox (66.51697pt too wide) in paragraph at lines 293--301
+Overfull \hbox (66.51697pt too wide) in paragraph at lines 295--303
 \T1/lmr/m/n/12 All'avvio, il firm-ware ten-ta di re-gi-strar-si al-la re-te LTE at-tra-ver-so la fun-zio-ne \T1/lmtt/m/n/12 connectToNetworkFast()\T1/lmr/m/n/12 .
  []
 
 [7]
-Overfull \hbox (11.94272pt too wide) in paragraph at lines 343--343
+Overfull \hbox (11.94272pt too wide) in paragraph at lines 345--345
 |[]\T1/lmr/bx/n/14.4 Logica di Smi-sta-men-to e Nor-ma-liz-za-zio-ne (Server-side Hooks)| 
  []
 
 [8]
-Overfull \hbox (10.3339pt too wide) in paragraph at lines 380--381
+Overfull \hbox (10.3339pt too wide) in paragraph at lines 382--383
 []\T1/lmr/m/n/12 Tutti gli sta-ti sleep si com-por-ta-no in mo-do \T1/lmr/bx/n/12 uni-for-me\T1/lmr/m/n/12 : ven-go-no sem-pre chiu-si con \T1/lmtt/m/n/12 is_active
  []
 
 [9] [10{C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/lm/lm-mathsy.enc}] [11]
-Overfull \hbox (5.1001pt too wide) in paragraph at lines 502--508
+Overfull \hbox (5.1001pt too wide) in paragraph at lines 504--510
 \T1/lmtt/m/n/12 Stream<Positions>\T1/lmr/m/n/12 ) a cui le scher-ma-te si sot-to-scri-vo-no tra-mi-te una \T1/lmtt/m/n/12 StreamSubscription\T1/lmr/m/n/12 . 
  []
 
 [12]
-Overfull \hbox (2.42487pt too wide) in paragraph at lines 523--529
+Overfull \hbox (2.42487pt too wide) in paragraph at lines 525--531
 \T1/lmr/m/n/12 La lo-gi-ca di geo-fen-cing è im-ple-men-ta-ta an-che dal la-to client tra-mi-te al-go-rit-mo [].
  []
 
 
-Overfull \hbox (5.54388pt too wide) in paragraph at lines 567--578
+Overfull \hbox (5.54388pt too wide) in paragraph at lines 569--580
 []\T1/lmr/m/n/12 La vi-sua-liz-za-zio-ne dei det-ta-gli del-le at-ti-vi-tà di una gior-na-ta pro-se-gue in \T1/lmtt/m/n/12 daily_recap.dart\T1/lmr/m/n/12 ,
  []
 
 [13]
-<Immagini/Capitolo_5/photo_6.jpg, id=358, 1084.05pt x 1964.33875pt>
+<Immagini/Capitolo_5/photo_6.jpg, id=359, 1084.05pt x 1964.33875pt>
 File: Immagini/Capitolo_5/photo_6.jpg Graphic file (type jpg)
 <use Immagini/Capitolo_5/photo_6.jpg>
-Package pdftex.def Info: Immagini/Capitolo_5/photo_6.jpg  used on input line 584.
+Package pdftex.def Info: Immagini/Capitolo_5/photo_6.jpg  used on input line 586.
 (pdftex.def)             Requested size: 125.61424pt x 227.61768pt.
-<Immagini/Capitolo_5/photo_3.jpg, id=359, 1084.05pt x 1954.30125pt>
+<Immagini/Capitolo_5/photo_3.jpg, id=360, 1084.05pt x 1954.30125pt>
 File: Immagini/Capitolo_5/photo_3.jpg Graphic file (type jpg)
 <use Immagini/Capitolo_5/photo_3.jpg>
-Package pdftex.def Info: Immagini/Capitolo_5/photo_3.jpg  used on input line 592.
+Package pdftex.def Info: Immagini/Capitolo_5/photo_3.jpg  used on input line 594.
 (pdftex.def)             Requested size: 126.25935pt x 227.61757pt.
  [14 <./Immagini/Capitolo_5/photo_6.jpg> <./Immagini/Capitolo_5/photo_3.jpg>]
-<Immagini/Capitolo_5/photo_5.jpg, id=365, 1084.05pt x 1951.29pt>
+<Immagini/Capitolo_5/photo_5.jpg, id=366, 1084.05pt x 1951.29pt>
 File: Immagini/Capitolo_5/photo_5.jpg Graphic file (type jpg)
 <use Immagini/Capitolo_5/photo_5.jpg>
-Package pdftex.def Info: Immagini/Capitolo_5/photo_5.jpg  used on input line 647.
+Package pdftex.def Info: Immagini/Capitolo_5/photo_5.jpg  used on input line 649.
 (pdftex.def)             Requested size: 126.44131pt x 227.59436pt.
-<Immagini/Capitolo_5/photo_4.jpg, id=366, 1084.05pt x 1960.32375pt>
+<Immagini/Capitolo_5/photo_4.jpg, id=367, 1084.05pt x 1960.32375pt>
 File: Immagini/Capitolo_5/photo_4.jpg Graphic file (type jpg)
 <use Immagini/Capitolo_5/photo_4.jpg>
-Package pdftex.def Info: Immagini/Capitolo_5/photo_4.jpg  used on input line 655.
+Package pdftex.def Info: Immagini/Capitolo_5/photo_4.jpg  used on input line 657.
 (pdftex.def)             Requested size: 125.86237pt x 227.60112pt.
-<Immagini/Capitolo_5/photo_2.jpg, id=367, 1084.05pt x 1948.27875pt>
+<Immagini/Capitolo_5/photo_2.jpg, id=368, 1084.05pt x 1948.27875pt>
 File: Immagini/Capitolo_5/photo_2.jpg Graphic file (type jpg)
 <use Immagini/Capitolo_5/photo_2.jpg>
-Package pdftex.def Info: Immagini/Capitolo_5/photo_2.jpg  used on input line 663.
+Package pdftex.def Info: Immagini/Capitolo_5/photo_2.jpg  used on input line 665.
 (pdftex.def)             Requested size: 126.6398pt x 227.59987pt.
  [15 <./Immagini/Capitolo_5/photo_5.jpg> <./Immagini/Capitolo_5/photo_4.jpg> <./Immagini/Capitolo_5/photo_2.jpg>]
-Underfull \hbox (badness 1701) in paragraph at lines 698--699
+Underfull \hbox (badness 1701) in paragraph at lines 700--701
 []\T1/lmr/m/n/12 Allarme riat-ti-va-to men-tre
  []
 
 
-Overfull \hbox (7.96135pt too wide) in paragraph at lines 692--710
+Overfull \hbox (7.96135pt too wide) in paragraph at lines 694--712
  [][] 
  []
 
 [16] [17] [18]
-Overfull \hbox (14.20894pt too wide) in paragraph at lines 810--810
+Overfull \hbox (14.20894pt too wide) in paragraph at lines 812--812
 \T1/lmtt/m/n/12 LilyGo -[] Modem -[] Series / blob / main / datasheet / LTE % 20Antenna % 20Specifications .
  []
 
 
-Overfull \hbox (14.20894pt too wide) in paragraph at lines 810--810
+Overfull \hbox (14.20894pt too wide) in paragraph at lines 812--812
 \T1/lmtt/m/n/12 LilyGo -[] Modem -[] Series / blob / main / datasheet / GPS % 20Antenna % 20Specifications .
  []
 
@@ -872,23 +867,23 @@ LaTeX2e <2023-11-01> patch level 1
 L3 programming layer <2024-01-04>
  ***********
 Package rerunfilecheck Info: File `Relazione.out' has not changed.
-(rerunfilecheck)             Checksum: E8F0ED13C445B3C710FDE06FFDC46DC9;10674.
+(rerunfilecheck)             Checksum: D5CE84468669558B7B7DF7858F9B0A39;10674.
 Package logreq Info: Writing requests to 'Relazione.run.xml'.
 \openout1 = `Relazione.run.xml'.
 
  ) 
 Here is how much of TeX's memory you used:
- 22825 strings out of 474486
- 402437 string characters out of 5744227
+ 22827 strings out of 474486
+ 402463 string characters out of 5744227
  1943542 words of memory out of 5000000
- 44740 multiletter control sequences out of 15000+600000
- 614757 words of font info for 64 fonts, out of 8000000 for 9000
+ 44741 multiletter control sequences out of 15000+600000
+ 619020 words of font info for 65 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  69i,11n,81p,1248b,1638s stack positions out of 10000i,1000n,20000p,200000b,200000s
-<C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmbx10.pfb><C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmbx12.pfb><C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmbxi10.pfb><C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmcsc10.pfb><C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmmi12.pfb><C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmr10.pfb><C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmr12.pfb><C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmri12.pfb><C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmsy10.pfb><C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmtt12.pfb>
-Output written on Relazione.pdf (20 pages, 1325089 bytes).
+<C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmbx10.pfb><C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmbx12.pfb><C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmbxi10.pfb><C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmcsc10.pfb><C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmmi12.pfb><C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmr10.pfb><C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmr12.pfb><C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmri10.pfb><C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmri12.pfb><C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmsy10.pfb><C:/Users/Nick/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmtt12.pfb>
+Output written on Relazione.pdf (20 pages, 1339467 bytes).
 PDF statistics:
- 497 PDF objects out of 1000 (max. 8388607)
+ 502 PDF objects out of 1000 (max. 8388607)
  99 named destinations out of 1000 (max. 500000)
  431 words of extra memory for PDF output out of 10000 (max. 10000000)
 
