@@ -108,6 +108,10 @@ INPUT C:\Program Files\MiKTeX\tex\latex\csquotes\csquotes.def
 INPUT C:\Program Files\MiKTeX\tex\latex\csquotes\csquotes.cfg
 INPUT C:\Program Files\MiKTeX\tex\latex\csquotes\csquotes.cfg
 INPUT C:\Program Files\MiKTeX\tex\latex\csquotes\csquotes.cfg
+INPUT C:\Program Files\MiKTeX\tex\latex\tools\tabularx.sty
+INPUT C:\Program Files\MiKTeX\tex\latex\tools\tabularx.sty
+INPUT C:\Program Files\MiKTeX\tex\latex\tools\array.sty
+INPUT C:\Program Files\MiKTeX\tex\latex\tools\array.sty
 INPUT C:\Program Files\MiKTeX\tex\latex\biblatex\biblatex.sty
 INPUT C:\Program Files\MiKTeX\tex\latex\biblatex\biblatex.sty
 INPUT C:\Program Files\MiKTeX\tex\generic\pdftexcmds\pdftexcmds.sty
@@ -286,7 +290,12 @@ INPUT C:\Program Files\MiKTeX\fonts\tfm\public\lm\ec-lmtt12.tfm
 INPUT C:\Program Files\MiKTeX\fonts\enc\dvips\lm\lm-ts1.enc
 INPUT C:\Program Files\MiKTeX\fonts\enc\dvips\lm\lm-rm.enc
 INPUT C:\Program Files\MiKTeX\fonts\enc\dvips\lm\lm-mathit.enc
+INPUT C:\Program Files\MiKTeX\fonts\tfm\public\lm\rm-lmr10.tfm
+INPUT C:\Program Files\MiKTeX\fonts\tfm\public\lm\lmmi10.tfm
+INPUT C:\Program Files\MiKTeX\fonts\tfm\public\lm\lmsy10.tfm
+INPUT C:\Program Files\MiKTeX\fonts\tfm\public\lm\ec-lmtt10.tfm
 INPUT C:\Program Files\MiKTeX\fonts\enc\dvips\lm\lm-mathsy.enc
+INPUT C:\Program Files\MiKTeX\fonts\tfm\public\lm\ec-lmtk10.tfm
 INPUT .\Immagini\Capitolo_5\photo_6.jpg
 INPUT .\Immagini\Capitolo_5\photo_6.jpg
 INPUT .\Immagini\Capitolo_5\photo_6.jpg
@@ -347,5 +356,9 @@ INPUT C:\Program Files\MiKTeX\fonts\type1\public\lm\lmri12.pfb
 INPUT C:\Program Files\MiKTeX\fonts\type1\public\lm\lmri12.pfb
 INPUT C:\Program Files\MiKTeX\fonts\type1\public\lm\lmsy10.pfb
 INPUT C:\Program Files\MiKTeX\fonts\type1\public\lm\lmsy10.pfb
+INPUT C:\Program Files\MiKTeX\fonts\type1\public\lm\lmtk10.pfb
+INPUT C:\Program Files\MiKTeX\fonts\type1\public\lm\lmtk10.pfb
+INPUT C:\Program Files\MiKTeX\fonts\type1\public\lm\lmtt10.pfb
+INPUT C:\Program Files\MiKTeX\fonts\type1\public\lm\lmtt10.pfb
 INPUT C:\Program Files\MiKTeX\fonts\type1\public\lm\lmtt12.pfb
 INPUT C:\Program Files\MiKTeX\fonts\type1\public\lm\lmtt12.pfb

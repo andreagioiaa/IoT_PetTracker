@@ -14,42 +14,37 @@
 \contentsline {subsection}{\numberline {3.4}Monitoraggio Hardware e Batteria}{6}{subsection.3.4}%
 \contentsline {subsection}{\numberline {3.5}Acquisizione GPS e Timeout}{6}{subsection.3.5}%
 \contentsline {subsection}{\numberline {3.6}Connessione alla Rete LTE}{7}{subsection.3.6}%
-\contentsline {section}{\numberline {4}Back-end e Database}{7}{section.4}%
-\contentsline {subsection}{\numberline {4.1}Architettura di Hosting e Network Exposure}{7}{subsection.4.1}%
-\contentsline {subsection}{\numberline {4.2}Sistema di Backup e Data Retention}{7}{subsection.4.2}%
-\contentsline {subsection}{\numberline {4.3}Monitoraggio e Business Continuity}{7}{subsection.4.3}%
-\contentsline {subsection}{\numberline {4.4}Struttura dei dati e pulizia automatica}{8}{subsection.4.4}%
-\contentsline {subsection}{\numberline {4.5}Interfaccia API e API Rules}{8}{subsection.4.5}%
-\contentsline {subsubsection}{\numberline {4.5.1}API Rules e Sicurezza}{8}{subsubsection.4.5.1}%
-\contentsline {subsection}{\numberline {4.6}Smistamento e Normalizzazione}{8}{subsection.4.6}%
-\contentsline {subsubsection}{\numberline {4.6.1}Ottimizzazione delle query: lettura centralizzata della board}{9}{subsubsection.4.6.1}%
-\contentsline {subsubsection}{\numberline {4.6.2}Funzionamento del Trigger onRecordAfterCreateSuccess}{9}{subsubsection.4.6.2}%
-\contentsline {subsubsection}{\numberline {4.6.3}Macchina a stati delle attività}{9}{subsubsection.4.6.3}%
-\contentsline {subsubsection}{\numberline {4.6.4}Gestione del Risveglio e Deduplicazione delle Sessioni}{10}{subsubsection.4.6.4}%
-\contentsline {subsubsection}{\numberline {4.6.5}Watchdog di Inattività e Split Notturno}{10}{subsubsection.4.6.5}%
-\contentsline {subsubsection}{\numberline {4.6.6}Vantaggi Architetturali e Corrispondenza IoTWF}{11}{subsubsection.4.6.6}%
+\contentsline {section}{\numberline {4}Backend e Database}{7}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Architettura di Hosting e Operational Continuity}{7}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Modellazione dei Dati e API Rules}{8}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}Pipeline di Ingestion e Normalizzazione (Server-side Hooks)}{8}{subsection.4.3}%
+\contentsline {subsection}{\numberline {4.4}Macchina a Stati delle Attività e Logiche di Isteresi}{9}{subsection.4.4}%
+\contentsline {subsection}{\numberline {4.5}Lifecycle del Deep Sleep e Servizi Temporali}{10}{subsection.4.5}%
+\contentsline {subsubsection}{\numberline {4.5.1}Gestione del Risveglio e Anti-Spuria}{10}{subsubsection.4.5.1}%
+\contentsline {subsubsection}{\numberline {4.5.2}Watchdog di Inattività e Split Notturno}{11}{subsubsection.4.5.2}%
+\contentsline {subsection}{\numberline {4.6}Vantaggi Architetturali e Corrispondenza IoTWF}{11}{subsection.4.6}%
 \contentsline {section}{\numberline {5}Front-end e Applicazione Mobile}{11}{section.5}%
-\contentsline {subsection}{\numberline {5.1}Architettura a livelli}{11}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.1}Architettura a livelli}{12}{subsection.5.1}%
 \contentsline {subsection}{\numberline {5.2}Autenticazione e persistenza della sessione}{12}{subsection.5.2}%
 \contentsline {subsection}{\numberline {5.3}Splash Screen e Caricamento Parallelo}{12}{subsection.5.3}%
-\contentsline {subsection}{\numberline {5.4}Comunicazione in Tempo Reale}{12}{subsection.5.4}%
+\contentsline {subsection}{\numberline {5.4}Comunicazione in Tempo Reale}{13}{subsection.5.4}%
 \contentsline {subsection}{\numberline {5.5}Geofencing e Geocoding}{13}{subsection.5.5}%
 \contentsline {subsection}{\numberline {5.6}Schermate e Funzionalità Principali}{13}{subsection.5.6}%
 \contentsline {subsubsection}{\numberline {5.6.1}Analisi delle Attività}{13}{subsubsection.5.6.1}%
 \contentsline {subsubsection}{\numberline {5.6.2}Mappe in Tempo Reale}{14}{subsubsection.5.6.2}%
-\contentsline {subsubsection}{\numberline {5.6.3}Gestione delle Zone Sicure}{14}{subsubsection.5.6.3}%
+\contentsline {subsubsection}{\numberline {5.6.3}Gestione delle Zone Sicure}{15}{subsubsection.5.6.3}%
 \contentsline {section}{\numberline {6}Sistema di Notifiche Push}{15}{section.6}%
-\contentsline {subsection}{\numberline {6.1}Analisi dei Vincoli Tecnologici: Incompatibilità Goja e Firebase}{15}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.1}Analisi dei Vincoli Tecnologici: Incompatibilità Goja e Firebase}{16}{subsection.6.1}%
 \contentsline {subsection}{\numberline {6.2}Architettura del FCM Bridge}{16}{subsection.6.2}%
 \contentsline {subsection}{\numberline {6.3}Logica di Invio e Trigger}{16}{subsection.6.3}%
 \contentsline {subsection}{\numberline {6.4}Permessi e Localizzazione}{17}{subsection.6.4}%
-\contentsline {section}{\numberline {7}Vincoli di Sistema}{17}{section.7}%
-\contentsline {subsection}{\numberline {7.1}Vincoli Hardware e Ambientali}{17}{subsection.7.1}%
+\contentsline {section}{\numberline {7}Vincoli di Sistema}{18}{section.7}%
+\contentsline {subsection}{\numberline {7.1}Vincoli Hardware e Ambientali}{18}{subsection.7.1}%
 \contentsline {subsection}{\numberline {7.2}Vincoli Architetturali e di Concorrenza}{18}{subsection.7.2}%
-\contentsline {subsection}{\numberline {7.3}Vincoli di Integrazione e Dati Esterni}{18}{subsection.7.3}%
+\contentsline {subsection}{\numberline {7.3}Vincoli di Integrazione e Dati Esterni}{19}{subsection.7.3}%
 \contentsline {section}{\numberline {8}Implementazioni Future}{19}{section.8}%
 \contentsline {subsection}{\numberline {8.1}Stato della batteria}{19}{subsection.8.1}%
 \contentsline {subsection}{\numberline {8.2}Database, Infrastruttura Cloud e Gestione della Concorrenza}{19}{subsection.8.2}%
-\contentsline {subsection}{\numberline {8.3}Ingegnerizzazione e Costruzione della Scheda Hardware}{19}{subsection.8.3}%
+\contentsline {subsection}{\numberline {8.3}Ingegnerizzazione e Costruzione della Scheda Hardware}{20}{subsection.8.3}%
 \contentsline {section}{\numberline {9}Conclusioni}{20}{section.9}%
 \contentsline {section}{Riferimenti bibliografici}{21}{section.9}%
