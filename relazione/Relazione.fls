@@ -290,7 +290,6 @@ INPUT C:\Users\Nick\AppData\Local\Programs\MiKTeX\tex\latex\lm\t1lmtt.fd
 INPUT C:\Users\Nick\AppData\Local\Programs\MiKTeX\tex\latex\lm\t1lmtt.fd
 INPUT C:\Users\Nick\AppData\Local\Programs\MiKTeX\fonts\tfm\public\lm\ec-lmtt12.tfm
 INPUT C:\Users\Nick\AppData\Local\Programs\MiKTeX\fonts\enc\dvips\lm\lm-ts1.enc
-INPUT C:\Users\Nick\AppData\Local\Programs\MiKTeX\fonts\enc\dvips\lm\lm-rm.enc
 INPUT C:\Users\Nick\AppData\Local\Programs\MiKTeX\fonts\enc\dvips\lm\lm-mathit.enc
 INPUT C:\Users\Nick\AppData\Local\Programs\MiKTeX\fonts\tfm\public\lm\rm-lmr10.tfm
 INPUT C:\Users\Nick\AppData\Local\Programs\MiKTeX\fonts\tfm\public\lm\lmmi10.tfm
@@ -333,6 +332,7 @@ INPUT .\Immagini\Capitolo_5\photo_2.jpg
 INPUT .\Immagini\Capitolo_5\photo_2.jpg
 INPUT .\Immagini\Capitolo_5\photo_2.jpg
 INPUT .\Immagini\Capitolo_5\photo_2.jpg
+INPUT C:\Users\Nick\AppData\Local\Programs\MiKTeX\fonts\enc\dvips\lm\lm-rm.enc
 INPUT Relazione.aux
 INPUT .\Relazione.out
 INPUT .\Relazione.out
