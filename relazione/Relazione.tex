@@ -372,7 +372,7 @@ Il cuore della logica server-side è una macchina a stati che modella il comport
 \texttt{s} — search        & \texttt{p} & Ricerca attiva: animale fuori zona con allarme \\
 \texttt{w} — walk          & \texttt{z} & Animale in passeggiata fuori zona (senza allarme) \\
 \texttt{v} — trip          & \texttt{a} & Animale su veicolo in movimento (allarme disattivo) \\
-\texttt{r} — trip+alarm    & \texttt{q} & Animale su veicolo in movimento con allarme attivo \\
+\texttt{r} — trip          & \texttt{q} & Animale su veicolo in movimento con allarme attivo \\
 \bottomrule
 \end{tabular}
 \caption{Macchina a stati delle attività: corrispondenza tra stati attivi e sleep}
@@ -758,38 +758,28 @@ viene salvata localmente tramite \texttt{SharedPreferences}
 un'apposita variabile booleana che funge da indicatore 
 dell'avvenuta lettura dell'informativa.
 
-\section{Limiti del Sistema}
-Nonostante i risultati ottenuti, il sistema presenta alcune limitazioni:
+\section{Vincoli di Sistema}
+La progettazione e l'ingegnerizzazione della soluzione sono state guidate e delimitate da una serie di vincoli tecnologici, fisici e d'infrastruttura. Tali vincoli definiscono il perimetro operativo entro cui il sistema garantisce la consistenza dei dati e la continuità del servizio.
+\subsection{Vincoli Hardware e Ambientali}
 \begin{itemize}
-    \item \textbf{Dipendenza dalla rete LTE}: senza copertura la trasmissione dati non è garantita.
-    \item \textbf{Prestazioni indoor}: il modulo GNSS risulta poco affidabile in ambienti chiusi.
-    \item \textbf{Backend locale}: l'utilizzo di PocketBase su macchina locale, 
-        esposto tramite ngrok, introduce dipendenze da servizi esterni e limita la scalabilità.
-    \item \textbf{Consumo del modem LTE}: la trasmissione dati ne rappresenta la fonte principale.
-    \item \textbf{Race condition sui pacchetti simultanei}: in caso di ricezione 
-        quasi simultanea di due pacchetti dallo stesso dispositivo, 
-        entrambi potrebbero leggere lo stesso record \texttt{activity} 
-        prima del completamento della prima scrittura. 
-        Gli scenari più critici sono due: 
-        nel caso di cambio di stato, il secondo pacchetto potrebbe sovrascrivere 
-        un record già chiuso dal primo, generando inconsistenze strutturali; 
-        nel caso di risveglio simultaneo dal \textbf{Deep Sleep}, 
-        entrambi i pacchetti potrebbero riattivare 
-        lo stesso record \texttt{sleep} e creare due sessioni attive 
-        contemporaneamente, violando l'invariante del sistema. 
-        L'impossibilità di gestire transazioni atomiche isolate 
-        sui singoli record tramite le API standard di PocketBase 
-        rende questo scenario non eliminabile lato applicativo. 
-        Tuttavia, la frequenza di invio (ogni 30 o più secondi) 
-        rende l’evento estremamente raro all'atto pratico.
-    \item \textbf{Fallimento nella geolocalizzazione}: l'eventuale mancato rilevamento 
-        di indirizzi, solitamente nei nei centri abitati più piccoli, 
-        non è imputabile al codice, bensì a un limite legato alla densità dei metadati geografici. 
-        Poiché \texttt{OpenStreetMap} si basa su contributi volontari, 
-        l'assenza di tag specifici (come i numeri civici o il CAP associato alla via) 
-        rende inefficaci le query strutturate inviate a \texttt{Nominatim}. 
-        Quest'ultimo, richiedendo una corrispondenza rigida ed esatta di tutti i parametri forniti, 
-        non è in grado di compensare l'incompletezza dei dati.
+    \item \textbf{Dipendenza dalla Rete di Trasmissione Cella (LTE):} Il flusso di telemetria dal dispositivo al backend è strettamente vincolato alla presenza di copertura radiomobile. In assenza di segnale cellulare, la trasmissione sincrona dei pacchetti non è garantita. Questo vincolo richiede che la logica del firmware sia progettata per gestire code di trasmissione e buffer locali onde evitare la perdita definitiva dei dati raccolti in zone isolate.
+    \item \textbf{Degradazione del Segnale GNSS in Ambienti Indoor:} L'accuratezza del posizionamento è vincolata alla visibilità diretta della costellazione satellitare (\textit{Line-of-Sight}). In contesti indoor, lo scattering e l'attenuazione strutturale rendono il modulo GNSS altamente instabile o impossibilitato al fix. Il backend deve pertanto isolare e scartare i pacchetti con metadati di accuratezza insufficiente per non alterare le metriche di tracciamento.
+    \item \textbf{Budget Energetico del Dispositivo IoT:} Il modem LTE rappresenta il fattore di consumo più critico dell'intero hardware. La frequenza e la durata delle sessioni di trasmissione sono fortemente vincolate alla capacità della batteria. L'architettura software del backend e i tempi di polling del watchdog sono stati calibrati attorno a questo vincolo, accettando un compromesso (\textit{trade-off}) sulla granularità temporale dei dati in favore di una maggiore autonomia complessiva.
+\end{itemize}
+\subsection{Vincoli Architetturali e di Concorrenza}
+\begin{itemize}
+    \item \textbf{Persistenza e Hosting in Ambiente Locale:} L'adozione di un'istanza locale di PocketBase, esposta sulla rete pubblica tramite un tunnel \texttt{ngrok}, introduce vincoli di scalabilità verticale e dipendenza da servizi di terze parti. L'architettura è vincolata ai limiti di banda e alle policy di \textit{rate-limiting} del piano di tunneling gratuito. Questo assetto definisce un vincolo ideale per scenari di prototipazione, ma esclude la scalabilità multi-nodo senza una migrazione verso un'infrastruttura cloud dedicata.
+    \item \textbf{Race Condition sulle Transazioni Concorrenti:} Il framework PocketBase gestisce l'accesso a SQLite astraendo parzialmente le transazioni atomiche isolate sui singoli record a livello applicativo JavaScript. Sotto stress o in caso di ricezione quasi simultanea di due pacchetti dalla medesima scheda (con un delta temporale inferiore al tempo di scrittura sul database), si genera un vincolo di concorrenza (\textit{race condition}). 
+    Gli scenari critici legati a questo vincolo includono:
+    \begin{enumerate}
+        \item \textit{Inconsistenza nelle transizioni:} Il secondo pacchetto legge lo stato attivo prima che il primo ne completi la chiusura, tentando di sovrascrivere un record già invalidato.
+        \item \textit{Duplicazione delle sessioni attive:} Durante un risveglio simultaneo dal \textbf{Deep Sleep}, entrambi i flussi potrebbero intercettare il medesimo record \texttt{sleep}, istanziando due sessioni attive concorrenti e violando l'invariante fondamentale della macchina a stati.
+    \end{enumerate}
+    Questo vincolo architetturale è stato mitigato e accettato in fase di design, poiché la frequenza nativa di invio dei pacchetti (pari o superiore a 30 secondi) rende l'accadimento dell'evento statisticamente trascurabile nell'esercizio ordinario.
+\end{itemize}
+\subsection{Vincoli di Integrazione e Dati Esterni}
+\begin{itemize}
+    \item \textbf{Completezza dei Metadati Geografici Crowdsourced:} Il servizio di geocodifica inversa è vincolato alla densità e alla qualità dei dati presenti su \texttt{OpenStreetMap}. Nelle aree rurali o nei centri abitati di minori dimensioni, l'assenza di tag strutturati (quali numeri civici, CAP o precise denominazioni stradali) inficia la precisione delle query inviate all'API \texttt{Nominatim}. Poiché quest'ultimo motore adotta un vincolo di corrispondenza rigida (\textit{strict matching}) sui parametri, l'incompletezza del dato geografico di origine si traduce inevitabilmente in un fallimento della risoluzione dell'indirizzo leggibile, delimitando l'efficacia della visualizzazione testuale lato client.
 \end{itemize}
 
 \section{Implementazioni Future}
@@ -798,11 +788,21 @@ Il progetto nel suo percorso di sviluppo ha trovato delle possibiità future di 
 \subsection{Stato della batteria}
 Per garantire all'utente un corretto valore della batteria aggiornato sugli ultimi pacchetti è richiesto un calcolo con dati storici, questo è uno dei possibili ulteriori passaggi che può essere sviluppato all'interno dell'applicazione per quanto riguarda i dati da fornire all'utente. Non risulta come attività critica in quanto il sistema riesce a garantire all'utente una notifica nel momento in cui la batteria raggiunge (e scende) sotto il livello del 20\%.
 
-\subsection{Database e dominio}
-ToDo.
+\subsection{Database, Infrastruttura Cloud e Gestione della Concorrenza}
+Il passaggio da un ambiente di prototipazione locale a una soluzione orientata alla produzione prevede la migrazione dell'intero backend su un'infrastruttura Cloud dedicata (PaaS o VPS come AWS, Google Cloud o DigitalOcean). Questa evoluzione consentirà di superare i vincoli attuali attraverso i seguenti interventi strutturali:
+\begin{itemize}
+    \item \textbf{Assegnazione di Dominio e Sicurezza TLS:} Sostituendo il tunnel temporaneo \texttt{ngrok} con un dominio di secondo livello proprietario, protetto da certificati SSL/TLS (es. Let's Encrypt), si garantirà una connessione HTTPS/WSS nativa, stabile e priva di interruzioni di sessione o rate-limiting arbitrari.
+    \item \textbf{Risoluzione delle Race Condition via Message Broker:} Per azzerare il rischio di collisione nell'aggiornamento simultaneo delle attività (derivante dalla ricezione di pacchetti ravvicinati), si prevede l'introduzione di un middleware di messaggistica asincrona, come \texttt{Redis} o \texttt{RabbitMQ}, interposto tra l'endpoint di ricezione e il database. Questo livello fungerà da coda FIFO (\textit{First-In, First-Out}), serializzando i pacchetti provenienti dallo stesso tracker ed eseguendo le transazioni in modo strettamente sequenziale, preservando così l'invariante del sistema.
+    \item \textbf{Migrazione del DBMS:} Qualora il volume di dispositivi connessi dovesse saturare le capacità di lock di SQLite, l'architettura consentirà di scalare verticalmente migrando verso un database relazionale centralizzato (come \texttt{PostgreSQL}), nativamente ottimizzato per transazioni ACID altamente concorrenti.
+\end{itemize}
 
-\subsection{Costruzione scheda}
-ToDo.
+\subsection{Ingegnerizzazione e Costruzione della Scheda Hardware}
+L'attuale prototipo hardware, sebbene funzionale alla validazione del software, richiede una fase di ingegnerizzazione elettronica per poter essere trasformato in un dispositivo commerciale realmente indossabile dall'animale. Lo sviluppo futuro si articolerà su tre assi principali:
+\begin{itemize}
+    \item \textbf{Sviluppo di un PCB Custom:} Progettazione di un circuito stampato personalizzato (\textit{Printed Circuit Board}) mediante strumenti EDA (come KiCad o Altium Designer). L'integrazione del microcontrollore, del modem LTE e del modulo GNSS su un'unica scheda consentirà di ridurre drasticamente il fattore di forma (\textit{form factor}), minimizzando l'ingombro e il peso del tracker sul collare dell'animale.
+    \item \textbf{Ottimizzazione del Power Management:} Introduzione di un circuito integrato dedicato alla gestione dell'energia (\textit{PMIC}) e di un chip di \textit{fuel gauge} hardware (es. serie MAX17043). Questo permetterà di implementare il calcolo predittivo basato sui dati storici menzionato nella sezione precedente, offrendo letture della percentuale di carica estremamente precise e non inficiate dai picchi di assorbimento del modem durante la trasmissione.
+    \item \textbf{Industrial Design e Protezione Ambientale:} Progettazione di un \textit{enclosure} (involucro) personalizzato tramite modellazione 3D e stampaggio a iniezione. La scocca dovrà garantire un grado di protezione minimo pari a \textbf{IP67} o \textbf{IP68}, rendendo il dispositivo totalmente impermeabile all'acqua, al fango e resistente agli urti causati dai movimenti repentini dell'animale all'aperto.
+\end{itemize}
 
 \section{Conclusioni}
 
