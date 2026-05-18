@@ -4,9 +4,9 @@
 \contentsline {subsection}{\numberline {1.1}Mappatura sul modello IoTWF}{4}{subsection.1.1}%
 \contentsline {section}{\numberline {2}Hardware}{4}{section.2}%
 \contentsline {subsection}{\numberline {2.1}LilyGo T-SIM7670G-S3}{4}{subsection.2.1}%
-\contentsline {subsection}{\numberline {2.2}Antenna GPS e LTE}{4}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.2}Antenne LTE e GNSS}{4}{subsection.2.2}%
 \contentsline {subsection}{\numberline {2.3}Batteria e Power Management}{4}{subsection.2.3}%
-\contentsline {subsection}{\numberline {2.4}BMA400 CJMCU-400}{5}{subsection.2.4}%
+\contentsline {subsection}{\numberline {2.4}BMA400 CJMCU-400}{4}{subsection.2.4}%
 \contentsline {section}{\numberline {3}Firmware: Logica di funzionamento}{5}{section.3}%
 \contentsline {subsection}{\numberline {3.1}Gestione della Persistenza e Hot Start}{5}{subsection.3.1}%
 \contentsline {subsection}{\numberline {3.2}Protocollo di Comunicazione HTTPS}{5}{subsection.3.2}%

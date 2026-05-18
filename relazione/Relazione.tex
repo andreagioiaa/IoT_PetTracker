@@ -136,6 +136,7 @@
 \end{titlepage}
 
 \begin{abstract}
+
 \noindent 
 Il progetto Pet Tracker propone la realizzazione di un sistema 
 per il tracciamento in tempo reale di animali domestici di taglia media o grande, 
@@ -156,6 +157,7 @@ e integra diverse tecniche di ottimizzazione energetica,
 tra cui l'utilizzo delle modalità \textit{Deep Sleep} e \textit{Hot Start}. 
 I dati raccolti vengono elaborati dal \textit{backend}, resi accessibili tramite API REST 
 e visualizzati attraverso un'applicazione mobile dedicata. 
+
 \end{abstract}
 
 \newpage
@@ -165,13 +167,15 @@ e visualizzati attraverso un'applicazione mobile dedicata.
 \newpage
 
 \section{Architettura del sistema}
+
 L'architettura del sistema Pet Tracker segue il modello a sette livelli dell'IoTWF, 
 garantendo una transizione strutturata dal dato fisico all'informazione per l'utente.
 
 \subsection{Mappatura sul modello IoTWF}
+
 \begin{itemize}
-    \item \textbf{Livello 1 (Physical Devices):} rappresentato dalla scheda LilyGo e dai sensori GPS e accelerometro.
-    \item \textbf{Livello 2 (Connectivity):} gestito tramite il modem LTE e protocolli di comunicazione sicuri.
+    \item \textbf{Livello 1 (Physical Devices):} scheda LilyGo e sensori GPS e accelerometro.
+    \item \textbf{Livello 2 (Connectivity):} modem LTE e protocolli di comunicazione sicuri.
     \item \textbf{Livello 3 (Edge Computing):} elaborazione locale sul microcontrollore per il filtraggio delle stringhe NMEA e il calcolo dei passi.
     \item \textbf{Livello 4 (Data Accumulation):} persistenza dei dati sul server PocketBase basato su database SQLite.
     \item \textbf{Livello 5 (Data Abstraction):} pubblicazione dei dati tramite API REST in formato JSON.
@@ -180,15 +184,23 @@ garantendo una transizione strutturata dal dato fisico all'informazione per l'ut
 \end{itemize}
 
 \section{Hardware}
+
 \subsection{LilyGo T-SIM7670G-S3}
-Il dispositivo utilizza una board LilyGo T-SIM7670G-S3 \cite{lilygo_specs} basata sul modulo \textbf{ESP32-S3} dual-core,
-che gestisce la logica applicativa e la comunicazione con il modem SIM7670G tramite interfaccia UART.
-\subsection{Antenna GPS e LTE}
-Il sistema utilizza un'antenna flessibile LTE \cite{LTE} per la connettività dati e un'antenna ceramica attiva \cite{GPS} per il ricevitore GNSS integrato, essenziale per la precisione della localizzazione outdoor.
+
+Il dispositivo utilizza una scheda LilyGo T-SIM7670G-S3 \cite{lilygo_specs} basata sul microcontrollore ESP32-S3 dual-core.
+Quest'ultimo gestisce la logica applicativa e la comunicazione con il modem SIM7670G tramite interfaccia UART.
+
+\subsection{Antenne LTE e GNSS}
+
+Il sistema utilizza un'antenna flessibile LTE \cite{LTE} per la connettività dati e un'antenna ceramica attiva \cite{GPS} per il ricevitore GNSS integrato, volta a garantire la precisione della localizzazione \textit{outdoor}.
+
 \subsection{Batteria e Power Management}
-Viene impiegata una batteria ricaricabile 3000mAh 30A Litio-Ion ad alta capacità. Il monitoraggio avviene tramite un partitore di tensione collegato al pin \texttt{ADC\_BAT} (GPIO 4), permettendo di calcolare la percentuale di carica residua.
+
+Il sistema è alimentato da una batteria ricaricabile agli ioni di litio da 3000~mAh e 30~A. Il monitoraggio della carica avviene tramite un partitore di tensione collegato al pin \texttt{ADC\_BAT} (GPIO 4), per calcolarne la percentuale residua.
+
 \subsection{BMA400 CJMCU-400}
-L'accelerometro usato è un \textbf{BMA400} \cite{bma400} integrato nella breadboard \textbf{CJMCU-400}, che viene interrogato per rilevare il movimento, consentendo l'implementazione di un contapassi utile al monitoraggio della salute dell'animale.
+
+L'accelerometro utilizzato è un BMA400 \cite{bma400} integrato sulla \textit{breakout board} CJMCU-400. Il sensore viene interrogato per rilevare il movimento, consentendo l'implementazione di un contapassi utile al monitoraggio dell'attività motoria dell'animale.
 
 \section{Firmware: Logica di funzionamento}
 
