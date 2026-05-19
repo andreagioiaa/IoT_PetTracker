@@ -304,15 +304,39 @@ function removeToken(app, userId, tokenToRemove) {
     try {
         const user = app.findRecordById("users", userId);
         if (!user) return;
-        const tokenString = user.getString("tokenFCM");
-        if (!tokenString) return;
-        let tokens = JSON.parse(tokenString);
+
+        // Legge il campo tokenFCM gestendo sia il caso in cui sia salvato
+        // come stringa JSON che come valore nativo PocketBase (array/oggetto).
+        // getString su un campo JSON nativo può restituire rappresentazioni
+        // non parsabili, quindi si usa get() con fallback a getString().
+        let tokens;
+        try {
+            const raw = user.get("tokenFCM");
+            if (Array.isArray(raw)) {
+                // Campo già deserializzato da PocketBase
+                tokens = raw;
+            } else if (typeof raw === "string" && raw.startsWith("[")) {
+                // Campo salvato come stringa JSON
+                tokens = JSON.parse(raw);
+            } else {
+                console.log(`[CLEANUP] tokenFCM formato inatteso per utente ${userId}: ${typeof raw}`);
+                return;
+            }
+        } catch (parseErr) {
+            console.log(`[CLEANUP] Errore parsing tokenFCM utente ${userId}: ` + parseErr);
+            return;
+        }
+
         if (!Array.isArray(tokens)) return;
+
         const newTokens = tokens.filter(t => t !== tokenToRemove);
         if (newTokens.length !== tokens.length) {
+            // Salva sempre come stringa JSON per coerenza
             user.set("tokenFCM", JSON.stringify(newTokens));
             app.save(user);
-            console.log(`[CLEANUP] Token rimosso utente ${userId}`);
+            console.log(`[CLEANUP] Token rimosso utente ${userId} | rimasti: ${newTokens.length}`);
+        } else {
+            console.log(`[CLEANUP] Token non trovato per utente ${userId} (già rimosso?)`);
         }
     } catch (err) {
         console.log("[REMOVE TOKEN ERRORE] " + err);

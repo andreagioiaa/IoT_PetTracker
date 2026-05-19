@@ -97,19 +97,28 @@ app.post("/send-batch", async (req, res) => {
             )
         );
 
-        // Raccoglie i token invalidi da segnalare a PocketBase per la rimozione
-        const INVALID_CODES = new Set([
+        // Raccoglie i token invalidi da segnalare a PocketBase per la rimozione.
+        // Solo i codici che indicano token scaduto o disinstallato vengono rimossi.
+        // messaging/invalid-argument è ESCLUSO perché indica payload malformato,
+        // non token invalido — rimuovere il token per questo motivo sarebbe sbagliato.
+        const INVALID_TOKEN_CODES = new Set([
             "messaging/registration-token-not-registered",
             "messaging/invalid-registration-token",
-            "messaging/invalid-argument",
         ]);
 
         const invalidTokens = results
-            .filter(r => !r.success && INVALID_CODES.has(r.code))
+            .filter(r => !r.success && INVALID_TOKEN_CODES.has(r.code))
             .map(r => r.token);
 
-        const successCount = results.filter(r => r.success).length;
-        console.log(`[FCM BATCH] Inviati: ${successCount}/${tokens.length} | Invalidi: ${invalidTokens.length}`);
+        const successCount  = results.filter(r => r.success).length;
+        const failCount     = results.filter(r => !r.success).length;
+
+        // Log dettagliato per debug: mostra tutti i token falliti con il loro codice errore
+        results.filter(r => !r.success).forEach(r => {
+            console.log(`[FCM BATCH] Token fallito: code=${r.code} | invalido=${INVALID_TOKEN_CODES.has(r.code)}`);
+        });
+
+        console.log(`[FCM BATCH] Inviati: ${successCount}/${tokens.length} | Falliti: ${failCount} | Da rimuovere: ${invalidTokens.length}`);
 
         res.status(200).json({ results, invalidTokens });
 
