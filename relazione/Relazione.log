@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.29 (MiKTeX 26.5) (preloaded format=pdflatex 2026.7.3)  24 JUL 2026 11:19
+This is pdfTeX, Version 3.141592653-2.6-1.40.29 (MiKTeX 26.5) (preloaded format=pdflatex 2026.7.3)  26 JUL 2026 16:18
 entering extended mode
  restricted \write18 enabled.
  file:line:error style messages enabled.
@@ -747,7 +747,7 @@ Package hyperref Info: Link coloring ON on input line 111.
 \openout4 = `Relazione.out'.
 
 Package babel Info: Main language set to 'italian'.
-<immagini/Logo.pdf, id=174, 225.84375pt x 225.84375pt>
+<immagini/Logo.pdf, id=166, 225.84375pt x 225.84375pt>
 File: immagini/Logo.pdf Graphic file (type pdf)
 <use immagini/Logo.pdf>
 Package pdftex.def Info: immagini/Logo.pdf  used on input line 123.
@@ -787,110 +787,111 @@ LaTeX Font Info:    External font `lmex10' loaded for size
 (Font)              <8> on input line 4.
 LaTeX Font Info:    External font `lmex10' loaded for size
 (Font)              <6> on input line 4.
- [2])
+)
 \tf@toc=\write5
 \openout5 = `Relazione.toc'.
 
- [3]
-LaTeX Font Info:    Trying to load font information for TS1+lmr on input line 178.
- (C:\Program Files\MiKTeX\tex/latex/lm\ts1lmr.fd
-File: ts1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
-)
-LaTeX Font Info:    Trying to load font information for T1+lmtt on input line 200.
+ [2] [3]
+LaTeX Font Info:    Trying to load font information for T1+lmtt on input line 202.
  (C:\Program Files\MiKTeX\tex/latex/lm\t1lmtt.fd
 File: t1lmtt.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
-) [4{C:/Program Files/MiKTeX/fonts/enc/dvips/lm/lm-ts1.enc}] [5]
-Overfull \hbox (4.00935pt too wide) in paragraph at lines 270--276
+)
+LaTeX Font Info:    Trying to load font information for TS1+lmr on input line 229.
+ (C:\Program Files\MiKTeX\tex/latex/lm\ts1lmr.fd
+File: ts1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
+) [4{C:/Program Files/MiKTeX/fonts/enc/dvips/lm/lm-ts1.enc}]
+Overfull \hbox (4.00935pt too wide) in paragraph at lines 272--278
 []\T1/lmr/bx/n/12 Ibernazione: \T1/lmr/m/n/12 se non vie-ne ri-le-va-ta at-ti-vi-tà per un tem-po su-pe-rio-re a \T1/lmtt/m/n/12 SLEEP_TIMEOUT
  []
 
-
-Overfull \hbox (66.51697pt too wide) in paragraph at lines 309--317
+[5{C:/Program Files/MiKTeX/fonts/enc/dvips/lm/lm-mathit.enc}]
+Overfull \hbox (66.51697pt too wide) in paragraph at lines 311--319
 \T1/lmr/m/n/12 All'avvio, il firm-ware ten-ta di re-gi-strar-si al-la re-te LTE at-tra-ver-so la fun-zio-ne \T1/lmtt/m/n/12 connectToNetworkFast()\T1/lmr/m/n/12 .
  []
 
-[6{C:/Program Files/MiKTeX/fonts/enc/dvips/lm/lm-mathit.enc}] [7]
-Underfull \hbox (badness 10000) in paragraph at lines 382--382
+[6] [7]
+Underfull \hbox (badness 10000) in paragraph at lines 384--384
 []|\T1/lmr/m/n/10.95 Fuori pe-ri-me-tro, al-lar-me at-ti-vo
  []
 
-[8] [9{C:/Program Files/MiKTeX/fonts/enc/dvips/lm/lm-mathsy.enc}]
+[8{C:/Program Files/MiKTeX/fonts/enc/dvips/lm/lm-mathsy.enc}] [9]
 LaTeX Font Info:    Font shape `T1/lmtt/bx/n' in size <12> not available
-(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 410.
- [10] [11]
-Overfull \hbox (5.1001pt too wide) in paragraph at lines 501--507
+(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 412.
+ [10]
+Overfull \hbox (5.1001pt too wide) in paragraph at lines 503--509
 \T1/lmtt/m/n/12 Stream<Positions>\T1/lmr/m/n/12 ) a cui le scher-ma-te si sot-to-scri-vo-no tra-mi-te una \T1/lmtt/m/n/12 StreamSubscription\T1/lmr/m/n/12 . 
  []
 
-
-Overfull \hbox (2.42487pt too wide) in paragraph at lines 522--528
+[11]
+Overfull \hbox (2.42487pt too wide) in paragraph at lines 524--530
 \T1/lmr/m/n/12 La lo-gi-ca di geo-fen-cing è im-ple-men-ta-ta an-che dal la-to client tra-mi-te al-go-rit-mo [].
  []
 
-[12]
-Overfull \hbox (5.54388pt too wide) in paragraph at lines 566--577
+
+Overfull \hbox (5.54388pt too wide) in paragraph at lines 568--579
 []\T1/lmr/m/n/12 La vi-sua-liz-za-zio-ne dei det-ta-gli del-le at-ti-vi-tà di una gior-na-ta pro-se-gue in \T1/lmtt/m/n/12 daily_recap.dart\T1/lmr/m/n/12 ,
  []
 
-<Immagini/Capitolo_5/photo_6.jpg, id=323, 1084.05pt x 1964.33875pt>
+[12]
+<Immagini/Capitolo_5/photo_6.jpg, id=313, 1084.05pt x 1964.33875pt>
 File: Immagini/Capitolo_5/photo_6.jpg Graphic file (type jpg)
 <use Immagini/Capitolo_5/photo_6.jpg>
-Package pdftex.def Info: Immagini/Capitolo_5/photo_6.jpg  used on input line 583.
+Package pdftex.def Info: Immagini/Capitolo_5/photo_6.jpg  used on input line 585.
 (pdftex.def)             Requested size: 125.61424pt x 227.61768pt.
-<Immagini/Capitolo_5/photo_3.jpg, id=324, 1084.05pt x 1954.30125pt>
+<Immagini/Capitolo_5/photo_3.jpg, id=314, 1084.05pt x 1954.30125pt>
 File: Immagini/Capitolo_5/photo_3.jpg Graphic file (type jpg)
 <use Immagini/Capitolo_5/photo_3.jpg>
-Package pdftex.def Info: Immagini/Capitolo_5/photo_3.jpg  used on input line 591.
+Package pdftex.def Info: Immagini/Capitolo_5/photo_3.jpg  used on input line 593.
 (pdftex.def)             Requested size: 126.25935pt x 227.61757pt.
-[13 <./Immagini/Capitolo_5/photo_6.jpg> <./Immagini/Capitolo_5/photo_3.jpg>]
-<Immagini/Capitolo_5/photo_5.jpg, id=330, 1084.05pt x 1951.29pt>
+ [13 <./Immagini/Capitolo_5/photo_6.jpg> <./Immagini/Capitolo_5/photo_3.jpg>]
+<Immagini/Capitolo_5/photo_5.jpg, id=320, 1084.05pt x 1951.29pt>
 File: Immagini/Capitolo_5/photo_5.jpg Graphic file (type jpg)
 <use Immagini/Capitolo_5/photo_5.jpg>
-Package pdftex.def Info: Immagini/Capitolo_5/photo_5.jpg  used on input line 646.
+Package pdftex.def Info: Immagini/Capitolo_5/photo_5.jpg  used on input line 648.
 (pdftex.def)             Requested size: 126.44131pt x 227.59436pt.
-<Immagini/Capitolo_5/photo_4.jpg, id=331, 1084.05pt x 1960.32375pt>
+<Immagini/Capitolo_5/photo_4.jpg, id=321, 1084.05pt x 1960.32375pt>
 File: Immagini/Capitolo_5/photo_4.jpg Graphic file (type jpg)
 <use Immagini/Capitolo_5/photo_4.jpg>
-Package pdftex.def Info: Immagini/Capitolo_5/photo_4.jpg  used on input line 654.
+Package pdftex.def Info: Immagini/Capitolo_5/photo_4.jpg  used on input line 656.
 (pdftex.def)             Requested size: 125.86237pt x 227.60112pt.
-<Immagini/Capitolo_5/photo_2.jpg, id=332, 1084.05pt x 1948.27875pt>
+<Immagini/Capitolo_5/photo_2.jpg, id=322, 1084.05pt x 1948.27875pt>
 File: Immagini/Capitolo_5/photo_2.jpg Graphic file (type jpg)
 <use Immagini/Capitolo_5/photo_2.jpg>
-Package pdftex.def Info: Immagini/Capitolo_5/photo_2.jpg  used on input line 662.
+Package pdftex.def Info: Immagini/Capitolo_5/photo_2.jpg  used on input line 664.
 (pdftex.def)             Requested size: 126.6398pt x 227.59987pt.
- [14]
-Underfull \hbox (badness 1701) in paragraph at lines 697--698
+ [14 <./Immagini/Capitolo_5/photo_5.jpg> <./Immagini/Capitolo_5/photo_4.jpg> <./Immagini/Capitolo_5/photo_2.jpg>]
+Underfull \hbox (badness 1701) in paragraph at lines 699--700
 []|\T1/lmr/m/n/12 Allarme riat-ti-va-to men-tre
  []
 
 
-Overfull \hbox (7.96135pt too wide) in paragraph at lines 691--709
+Overfull \hbox (7.96135pt too wide) in paragraph at lines 693--711
  [][] 
  []
 
-[15 <./Immagini/Capitolo_5/photo_5.jpg> <./Immagini/Capitolo_5/photo_4.jpg> <./Immagini/Capitolo_5/photo_2.jpg>] [16{C:/Program Files/MiKTeX/fonts/enc/dvips/lm/lm-rm.enc}] [17] [18] [19] (Relazione.aux)
+[15{C:/Program Files/MiKTeX/fonts/enc/dvips/lm/lm-rm.enc}] [16] [17] [18] [19] (Relazione.aux)
  ***********
 LaTeX2e <2026-06-01>
 L3 programming layer <2026-06-18>
  ***********
 Package rerunfilecheck Info: File `Relazione.out' has not changed.
-(rerunfilecheck)             Checksum: 880DA0F408BE42D72D21476B9E5CA2D5;9233.
+(rerunfilecheck)             Checksum: 6B7F9C5B8E4C361A59F35FF4D451043F;8861.
 Package logreq Info: Writing requests to 'Relazione.run.xml'.
 \openout1 = `Relazione.run.xml'.
 
  ) 
 Here is how much of TeX's memory you used:
- 23304 strings out of 467510
- 407142 string characters out of 5418904
+ 23300 strings out of 467510
+ 407092 string characters out of 5418904
  1292893 words of memory out of 5000000
- 52169 multiletter control sequences out of 15000+600000
+ 52167 multiletter control sequences out of 15000+600000
  692914 words of font info for 74 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 69i,10n,79p,1306b,2132s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 69i,10n,79p,1306b,1821s stack positions out of 10000i,1000n,20000p,200000b,200000s
 <C:/Program Files/MiKTeX/fonts/type1/public/lm/lmbx10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmbx12.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmbxi10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmcsc10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmmi12.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmr10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmr12.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmri10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmri12.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmsy10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmtk10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmtt10.pfb><C:/Program Files/MiKTeX/fonts/type1/public/lm/lmtt12.pfb>
-Output written on Relazione.pdf (20 pages, 1383408 bytes).
+Output written on Relazione.pdf (20 pages, 1381316 bytes).
 PDF statistics:
- 477 PDF objects out of 1000 (max. 8388607)
- 93 named destinations out of 1000 (max. 500000)
- 375 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 467 PDF objects out of 1000 (max. 8388607)
+ 91 named destinations out of 1000 (max. 500000)
+ 359 words of extra memory for PDF output out of 10000 (max. 10000000)
 

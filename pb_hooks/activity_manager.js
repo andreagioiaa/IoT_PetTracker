@@ -36,7 +36,6 @@
 
 /**
  * Processa la macchina a stati activity per un singolo pacchetto in arrivo.
- *
  * @param {object}  app
  * @param {object}  utils     - modulo utils già caricato (evita require multipli)
  * @param {object}  board     - record board già letto (evita query ridondanti)

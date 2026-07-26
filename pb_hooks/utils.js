@@ -699,4 +699,4 @@ module.exports = {
     pointInPolygon,
     getGeofenceStatus,
     computeStatus,
-};
+};a

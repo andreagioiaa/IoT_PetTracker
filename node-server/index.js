@@ -23,7 +23,7 @@ const app = express();
 app.use(express.json());
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Codici errore FCM → codice HTTP
+// Codici errore FCM
 // ─────────────────────────────────────────────────────────────────────────────
 
 function fcmErrorToStatus(errorCode) {
