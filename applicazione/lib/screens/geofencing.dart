@@ -211,6 +211,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
       });
 
       // 3. Aggiorna l'interfaccia
+      if (!mounted) return;
       setState(() {
         savedPlaces = nuoveZone;
         isLoading = false;
@@ -248,7 +249,7 @@ class _GeofencingScreenState extends State<GeofencingScreen> {
       });
     } catch (e) {
       debugPrint("Errore caricamento: $e");
-      setState(() => isLoading = false);
+      if (mounted) setState(() => isLoading = false);
     }
   }
 

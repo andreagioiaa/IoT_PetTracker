@@ -39,7 +39,7 @@ class UsersRepository {
 
       // Cerchiamo il record nella collezione 'boards' dove il campo 'user' contiene l'ID utente
       final record = await pb.collection('boards').getFirstListItem(
-            'user ~ "$userId"',
+            'user = "$userId"',
           );
 
       return record.getBoolValue('alarm');
@@ -49,6 +49,53 @@ class UsersRepository {
     }
   }
 
+  Future<bool> setBoardAlarm(bool value) async {
+    try {
+      if (!pb.authStore.isValid || pb.authStore.model == null) {
+        debugPrint("❌ [users_repo: setBoardAlarm] Utente non autenticato nello store!");
+        return false;
+      }
+      final userId = pb.authStore.model!.id;
+
+      // 🟢 1. CORREZIONE CRITICA: Usiamo l'operatore di uguaglianza esatta '=' per i campi Relation, non la tilde '~'
+      final record = await pb.collection('boards').getFirstListItem(
+            'user = "$userId"', 
+          );
+
+      // 2. Facciamo l'update usando l'ID trovato
+      await pb.collection('boards').update(record.id, body: {
+        'alarm': value,
+      });
+
+      debugPrint("✅ [users_repo: setBoardAlarm] Successo! Nuovo valore 'alarm': $value per la board ${record.id}");
+      return true;
+
+    } on ClientException catch (e) {
+      // 🟢 3. DEBUGGING REALE: Se fallisce, qui vedremo il PERCHÉ dal server (es. 403 Forbidden o 404 Not Found)
+      debugPrint("🚨 [users_repo: setBoardAlarm] Errore HTTP PocketBase -> Codice: ${e.statusCode} | Risposta: ${e.response}");
+      
+      // 🟢 4. WORKAROUND FALLBACK: 
+      // Se il server ha un hook (es. invio MQTT all'IoT) che fallisce e lancia un 400, il DB potrebbe
+      // essersi COMUNQUE aggiornato. Verifichiamo se il dato reale è cambiato, in tal caso lo consideriamo un SUCCESSO!
+      try {
+        final userId = pb.authStore.model!.id;
+        final verifyRecord = await pb.collection('boards').getFirstListItem('user = "$userId"');
+        if (verifyRecord.getBoolValue('alarm') == value) {
+          debugPrint("✅ [users_repo: setBoardAlarm] L'allarme risulta aggiornato ($value) nel DB nonostante l'errore HTTP!");
+          return true; // Ritorniamo true perché il DB ha il valore desiderato
+        }
+      } catch (_) {
+         debugPrint("🚨 [users_repo: setBoardAlarm] Fallback fallito.");
+      }
+      
+      return false;
+    } catch (e) {
+      debugPrint('🚨 [users_repo: setBoardAlarm] Errore generico imprevisto: $e');
+      return false;
+    }
+  }
+
+/*
   // Aggiorna lo stato dell'allarme sulla board
   Future<bool> setBoardAlarm(bool value) async {
     try {
@@ -56,7 +103,7 @@ class UsersRepository {
       final userId = pb.authStore.model!.id;
 
       final record = await pb.collection('boards').getFirstListItem(
-            'user ~ "$userId"',
+            'user = "$userId"',
           );
       await pb.collection('boards').update(record.id, body: {
         'alarm': value,
@@ -71,7 +118,7 @@ class UsersRepository {
           '🚨[users_repo]: Errore aggiornamento allarme sulla board: $e');
       return false;
     }
-  }
+  } */
 
   // Recupera la data di creazione della board
   Future<DateTime?> getBoardCreationDate() async {
@@ -81,7 +128,7 @@ class UsersRepository {
       final userId = pb.authStore.model!.id;
 
       final record = await pb.collection('boards').getFirstListItem(
-            'user ~ "$userId"',
+            'user = "$userId"',
           );
 
       // PocketBase salva in automatico la data nel campo 'created'
@@ -298,11 +345,11 @@ class UsersRepository {
   // Permette di sottoscriversi ai cambiamenti in tempo reale di una specifica board
   // Restituisce una funzione per annullare la sottoscrizione (unsubscribe)
   Future<void> subscribeToBoardUpdates(
-      String recordId, Function(Map<String, dynamic>) onUpdate) async {
+      String recordId, Function(bool) onAlarmUpdate) async {
     try {
       await pb.collection('boards').subscribe(recordId, (e) {
         if (e.action == 'update' && e.record != null) {
-          onUpdate(e.record!.toJson());
+          onAlarmUpdate(e.record!.getBoolValue('alarm'));
         }
       });
       print(

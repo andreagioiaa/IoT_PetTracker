@@ -304,14 +304,13 @@ class _PetTrackerDashboardState extends State<PetTrackerDashboard> {
 
       // 1. Troviamo il record ID interno della board associata all'utente
       final record = await scambio.pb.collection('boards').getFirstListItem(
-            'user ~ "$userId"',
+            'user = "$userId"',
           );
 
       _currentBoardRecordId = record.id;
 
       // 2. Avviamo la sottoscrizione real-time
-      await _usersRepo.subscribeToBoardUpdates(_currentBoardRecordId!, (data) {
-        final bool nuovoStatoAllarme = data['alarm'] ?? false;
+      await _usersRepo.subscribeToBoardUpdates(_currentBoardRecordId!, (bool nuovoStatoAllarme) {
 
         // Se lo stato sul DB è diverso da quello locale, aggiorniamo la UI
         if (mounted && isTrackingMode.value != nuovoStatoAllarme) {
