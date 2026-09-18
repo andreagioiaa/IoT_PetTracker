@@ -1,1 +1,30 @@
-applicazione/lib/activities_service.dart
+# --- REGOLE PER IL REPORT (LaTeX) ---
+# File temporanei e di log generati dalla compilazione di LaTeX
+*.aux
+*.bbl
+*.blg
+*.idx
+*.ind
+*.ilg
+*.log
+*.out
+*.toc
+*.lof
+*.lot
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.xdv
+*.bcf
+*.run.xml
+*.nav
+*.snm
+*.vrb
+*.synctex
+
+# File temporanei di editor LaTeX (es. TeXstudio, VS Code, ecc.)
+*.bak
+*.sav
+
+# --- REGOLE PER LE CHIAVI E ACCESSI ---
+*.env
