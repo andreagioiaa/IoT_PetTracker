@@ -195,17 +195,17 @@ Quest'ultimo gestisce la logica applicativa e la comunicazione con il modem SIM7
 
 \subsection{Antenne LTE e GNSS}
 
-Il sistema utilizza un'antenna flessibile LTE \cite{LTE} per la connettività dati e un'antenna ceramica attiva \cite{GPS} per il ricevitore GNSS integrato, volta a garantire la precisione della localizzazione \textit{outdoor}.
+Il sistema utilizza un'antenna flessibile LTE \cite{LTE} per la connettività dati e un'antenna ceramica attiva \cite{GPS} per il ricevitore GNSS integrato, garantendo la precisione della localizzazione all'aperto.
 
-\subsection{Batteria e power Management}
+\subsection{Batteria e power management}
 
 Il sistema è alimentato da una batteria ricaricabile agli ioni di litio da 3000~mAh e 30~A. Il monitoraggio della carica avviene tramite un partitore di tensione collegato al pin \texttt{ADC\_BAT} (GPIO 4), per calcolarne la percentuale residua.
 
-\subsection{BMA400 CJMCU-400}
+\subsection{BMA400 e CJMCU-400}
 
 L'accelerometro utilizzato è un BMA400 \cite{bma400} integrato sulla \textit{breakout board} CJMCU-400. Il sensore viene interrogato per rilevare il movimento, consentendo l'implementazione di un contapassi utile al monitoraggio dell'attività motoria dell'animale.
 
-\section{Firmware: logica di funzionamento}
+\section{Firmware e logica di funzionamento}
 
 Il firmware, sviluppato in ambiente Arduino per 
 il \textit{System on Chip} (SoC) ESP32-S3, 
@@ -215,24 +215,33 @@ tramite una macchina a stati finiti.
 
 \subsection{Gestione della persistenza e hot start}
 
-Per ridurre drasticamente il \textit{Time To First Fix} (TTFF) del modulo GNSS, il firmware
-sfrutta la memoria \textit{Real-Time Clock} (RTC) dell'ESP32. 
-Tale area di memoria consente di preservare i dati critici 
-anche durante i cicli di \textit{deep sleep}. 
-Le variabili critiche, come l'ultima posizione valida 
-(\texttt{lastLat}, \texttt{lastLon}) e i timestamp
-(\texttt{lastGpsDate}, \texttt{lastGpsTime}), 
-vengono dichiarate con l'attributo \texttt{RTC\_DATA\_ATTR}.
+Nel tracciamento satellitare, il \textit{Time To First Fix} (TTFF) 
+rappresenta il tempo impiegato dal modulo GNSS, a partire dalla sua accensione, 
+per acquisire i dati satellitari e calcolare la prima coordinata valida. 
+Trattandosi di un processo che richiede di mantenere il modulo radio attivo a lungo, 
+costituisce la fase a maggior consumo.
+
+Per massimizzare la durata della batteria, il dispositivo utilizza il \textit{deep sleep}, 
+uno stato di ibernazione in cui l'ESP32 spegne la CPU e la memoria principale. 
+L'unico componente che rimane acceso è il modulo \textit{Real-Time Clock} (RTC) dell'ESP32, 
+dotato di una piccola memoria dedicata. 
+Per ridurre il TTFF, il firmware sfrutta quest'area per preservare i dati critici durante i cicli di \textit{deep sleep}.  
+Dove, le variabili come l'ultima posizione valida (\texttt{lastLat}, \texttt{lastLon}) 
+e i timestamp (\texttt{lastGpsDate}, \texttt{lastGpsTime}) vengono dichiarate con l'attributo \texttt{RTC\_DATA\_ATTR}, 
+permettendo al sistema di ritrovarle intatte al risveglio.
+
+\newpage
 
 Al risveglio del dispositivo, la funzione \texttt{iniettaGps()} esegue le seguenti operazioni:
 \begin{itemize}
     \item Recupera le coordinate geografiche e temporali salvate nel ciclo precedente;
     \item Inietta la posizione nota nel modulo GNSS tramite il comando \texttt{AT+CGNSSPOS};
-    \item Sincronizza l'orario del modem con il comando \texttt{AT+CGNSSTIME}.
+    \item Sincronizza l'orologio interno del modem con il comando \texttt{AT+CGNSSTIME}.
 \end{itemize}
 
-Questo meccanismo abilita la modalità \textit{hot start}, che minimizza il tempo di ricerca dei
-satelliti e, di conseguenza, il consumo energetico del sistema.
+Questo meccanismo abilita la modalità \textit{hot start}, 
+che permette di agganciare il segnale in pochi secondi, 
+abbattendo drasticamente il consumo energetico.
 
 \subsection{Protocollo di comunicazione HTTPS}
 
@@ -242,21 +251,24 @@ strutturato, trasmesso tramite una richiesta HTTPS POST. Il \textit{payload} inc
 
 \begin{itemize}
     \item \texttt{board\_id}: un identificativo univoco derivato dall'IMEI del modem;
-    \item \texttt{geo}: un oggetto con latitudine e longitudine per la gestione cartografica;
+    \item \texttt{geo}: un oggetto con latitudine e longitudine per la localizzazione geografica;
     \item \texttt{battery} / \texttt{battery\_percent} / \texttt{charging}:
-          parametri relativi allo stato di carica della batteria;
+          dati sullo stato di carica della batteria;
     \item \texttt{steps}: conteggio dei passi rilevato dall'accelerometro nella sessione corrente;
     \item \texttt{sleep}: flag booleano che segnala al server l'imminente entrata in stato
           di inattività;
     \item \texttt{trip}: flag booleano che segnala al server che l'animale si trova su un
-          veicolo in movimento. Quando attivo, ha priorità assoluta sulla logica di \textit{geofencing}
-          e sopprime il \textit{deep sleep} per garantire la continuità del tracciamento.
+          veicolo in movimento. Quando attivo, ignora le regole del \textit{geofencing}
+          e sospende il \textit{deep sleep} per garantire la continuità del tracciamento.
 \end{itemize}
 
-La sequenza di invio si avvale dei comandi \texttt{AT+HTTPINIT}, \texttt{AT+HTTPPARA}
-e \texttt{AT+HTTPDATA} per configurare la sessione HTTP, inserire i dati e infine avviare
-la trasmissione con \texttt{AT+HTTPACTION=1}. Al termine di ogni invio, la sessione viene
-chiusa con \texttt{AT+HTTPTERM} per liberare le risorse del modem.
+La sequenza di invio utilizza i comandi 
+\texttt{AT+HTTPINIT} per inizializzare il servizio HTTP del modem, 
+\texttt{AT+HTTPPARA} per definire i parametri della connessione,
+\texttt{AT+HTTPDATA} per specificare la dimensione del JSON,
+e infine \texttt{AT+HTTPACTION=1} per avviare la trasmissione. 
+Al termine di ogni invio, \texttt{AT+HTTPTERM} 
+chiude la sessione per liberare le risorse del modem.
 
 \subsection{Risparmio energetico}
 
@@ -264,9 +276,9 @@ Per massimizzare l'autonomia, la gestione energetica
 viene modulata in base alla rilevazione del movimento e allo stato di viaggio:
 
 \begin{enumerate}
-    \item \textbf{Rilevamento Attività:} il firmware monitora costantemente il numero di passi,
+    \item \textbf{Rilevamento attività:} il firmware monitora costantemente il numero di passi,
           azzerando a ogni nuovo movimento un timer di inattività (\texttt{lastActivityTime}).
-    \item \textbf{Modalità Viaggio:} se il flag \texttt{trip} è attivo (velocità GPS $>$ 10\,km/h), 
+    \item \textbf{Modalità viaggio:} se il flag \texttt{trip} è attivo (velocità GPS $>$ 10\,km/h), 
           il \textit{deep sleep} viene disabilitato indipendentemente dall'inattività rilevata
           dall'accelerometro, garantendo la trasmissione dei dati a intervalli regolari durante il viaggio.
     \item \textbf{Ibernazione:} se non viene rilevata attività per un tempo superiore a
@@ -291,29 +303,30 @@ volte a eliminare i consumi statici e a prevenire alterazioni nelle letture dei 
     \item \textbf{Stato USB:} dal registro hardware \texttt{USB\_SERIAL\_JTAG\_\allowbreak EP1\_CONF\_REG} dell'ESP32, 
           il sistema rileva se il dispositivo è collegato a una fonte di ricarica USB, impostando
           dinamicamente il campo \texttt{charging} nel pacchetto dati. In stato di ricarica,
-          tensione e percentuale non vengono aggiornate per evitare misurazioni alterate dalla
-          corrente in ingresso, vengono invece restituiti gli ultimi dati validi salvati nella memoria RTC.
+          la lettura della batteria viene interrotta per evitare alterazioni dovute alla tensione 
+          in ingresso e vengono trasmessi semplicemente gli ultimi dati validi salvati nella memoria RTC.
 \end{itemize}
 
 \subsection{Acquisizione GPS e timeout}
 
-Il modulo GNSS viene interrogato tramite il comando \texttt{AT+CGNSSINFO}.
-La risposta viene analizzata campo per campo, estraendo latitudine, longitudine e velocità
-in formato decimale, evitando la necessità di conversione dal formato NMEA gradi-minuti.
-Il firmware attende fino a un massimo di \texttt{GPS\_TIMEOUT} (180~secondi) per ottenere
-un fix valido; superato tale limite senza una posizione acquisita, il ciclo corrente viene
-saltato e il sistema ritenta al loop successivo. Una volta ottenuto un fix valido, le
-coordinate e il timestamp vengono salvati in memoria RTC per abilitare l'\textit{hot start} al
-ciclo successivo.
+Per acquisire la posizione, il firmware interroga il modulo GNSS tramite il comando \texttt{AT+CGNSSINFO}.
+La risposta viene analizzata campo per campo, estraendo latitudine, longitudine e velocità in formato decimale. 
+Questo evita al microcontrollore il dover decodificare il protocollo standard NMEA, 
+che esprime le coordinate in gradi e minuti e richiederebbe calcoli matematici 
+aggiuntivi per ricavare il formato decimale utilizzato dalle mappe moderne per il \texttt{backend}.
+Il firmware attende fino al \texttt{GPS\_TIMEOUT} (180~secondi) per ottenere
+una posizione valida; superato tale limite senza successo, il ciclo corrente viene
+saltato e il sistema ritenta al loop successivo. Ottenute invece le coordinate, queste
+e il timestamp vengono salvati in memoria RTC per abilitare l'\textit{hot start} al ciclo successivo.
 
 \subsection{Connessione alla rete LTE}
 
-All'avvio, il firmware tenta di registrarsi alla rete LTE attraverso la funzione
-\texttt{connectToNetworkFast()}. Vengono configurati la modalità radio
-(\texttt{AT+CNMP=38} per LTE only), il profilo APN dell'operatore e l'attivazione del
-contesto dati con \texttt{AT+CNACT=0,1}. La registrazione viene verificata in polling
-tramite il comando \texttt{AT+CEREG?}, controllando la presenza dei codici di stato
-\texttt{0,1} (registrato in rete home) o \texttt{0,5} (roaming). Se entro
+All'avvio, attraverso la funzione \texttt{connectToNetworkFast()},
+il firmware tenta di registrarsi alla rete LTE. Vengono configurati la modalità radio
+(\texttt{AT+CNMP=38} per LTE), il profilo APN dell'operatore e l'attivazione del
+contesto dati con \texttt{AT+CNACT=0,1}. La registrazione viene verificata tramite interrogazioni periodiche
+con il comando \texttt{AT+CEREG?}, controllando che il modem restituisca i codici di stato
+\texttt{0,1} (registrato in rete home) o \texttt{0,5} (roaming). Se entro il
 \texttt{NET\_TIMEOUT} (60~secondi) la registrazione non viene completata, il dispositivo
 entra direttamente in \textit{deep sleep} per evitare consumi inutili in assenza di copertura.
 
@@ -324,31 +337,40 @@ una soluzione open-source strutturata su SQLite scelta per la sua reattività,
 il ridotto consumo di risorse e il supporto di un'interfaccia API RESTful. 
 La logica applicativa lato server e l'integrazione dei flussi di dati si sviluppano estendendo 
 il nucleo del framework direttamente nel file principale di runtime \texttt{main.pb.js}, 
-che gestisce sia gli eventi reattivi, noti come \textit{hooks}, sia i servizi temporali pianificati, definiti \textit{cron jobs}.
+che gestisce sia gli eventi reattivi, noti come \textit{hooks}, 
+sia i servizi temporali pianificati, definiti come \textit{cron jobs}.
 Poiché il runtime JavaScript di PocketBase si basa sull'interprete Goja incorporato in Go, 
 l'intera esecuzione del codice avviene in modalità \textit{single-threaded}, 
 condividendo il medesimo spazio d'esecuzione globale e lo stesso ciclo di eventi del server.
 
-\subsection{Architettura di hosting e operational continuity}
-La gestione operativa dell'infrastruttura di backend è stata ottimizzata per garantire la disponibilità del dato, la tolleranza ai guasti e il monitoraggio dei flussi durante la fase di prototipazione e test:
+\subsection{Architettura di hosting e affidabilità del sistema}
+
+L'infrastruttura operativa di backend è stata strutturata per garantire disponibilità dei dati, tolleranza ai guasti e monitoraggio continuo durante la fase di prototipazione e test:
 \begin{itemize}
-    \item \textbf{Network Exposure (NAT Traversal):} l'istanza è ospitata su una \textit{workstation locale} e data la necessità di connettersi al backend sia dal dispositivo (tramite rete cellulare LTE) sia dall'applicazione mobile (tramite rete dati/Wi-Fi), il vincolo del \textit{NAT Traversal} e l'assenza di un IP pubblico statico sulla rete locale sono stati superati mediante l'impiego di ngrok \cite{ngrok}. Questa tecnologia di \textit{tunneling} crea un canale sicuro HTTPS fungendo da \textit{reverse proxy}, reindirizzando il traffico in ingresso verso l'istanza locale di PocketBase e garantendo l'accessibilità dei servizi in tempo reale.
-    \item \textbf{Strategia di Backup a Caldo (Data Retention):} per garantire la resilienza dei dati e prevenire perdite accidentali dovute a guasti del server locale, è stato strutturato un sistema di backup automatizzato tramite l'utility rclone \cite{rclone}, uno strumento a riga di comando per la gestione del cloud storage. Il processo è configurato per eseguire la sincronizzazione incrementale della directory dei dati di PocketBase verso un \textit{bucket remoto} su Backblaze B2 \cite{backblaze} tramite un \textit{cron job} a cadenza mensile.    
-    \item \textbf{Monitoraggio Esterno e Uptime:} l'accessibilità e lo stato di salute del sistema sono vigilati esternamente tramite UptimeRobot \cite{uptimerobot}. Dato che l'accessibilità del backend dipende dalla stabilità del tunnel ngrok, il monitoraggio interroga l'endpoint HTTPS a intervalli regolari, isolando tempestivamente le anomalie di rete e inviando notifiche immediate in caso di interruzione del tunnel o del server locale.
+    \item \textbf{Esposizione in rete:} il server PocketBase è ospitato su una \textit{workstation} locale. Data la necessità di connettersi al backend sia dal dispositivo (tramite rete cellulare LTE) sia dall'applicazione mobile (tramite rete dati/Wi-Fi), le restrizioni imposte dal NAT e l'assenza di un IP pubblico statico sono state superate mediante l'impiego di ngrok \cite{ngrok}. Questa tecnologia di \textit{tunneling} crea un canale sicuro HTTPS fungendo da \textit{reverse proxy}, reindirizzando il traffico in ingresso verso l'ambiente locale e garantendo l'accessibilità dei servizi in tempo reale.
+    \item \textbf{Strategia di backup:} per garantire la resilienza dei dati e prevenire perdite accidentali dovute a guasti del server locale, è stato strutturato un sistema di backup automatizzato tramite rclone \cite{rclone}, uno strumento a riga di comando per la gestione del cloud storage. Il processo è configurato per eseguire la sincronizzazione incrementale della directory dei dati di PocketBase verso un \textit{bucket remoto} su Backblaze B2 \cite{backblaze}, attivato tramite un \textit{cron job} a cadenza mensile.    
+    \item \textbf{Monitoraggio esterno:} l'accessibilità e lo stato di salute del sistema sono monitorati esternamente tramite UptimeRobot \cite{uptimerobot}. Poiché l'accessibilità del backend dipende dalla stabilità del tunnel ngrok, il servizio interroga l'endpoint HTTPS a intervalli regolari. Questo permette di rilevare tempestivamente eventuali anomalie di rete, inviando notifiche immediate in caso di interruzione del tunnel o spegnimento del server locale.
 \end{itemize}
+
 \subsection{Modellazione dei dati e API rules}
-I dati inviati dalla board transitano nella collezione di staging \texttt{data\_sent\_raw}, la quale funge da punto di ingresso grezzo ed isola il database da potenziali fluttuazioni della rete cellulare. La struttura del record prevede i seguenti campi tipizzati:
- 
+
+I dati inviati dal dispositivo transitano inizialmente nella collezione di staging \texttt{data\_sent\_raw}, 
+fungendo da \textit{buffer} iniziale per i dati non ancora elaborati, separando la fase di ricezione dalla successiva validazione. 
+Il singolo record è strutturato secondo i seguenti campi:
+
 \begin{itemize}
-    \item \texttt{timestamp}: Riferimento temporale hardware dell'acquisizione.
-    \item \texttt{lat} / \texttt{lon}: Coordinate geografiche acquisite dal modulo GNSS.
-    \item \texttt{battery} / \texttt{battery\_percent}: Stato di carica dell'accumulatore espresso in voltaggio e percentuale.
-    \item \texttt{charging}: Variabile booleana indicante se la batteria è in corso di ricarica.
-    \item \texttt{steps}: Conteggio lineare dei passi rilevato dall'accelerometro BMA400.
-    \item \texttt{sleep}: Flag booleano indicante se il dispositivo è in stato di \textit{deep sleep}.
-    \item \texttt{trip}: Flag booleano indicante se l'animale si trova su un veicolo in movimento.
+    \item \texttt{timestamp}: riferimento temporale hardware dell'acquisizione;
+    \item \texttt{lat} / \texttt{lon}: coordinate geografiche acquisite dal modulo GNSS;
+    \item \texttt{battery} / \texttt{battery\_percent}: stato di carica dell'accumulatore espresso in voltaggio e percentuale;
+    \item \texttt{charging}: variabile booleana indicante se la batteria è in corso di ricarica;
+    \item \texttt{steps}: conteggio lineare dei passi rilevato dall'accelerometro;
+    \item \texttt{sleep}: flag booleano indicante se il dispositivo è in stato di \textit{deep sleep};
+    \item \texttt{trip}: flag booleano indicante se l'animale si trova su un veicolo in movimento.
 \end{itemize}
-L'accesso alle collezioni memorizzate nel backend avviene esclusivamente tramite l'interfaccia RESTful API fornita nativamente, separando nettamente il livello di persistenza dal livello di fruizione mobile dell'applicazione Flutter. 
+
+L'accesso ai dati avviene esclusivamente tramite le API RESTful esposte da PocketBase. 
+In questo modo il database rimane totalmente indipendente dall'applicazione mobile sviluppata in Flutter, 
+che si limita a richiamare le API per visualizzare i dati.
 
 \begin{comment}
 L'integrità e la riservatezza delle informazioni sono rigidamente normate da \textbf{API Rules} basate su espressioni booleane che implementano il principio del minimo privilegio:
@@ -359,57 +381,107 @@ L'integrità e la riservatezza delle informazioni sono rigidamente normate da \t
 \end{itemize}
 \end{comment}
 
-\subsection{Pulizia e Normalizzazione (Server-side Hooks)}
-L'elaborazione dei messaggi IoT segue un pattern \textit{Staging-and-Purge} sequenziale gestito lato server tramite i \textit{JavaScript Event Hooks} nativi del sistema. L'hook \path{onRecordAfterCreateSuccess} si attiva immediatamente dopo il consolidamento con successo di ogni pacchetto grezzo nella collezione \texttt{data\_sent\_raw}. 
-Per ottimizzare le performance computazionali ed eliminare query ridondanti nello stesso ciclo, il sistema esegue una \textbf{lettura centralizzata} della configurazione della scheda (\texttt{getBoardRecord}) all'inizio dell'esecuzione dell'hook, distribuendo il record ottenuto come parametro a tutte le funzioni della pipeline. Il trigger elabora ogni pacchetto in quattro fasi sequenziali:
+\subsection{Pulizia e normalizzazione (Server-side Hooks)}
+
+L'elaborazione dei messaggi IoT segue un pattern architetturale di \textit{Staging-and-Purge} 
+gestito lato server tramite i \textit{JavaScript Event Hooks} nativi del sistema. 
+L'hook \path{onRecordAfterCreateSuccess} si attiva immediatamente dopo il corretto inserimento
+di ogni pacchetto grezzo nella collezione \texttt{data\_sent\_raw}. 
+Per ottimizzare le prestazioni ed eliminare letture ridondanti,
+il sistema effettua un unico accesso iniziale per recuperare la configurazione del dispositivo (\texttt{getBoardRecord}) 
+all'inizio dell'esecuzione dell'hook, distribuendo il record ottenuto come parametro a tutte le funzioni della pipeline. 
+L'intero flusso di elaborazione si articola in quattro fasi sequenziali:
+
 \begin{enumerate}
-    \item \textbf{Batteria:} Salva il record nella collezione verticale \texttt{battery\_data} e verifica se inviare notifiche push di cambio soglia o allerta energetica.
-    \item \textbf{Activity Tracking:} Delega l'analisi della telemetria al modulo \path{activity\_manager.js}, che aggiorna la macchina a stati e gestisce la persistenza delle sessioni.
-    \item \textbf{Posizioni:} Salva le coordinate GPS nella collezione \texttt{positions} agganciandole all'attività determinata al punto precedente, a condizione che i dati GNSS siano validi e l'attività non sia stata rigettata.
-    \item \textbf{Eliminazione dato grezzo:} Rimuove permanentemente il record originario da \texttt{data\_sent\_raw} all'interno del blocco \texttt{finally} dell'hook. Questo costrutto non serve a garantire l'atomicità transazionale (poiché l'evento scatta a inserimento già consolidato), ma funge da garante di svincolo per l'ottimizzazione dello spazio fisico: assicura la cancellazione fisica del record di staging e previene il rigonfiamento del database SQLite anche qualora una delle funzioni logiche precedenti (es. il modulo attività o il salvataggio della posizione) dovesse lanciare un'eccezione non gestita a runtime.
+    \item \textbf{Batteria:} salva il record in una collezione dedicata \texttt{battery\_data} e verifica se inviare notifiche push per segnalare livelli critici di batteria.
+    \item \textbf{Activity Tracking:} delega l'analisi della telemetria al modulo \path{activity\_manager.js}, che aggiorna la macchina a stati e gestisce la persistenza delle sessioni.
+    \item \textbf{Posizioni:} salva le coordinate GPS nella collezione \texttt{positions}, associandole all'attività identificata al punto precedente, a condizione che i dati GNSS risultino attendibili e l'attività sia considerata valida.
+    \item \textbf{Eliminazione dato grezzo:} rimuove permanentemente il record originario da \texttt{data\_sent\_raw} all'interno del blocco \texttt{finally} dell'hook. Questo costrutto non serve a garantire l'atomicità transazionale (poiché l'evento scatta a inserimento già avvenuto), ma funge da meccanismo di sicurezza per l'ottimizzazione dello spazio. Infatti, assicura la cancellazione fisica del record di staging e previene la crescita incontrollata del database SQLite, anche qualora una delle funzioni precedenti della pipeline dovesse lanciare un'eccezione non gestita a runtime.
 \end{enumerate}
-\subsection{Macchina a Stati delle Attività e Logiche di Isteresi}
-Il cuore del modulo \texttt{activity\_manager.js} è una macchina a stati che modella il comportamento cinematico e geografico dell'animale. Gli stati sono suddivisi in \textit{attivi} (dispositivo sveglio) e \textit{sleep} (dispositivo in \textit{deep sleep}), legati da una corrispondenza biunivoca riassunta nella Tabella~\ref{tab:stati}.
+
+\subsection{Macchina a stati delle attività}
+
+Il modulo \texttt{activity\_manager.js} implementa una macchina a stati 
+che classifica il movimento e la posizione dell'animale, 
+in funzione dell'area di \textbf{geofence}, dell'\textbf{allarme} impostato dall'utente 
+e della \textbf{velocità} dell'animale.
+Ogni stato operativo assume una diversa nomenclatura e conserva lo stesso significato logico, 
+a seconda che il dispositivo sia \textit{attivo} o in \textit{sleep} (\textit{deep sleep}), 
+mantenendo una corrispondenza biunivoca riassunta nella Tabella~\ref{tab:stati}.
+
 \begin{table}[H]
 \centering
 \small
 \begin{tabularx}{\textwidth}{m{2.3cm}m{2.1cm}ccX}
 \toprule
-\textbf{Attivi} & \textbf{Sleep} & \textbf{Allarme} & \textbf{Geofence} & \textbf{Descrizione} \\ \midrule
-\texttt{i} (inside)   & \texttt{d}           & Any                     & True              & Animale all'interno del perimetro sicuro. \\
-\texttt{v} (trip) & \texttt{a}           & False                   & False             & In viaggio su veicolo, allarme spento. \\ 
-\texttt{r} (trip)  & \texttt{q}           & True                    & False             & In viaggio su veicolo, allarme attivo (critico). \\
-\texttt{w} (walk)     & \texttt{z}           & False                   & False             & Fuori perimetro in passeggiata, allarme spento. \\
-\texttt{s} (search)   & \texttt{p}           & True                    & False             & Fuori perimetro, allarme attivo (emergenza). \\ \bottomrule
+\textbf{Attivo} & \textbf{Sleep} & \textbf{Allarme} & \textbf{Geofence} & \textbf{Descrizione posizione}                   \\ \midrule
+\texttt{i} (inside)   & \texttt{d}           & True/False              & True              & All'interno dell'area sicura. \\
+\texttt{v} (vehicle)  & \texttt{a}           & False                   & False             & In viaggio su veicolo.        \\ 
+\texttt{r} (robbed)   & \texttt{q}           & True                    & False             & Rischio di furto su veicolo.  \\
+\texttt{w} (walk)     & \texttt{z}           & False                   & False             & In passeggiata.               \\
+\texttt{s} (search)   & \texttt{p}           & True                    & False             & Rischio di fuga.              \\ \bottomrule
 \end{tabularx}
-\caption{Macchina a stati delle attività: corrispondenze tra stati attivi e sleep.}
+\caption{stati di posizionamento dell'animale.}
 \label{tab:stati}
 \end{table}
-Tutti gli stati sleep si comportano in modo uniforme: vengono sempre archiviati come sessioni storiche chiuse impostando il flag \texttt{is\_active = false}. Prima di eseguire qualsiasi valutazione di business logic, la funzione \texttt{computeStatus} normalizza internamente gli stati sleep convertendoli nel rispettivo equivalente attivo (tramite il dizionario \texttt{SLEEP\_TO\_ACTIVE}, es. \texttt{"a"} $\to$ \texttt{"v"} e \texttt{"q"} $\to$ \texttt{"r"}). Questo garantisce che la logica di analisi riconosca da quale contesto provenga l'animale anche dopo lunghe fasi di inattività hardware.
-Al fine di minimizzare la granularità dei record sul DBMS e ottimizzare le query storiche, il sistema applica un principio di \textbf{estensione temporale}: se un pacchetto conferma lo stato corrente, l'activity manager si limita ad aggiornare il timestamp di fine evento (\texttt{end\_time}) e a incrementare il contatore lineare dei passi (\texttt{total\_steps}). La creazione di una nuova riga nel database (con la contestuale chiusura permanente della precedente) avviene esclusivamente in presenza di un'effettiva transizione di stato. Una transizione tra \texttt{"v"} e \texttt{"r"} indotta dal cambio manuale del flag di allarme da parte dell'utente forza la chiusura e la riapertura immediata della sessione, garantendo la tracciabilità del cambio di contesto e la variazione del livello di urgenza delle notifiche.
+
+A livello di archiviazione, l'ingresso in uno stato di sleep chiude la sessione corrente, 
+impostando il flag \texttt{is\_active = false}. 
+Tuttavia, al momento di elaborare i nuovi dati, il sistema ha bisogno di recuperare il contesto originario dell'animale. 
+Per questo motivo, prima di applicare la logica di classificazione, la funzione \texttt{computeStatus} 
+normalizza internamente lo stato di sleep, riconducendolo al suo equivalente attivo 
+tramite il dizionario \texttt{SLEEP\_TO\_ACTIVE} (es. \texttt{"d"} $\rightarrow$ \texttt{"i"}). 
+Questo meccanismo garantisce la continuità dell'analisi anche dopo lunghe fasi di inattività hardware. 
+
+Per evitare la frammentazione dei dati e ottimizzare le query storiche, 
+il sistema applica un principio di \textbf{continuità temporale}.
+Finché l'animale permane nel medesimo stato, 
+il sistema non crea nuovi record nel database, 
+ma si limita ad aggiornare il timestamp finale (\texttt{end\_time})
+e a incrementare il conteggio dei passi (\texttt{total\_steps}). 
+L'inserimento di una nuova riga nel database, con la contestuale chiusura della precedente,
+avviene esclusivamente in presenza di un'effettiva transizione di stato. 
+Una transizione tra \texttt{"v"} e \texttt{"r"}, indotta dal cambio manuale del flag di allarme
+da parte dell'utente, forza la chiusura e la riapertura immediata della sessione, 
+permettendo di storicizzare l'evento e di adeguare istantaneamente la priorità delle notifiche.
 Le transizioni tra gli stati sono governate da un algoritmo a priorità decrescente:
+
 \begin{enumerate}
-    \item \textbf{Priorità 1 (Massima) - Stato Viaggio:} Se il flag \texttt{trip = true} e il contatore dei passi è nullo (\texttt{steps == 0}), lo stato viene forzato a \texttt{"v"} o \texttt{"r"} a seconda dell'allarme, azzerando i falsi positivi derivanti da movimenti muscolari isolati dell'animale o rumore dell'accelerometro.
-    \item \textbf{Priorità 2 - Memoria del Viaggio:} Qualora il sensore hardware rilevi il termine del viaggio (\texttt{trip = false}) ma l'animale non ha ancora computato passi (\texttt{steps == 0}), il sistema applica una memoria di stato: assume che il veicolo sia momentaneamente fermo (es. a un semaforo o in sosta con l'animale a bordo) e preserva lo stato \textit{Trip} corrente (\texttt{"v"} o \texttt{"r"}). Il ricalcolo geografico pulito si attiva solo se \texttt{steps > 0}, ovvero al primo movimento muscolare effettivo.
-    \item \textbf{Priorità 3 - Analisi Geofence:} Se l'animale si trova all'interno delle coordinate del cerchio sicuro configurato, lo stato viene impostato a \texttt{"i"} (Inside).
-    \item \textbf{Priorità 4 (Minima) - Stato Esterno:} Analisi combinata delle coordinate esterne e dell'allarme utente, che determina la transizione in passeggiata ordinaria (\texttt{"w"}) o nello stato critico di ricerca (\texttt{"s"}).
+    \item \textbf{Priorità 1 (massima):} se il sensore rileva che l'animale è in viaggio (\texttt{trip = true}) e il contatore dei passi è nullo (\texttt{steps == 0}), lo stato viene forzato a \texttt{"v"} o \texttt{"r"} in base all'allarme. Questa condizione funge da filtro per i falsi positivi, ignorando eventuali vibrazioni o rumori dell'accelerometro.
+    \item \textbf{Priorità 2:} se l'animale non è in viaggio (\texttt{trip = false}) ma non sono stati ancora rilevati passi (\texttt{steps == 0}), il sistema applica una memoria di stato. Nel dettaglio, assume che il veicolo sia momentaneamente fermo (es. a un semaforo o in sosta con l'animale a bordo) e preserva lo stato \texttt{"v"} o \texttt{"r"} corrente. Il ricalcolo della posizione si attiva solo se \texttt{steps > 0}, ovvero al primo movimento dell'animale.
+    \item \textbf{Priorità 3:} se l'animale è nell'area di geofence, lo stato viene impostato a \texttt{"i"}.
+    \item \textbf{Priorità 4 (minima):} se l'animale si trova all'esterno dell'area sicura, il sistema valuta il \textit{flag} di allarme per determinare lo stato finale, impostando \texttt{"w"} (passeggiata) in caso di allarme disattivato, oppure \texttt{"s"} (ricerca) in caso di allarme attivato.
 \end{enumerate}
 
 \subsection{Lifecycle del deep sleep e servizi temporali}
-\subsubsection{Gestione del risveglio e anti-spuria}
-Al risveglio dal \textit{deep sleep}, il tracker trasmette un pacchetto privo di una sessione attiva aperta sul database, in quanto la precedente era stata chiusa all'atto dell'addormentamento. Il sistema interroga la collezione escludendo i record anomali ed estrae la sessione chiusa più recente (\texttt{recentClosed}) per ricavare il \texttt{prevStatus} corretto da passare a \texttt{computeStatus}.
 
-Il sistema gestisce il risveglio secondo due scenari logici:
+\subsubsection{Gestione del risveglio e ripristino dello stato}
+
+Al termine di un ciclo di \textit{deep sleep}, il dispositivo riprende le trasmissioni inviando un nuovo pacchetto dati. 
+In quel momento non è presente alcuna sessione attiva sul database, 
+poiché quest'ultima viene forzatamente chiusa al passaggio in modalità a basso consumo.
+Per garantire la continuità logica, il sistema interroga lo storico escludendo eventuali 
+record anomali e recupera l'ultima sessione valida archiviata (\texttt{recentClosed}). 
+Questo passaggio è fondamentale per estrarre lo stato precedente (\texttt{prevStatus}), 
+parametro necessario per la corretta esecuzione della funzione \texttt{computeStatus},
+che gestisce il risveglio secondo due scenari:
 \begin{itemize}
-    \item \textbf{Risveglio nello stesso stato:} Se lo stato attivo calcolato coincide con lo stato attivo di partenza dello sleep precedente (es. dormiva in casa \texttt{"d"} normalizzato a \texttt{"i"}, e il nuovo stato è ancora \texttt{"i"}), la sessione viene riattivata in continuità impostando \texttt{is\_active = true} senza limiti temporali, evitando frammentazioni e collegando le attività attraverso i cicli di sonno.
-    \item \textbf{Risveglio con cambio di stato:} La sessione chiusa viene sanata convertendo lo status nella sua versione attiva originaria a fini di coerenza storica (es. \texttt{"d"} $\to$ \texttt{"i"}), e viene parallelamente istanziata una nuova attività con il nuovo stato calcolato. Le sessioni chiuse dal watchdog con \texttt{anomaly = true} sono tassativamente escluse da questo flusso e non vengono mai riattivate.
+    \item \textbf{Risveglio nello stesso stato:} si verifica quando lo stato rilevato al risveglio coincide con l'equivalente \textit{attivo} dell'ultimo stato di \textit{sleep}. Ad esempio, se il dispositivo si era sospeso in area sicura (stato \texttt{d}, equivalente a \texttt{i}) e al risveglio rileva che il nuovo stato è ancora \texttt{i}, la sessione pregressa viene semplicemente riaperta (\texttt{is\_active = true}). Questo approccio evita la frammentazione dei record, unificando le attività separate dalla fase di sospensione.
+    \item \textbf{Risveglio con cambio di stato:} si verifica quando il nuovo stato rilevato non coincide con l'equivalente \textit{attivo} del precedente stato di \textit{sleep}. In questo caso, il sistema separa nettamente le due fasi, storicizza definitivamente la sessione pregressa, normalizzandone lo stato nella rispettiva controparte \textit{attiva} (es. lo stato \texttt{d} viene convertito in \texttt{i}) per garantire la coerenza storica. Subito dopo, istanzia un nuovo record nel database per il nuovo stato. Le sessioni interrotte dal \textit{watchdog} (\texttt{anomaly = true}) sono tassativamente escluse da questa logica e non vengono mai riattivate.
 \end{itemize}
-Per ottimizzare l'efficienza del thread unico di esecuzione, il modulo implementa un \textbf{filtraggio delle notifiche spurie} (\textit{STEP 3 anticipato}): se viene ricevuto un pacchetto di quiete (\texttt{sleep=true}) in assenza di una sessione attiva sul database, l'inserimento viene intercettato e scartato preventivamente a livello logico, impedendo la proliferazione di record ridondanti e l'invio di catene di notifiche push duplicate all'utente.
-\subsubsection{Watchdog di Inattività e Split Notturno}
-La coerenza temporale delle sessioni e l'allineamento dei calendari storici sono garantite da due cron job registrati all'avvio nel thread principale dell'applicazione:
+
+Per ottimizzare l'efficienza del thread unico di esecuzione, il modulo implementa 
+un \textbf{filtraggio delle notifiche spurie} (\textit{STEP 3 anticipato}): 
+se viene ricevuto un pacchetto di quiete (\texttt{sleep = true}) in assenza di una sessione attiva sul database, 
+l'inserimento viene intercettato e scartato preventivamente a livello logico, 
+impedendo la proliferazione di record ridondanti e l'invio di catene di notifiche push duplicate all'utente.
+
+\subsubsection{Watchdog e split notturno}
+
+La coerenza temporale delle sessioni di attività e l'allineamento dello storico sono garantiti da due \textit{cron job}, registrati all'avvio all'interno del \textit{thread} principale dell'applicazione:
 \begin{itemize}
-    \item \textbf{Watchdog (ogni minuto):} Isola le sessioni attive che non trasmettono dati entro un intervallo stabilito (10 minuti), causate da anomalie impreviste (es. perdita di segnale LTE o spegnimento repentino). Il sistema forza la chiusura del record impostando \texttt{is\_active = false} e l'attributo \texttt{anomaly = true}, notificando istantaneamente gli utenti della board. Il watchdog esclude per design le sessioni in stato sleep, le quali possono rimanere legittimamente inattive a lungo senza costituire un'anomalia.    
-    \item \textbf{Split Notturno Calendario (\texttt{23:59} ora italiana):} Fraziona le sessioni attive a cavallo di due giornate per non alterare le statistiche e i grafici storici giornalieri dell'utente. I timestamp vengono memorizzati nativamente in UTC, calcolando dinamicamente l'offset stagionale europeo (ora legale CEST a \texttt{21:59:59 UTC}, ora solare CET a \texttt{22:59:59 UTC}) tramite la funzione helper \texttt{getItalyTime()}, azzerando l'uso di costanti rigide o offset hardcoded. Il cron è schedulato su entrambi gli orari UTC critici (\texttt{59 21,22 * * *}) e un controllo interno filtra il tick non pertinente alla giornata corrente. Le sessioni in sonno vengono risvegliate forzatamente prima del frazionamento per garantire l'integrità del riepilogo storico, mentre le sessioni già marcate come anomale dal watchdog vengono ignorate e non duplicate nel giorno successivo.
+    \item \textbf{Watchdog:} ogni minuto interroga il database, per individuare e interrompere le sessioni attive da cui non si ricevono aggiornamenti per oltre 10 minuti, tipicamente a seguito di malfunzionamenti o perdite di connettività LTE. Per preservare lo storico, il modulo chiude forzatamente il record (\texttt{is\_active = false}), lo marca come anomalo (\texttt{anomaly = true}) e notifica tempestivamente l'utente. Da questa procedura di sicurezza sono escluse per \textit{design} le attività in \textit{sleep}, la cui inattività prolungata rientra nel normale funzionamento.    
+    \item \textbf{Split notturno (\texttt{23:59} ora italiana):} suddivide le sessioni operative che si protraggono a cavallo di due giornate, al fine di non alterare le statistiche grafiche giornaliere visibili all'utente. Poiché i \textit{timestamp} sono memorizzati nativamente in UTC, il sistema gestisce dinamicamente l'alternanza tra ora solare (CET, 22:59:59 UTC) e ora legale (CEST, 21:59:59 UTC) tramite la funzione \textit{helper} \texttt{getItalyTime()}, evitando l'impiego di \textit{offset} temporali cablati a codice (\textit{hardcoded}). Il \textit{cron job} è pertanto schedulato su entrambi gli orari critici UTC (\texttt{59 21,22 * * *}), delegando a un controllo interno la soppressione dell'esecuzione non pertinente alla stagione in corso. In fase di elaborazione, le sessioni in stato di \textit{sleep} vengono preventivamente riattivate per garantire l'integrità dello storico, mentre le occorrenze già marcate come anomale (\texttt{anomaly = true}) vengono ignorate, impedendone la duplicazione nel giorno successivo.
 \end{itemize}
 
 \begin{comment}
@@ -422,7 +494,7 @@ L'architettura del backend così ingegnerizzata riflette in modo rigoroso i prin
 \end{comment}
 
 
-\section{Front-end e Applicazione Mobile}
+\section{Frontend e applicazione mobile}
 
 L'applicazione mobile è stata sviluppata 
 in \textit{Flutter} \cite{flutter}, un framework
