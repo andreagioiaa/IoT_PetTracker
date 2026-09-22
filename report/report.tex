@@ -467,7 +467,7 @@ parametro necessario per la corretta esecuzione della funzione \texttt{computeSt
 che gestisce il risveglio secondo due scenari:
 \begin{itemize}
     \item \textbf{Risveglio nello stesso stato:} si verifica quando lo stato rilevato al risveglio coincide con l'equivalente \textit{attivo} dell'ultimo stato di \textit{sleep}. Ad esempio, se il dispositivo si era sospeso in area sicura (stato \texttt{d}, equivalente a \texttt{i}) e al risveglio rileva che il nuovo stato è ancora \texttt{i}, la sessione pregressa viene semplicemente riaperta (\texttt{is\_active = true}). Questo approccio evita la frammentazione dei record, unificando le attività separate dalla fase di sospensione.
-    \item \textbf{Risveglio con cambio di stato:} si verifica quando il nuovo stato rilevato non coincide con l'equivalente \textit{attivo} del precedente stato di \textit{sleep}. In questo caso, il sistema separa nettamente le due fasi, storicizza definitivamente la sessione pregressa, normalizzandone lo stato nella rispettiva controparte \textit{attiva} (es. lo stato \texttt{d} viene convertito in \texttt{i}) per garantire la coerenza storica. Subito dopo, istanzia un nuovo record nel database per il nuovo stato. Le sessioni interrotte dal \textit{watchdog} (\texttt{anomaly = true}) sono tassativamente escluse da questa logica e non vengono mai riattivate.
+    \item \textbf{Risveglio con cambio di stato:} si verifica quando il nuovo stato rilevato non coincide con l'equivalente \textit{attivo} del precedente stato di \textit{sleep}. In questo caso, il sistema separa nettamente le due fasi, storicizza definitivamente la sessione pregressa, normalizzandone lo stato nella rispettiva controparte \textit{attiva} (es. lo stato \texttt{d} viene convertito in \texttt{i}) per garantire la coerenza storica. Subito dopo, istanzia un nuovo record nel database per il nuovo stato. 
 \end{itemize}
 
 Per ottimizzare l'efficienza del thread unico di esecuzione, il modulo implementa 
@@ -481,7 +481,7 @@ impedendo la proliferazione di record ridondanti e l'invio di catene di notifich
 La coerenza temporale delle sessioni di attività e l'allineamento dello storico sono garantiti da due \textit{cron job}, registrati all'avvio all'interno del \textit{thread} principale dell'applicazione:
 \begin{itemize}
     \item \textbf{Watchdog:} ogni minuto interroga il database, per individuare e interrompere le sessioni attive da cui non si ricevono aggiornamenti per oltre 10 minuti, tipicamente a seguito di malfunzionamenti o perdite di connettività LTE. Per preservare lo storico, il modulo chiude forzatamente il record (\texttt{is\_active = false}), lo marca come anomalo (\texttt{anomaly = true}) e notifica tempestivamente l'utente. Da questa procedura di sicurezza sono escluse per \textit{design} le attività in \textit{sleep}, la cui inattività prolungata rientra nel normale funzionamento.    
-    \item \textbf{Split notturno (\texttt{23:59} ora italiana):} suddivide le sessioni operative che si protraggono a cavallo di due giornate, al fine di non alterare le statistiche grafiche giornaliere visibili all'utente. Poiché i \textit{timestamp} sono memorizzati nativamente in UTC, il sistema gestisce dinamicamente l'alternanza tra ora solare (CET, 22:59:59 UTC) e ora legale (CEST, 21:59:59 UTC) tramite la funzione \textit{helper} \texttt{getItalyTime()}, evitando l'impiego di \textit{offset} temporali cablati a codice (\textit{hardcoded}). Il \textit{cron job} è pertanto schedulato su entrambi gli orari critici UTC (\texttt{59 21,22 * * *}), delegando a un controllo interno la soppressione dell'esecuzione non pertinente alla stagione in corso. In fase di elaborazione, le sessioni in stato di \textit{sleep} vengono preventivamente riattivate per garantire l'integrità dello storico, mentre le occorrenze già marcate come anomale (\texttt{anomaly = true}) vengono ignorate, impedendone la duplicazione nel giorno successivo.
+    \item \textbf{Split notturno:} suddivide le sessioni operative che si protraggono a cavallo di due giornate (esattamente alle 23:59 ora italiana), al fine di non alterare le statistiche grafiche giornaliere visibili all'utente. Poiché i \textit{timestamp} sono memorizzati nativamente in UTC, il sistema gestisce dinamicamente l'alternanza tra ora solare (CET, 22:59:59 UTC) e ora legale (CEST, 21:59:59 UTC) tramite la funzione \texttt{getItalyTime()}, evitando l'impiego di valori di fuso orario statici. Il \textit{cron job} è pertanto schedulato per avviarsi in entrambi i possibili orari critici (\texttt{59 21,22 * * *}). Sarà poi un controllo interno, basato sul fuso orario attivo, a bloccare l'esecuzione nel caso in cui l'orario non corrisponda a quello effettivo. In fase di elaborazione, le sessioni in stato di \textit{sleep} vengono preventivamente riattivate per garantire l'integrità dello storico, mentre le occorrenze già marcate come anomale (\texttt{anomaly = true}) vengono ignorate, impedendone la duplicazione nel giorno successivo.
 \end{itemize}
 
 \begin{comment}
@@ -501,13 +501,12 @@ in \textit{Flutter} \cite{flutter}, un framework
 cross-platform che consente di produrre un'unica 
 base di codice per Android e iOS.
 I test sono stati condotti \textbf{esclusivamente su 
-ambiente Android} a causa di vincoli tecnici, 
-tra cui l'assenza di postazioni di lavoro con macOS, 
-requisito necessario per il processo di build in ambiente Apple, 
-e la mancanza di una licenza \textit{Apple Developer Program}, 
-indispensabile per garantire la persistenza dell'applicazione 
-su dispositivo fisico oltre il limite di sette 
-giorni previsto per i profili gratuiti.
+ambiente Android} a causa di vincoli tecnici. 
+Nello specifico, l'assenza di postazioni di lavoro con macOS 
+ha impedito la compilazione per l'ecosistema Apple, 
+a cui si aggiunge la mancanza di una licenza per l'\textit{Apple Developer Program}, 
+necessaria per superare il limite di persistenza 
+di sette giorni previsto per i profili gratuiti su dispositivo fisico.
 La comunicazione con il backend avviene tramite 
 il PocketBase SDK ufficiale per \texttt{Dart}, 
 che gestisce le chiamate REST e i meccanismi di autenticazione.
@@ -548,7 +547,7 @@ tentato un refresh automatico della sessione. In caso di successo, l'utente acce
 direttamente alla schermata principale senza dover reinserire le credenziali; in caso di
 token scaduto o non valido, lo store viene svuotato e l'utente viene reindirizzato alla schermata di login.
 
-\subsection{Splash Screen e Caricamento Parallelo}
+\subsection{Splash screen e caricamento parallelo}
 
 La schermata di avvio svolge un ruolo attivo nel precaricare i dati 
 necessari alla home page. Una volta verificata l'autenticazione, 
@@ -566,7 +565,7 @@ Questo permette all'app di trovare il dispositivo corretto automaticamente,
 evitando di dover inserire il codice manualmente nel software.
 
 
-\subsection{Comunicazione in Tempo Reale}
+\subsection{Comunicazione in tempo reale}
 
 Completata la fase iniziale di caricamento dati, l'app stabilisce una 
 \textbf{connessione persistente} al database, passando da una visualizzazione 
@@ -591,7 +590,7 @@ ogni sottoscrizione viene rigorosamente interrotta tramite il comando
 Questa accortezza evita di mantenere attive connessioni inutili in background, 
 ottimizzando l'uso della batteria e del traffico dati.
 
-\subsection{Geofencing e Geocoding}
+\subsection{Geofencing e geocoding}
 
 La logica di geofencing è implementata anche dal lato client tramite algoritmo \mbox{\textit{Ray-Casting}}. 
 Dato un punto GPS e un poligono definito da una lista di vertici, l'algoritmo traccia un raggio orizzontale dal punto
@@ -619,9 +618,9 @@ open-source di OpenStreetMap per consentire:
   per posizionare correttamente il poligono sulla mappa.
 \end{itemize}
 
-\subsection{Schermate e Funzionalità Principali}
+\subsection{Schermate e funzionalità principali}
 
-\subsubsection{Analisi delle Attività}
+\subsubsection{Analisi delle attività}
 
 L’architettura dell’applicazione ruota attorno alla dashboard principale in \texttt{home.dart}, 
 che funge da centro di controllo dinamico per il monitoraggio dell'animale, 
@@ -632,7 +631,7 @@ l'interfaccia attiva automaticamente un blocco di sicurezza
 per impedirne la disattivazione.
 Inoltre, poiché lo stato dell'allarme si basa sulla variabile condivisa \texttt{\_isUpdatingAlarm}, 
 l'integrità dell'operazione è garantita da un \textbf{mutex} 
-che congela l'input dell'utente durante la sincronizzazione asincrona con il database. 
+che disabilita temporaneamente l'interruttore durante la sincronizzazione asincrona con il database.
 Infine, la schermata raccoglie le statistiche quotidiane 
 come passi, chilometri e tempo di attività dell'animale, 
 permettendo la consultazione dei dati storici tramite un selettore di data.
@@ -668,7 +667,7 @@ ricalcolate specificamente per l’attività selezionata.
     \end{subfigure}
 \end{figure}
 
-\subsubsection{Mappe in Tempo Reale}
+\subsubsection{Mappe in tempo reale}
 
 L’app utilizza mappe interattive sviluppate con \texttt{flutter\_map}, 
 permettendo di localizzare utente e animale in una visuale satellitare o stradale. 
@@ -693,7 +692,7 @@ Sulla mappa inoltre viene renderizzata una scia storica
 delle ultime posizioni registrate, fornendo un percorso visivo immediato 
 che aiuta a comprendere la direzione del movimento recente dell’animale. 
 
-\subsubsection{Gestione delle Zone Sicure}
+\subsubsection{Gestione delle zone sicure}
 
 Dopo l’inserimento di un indirizzo (manuale o GPS) o 
 la selezione di una zona dalla pagina di geofencing,
@@ -702,8 +701,8 @@ L’utente può definire il perimetro toccando lo schermo per aggiungere i verti
 L'interfaccia è progettata per essere estremamente flessibile, 
 consentendo all'utente non solo di aggiungere o annullare i vertici, 
 ma anche di rifinirne la forma trascinando i punti già posizionati.
-Oltre a richiedere un minimo di tre vertici per formare una figura geometrica chiusa, 
-un'area può essere creata solo se rispetta due controlli di validità:
+Un'area può essere creata solo se presenta un minimo di tre vertici per formare una figura geometrica chiusa 
+e rispetta due controlli di validità:
 
 \begin{itemize}
     \item Il \textbf{baricentro dell'area} non deve essere troppo distante dall'indirizzo selezionato, 
@@ -740,25 +739,33 @@ un'area può essere creata solo se rispetta due controlli di validità:
     \label{fig:creazione_area}
 \end{figure}
 
-\section{Sistema di Notifiche Push}
-L'implementazione di un sistema di notifiche push è fondamentale per un dispositivo di tracciamento animali, in quanto permette di avvisare tempestivamente l'utente in caso di pericoli (uscita dal perimetro sicuro) o problemi tecnici (batteria scarica).
-\subsection{Analisi dei Vincoli Tecnologici: Incompatibilità Goja e Firebase}
-Durante la fase di sviluppo, è emerso un vincolo tecnico significativo riguardante l'integrazione tra il backend PocketBase e l'SDK ufficiale di Firebase. 
-PocketBase è scritto in linguaggio Go e utilizza \textbf{Goja} come motore di esecuzione JavaScript per la gestione della logica server-side (hooks). Goja è un'implementazione di ECMAScript 5.1 che presenta limitazioni strutturali rispetto a un ambiente Node.js \cite{nodejs} standard:
+\section{Sistema di notifiche push}
+L'implementazione di un sistema di notifiche push è fondamentale per un dispositivo di tracciamento animali, 
+in quanto permette di avvisare tempestivamente l'utente in caso di pericoli (uscita dal perimetro sicuro) o problemi tecnici (batteria scarica).
+
+\subsection{Analisi dei vincoli tecnologici}
+Durante la fase di sviluppo, è emerso un vincolo tecnico significativo riguardante 
+l'integrazione tra il backend PocketBase e l'SDK ufficiale di Firebase. 
+PocketBase è scritto in linguaggio \texttt{Go} e utilizza \textbf{Goja} come motore di esecuzione JavaScript 
+per la gestione della logica server-side (hooks). 
+Goja è un'implementazione di ECMAScript 5.1 che presenta limitazioni strutturali rispetto a un ambiente Node.js \cite{nodejs} standard:
 \begin{itemize}
     \item \textbf{Mancanza di moduli nativi}: Goja non supporta i moduli core di Node.js (come \texttt{fs}, \texttt{crypto} o \texttt{net}), indispensabili per il funzionamento dell'SDK di Firebase.
-    \item \textbf{Runtime isolato}: L'SDK \texttt{firebase-admin} \cite{firebase_admin} richiede un ambiente di esecuzione completo per gestire l'autenticazione tramite Service Account e le connessioni persistenti ai server Google.
+    \item \textbf{Runtime isolato}: l'SDK \texttt{firebase-admin} \cite{firebase_admin} richiede un ambiente di esecuzione completo per gestire l'autenticazione tramite Service Account e le connessioni persistenti ai server Google.
 \end{itemize}
-Per superare queste limitazioni, è stata adottata un'architettura a \textbf{Bridge}, separando la logica di business dall'invio fisico dei messaggi.
+
+Per superare queste limitazioni, è stata adottata un'architettura \textbf{Bridge}, separando la logica applicativa dall'invio fisico dei messaggi.
+
 \subsection{Architettura del FCM Bridge}
 Il sistema si basa su un microservizio esterno sviluppato in Node.js \cite{nodejs}, denominato \textit{FCM Bridge}. L'interazione avviene secondo il seguente flusso:
 \begin{enumerate}
-    \item \textbf{PocketBase (Goja)}: Rileva un evento (es. batteria scarica) e invia una richiesta HTTP POST al bridge tramite il modulo interno \texttt{\$http.send}.
-    \item \textbf{FCM Bridge (Node.js)}: Riceve la richiesta, carica il Service Account di Firebase e inoltra la notifica tramite l'SDK ufficiale \cite{firebase_admin}.
-    \item \textbf{Feedback e pulizia token}: Il bridge restituisce lo stato della consegna. In caso di errore \texttt{404} (token non registrato, app disinstallata) o \texttt{400} (token malformato), il backend provvede alla rimozione automatica del token dal profilo utente. I token FCM sono memorizzati come array JSON per supportare più dispositivi per singolo utente.
+    \item \textbf{PocketBase (Goja)}: rileva un evento (es. batteria scarica) e invia una richiesta HTTP POST al bridge tramite il modulo interno \texttt{\$http.send}.
+    \item \textbf{FCM Bridge (Node.js)}: riceve la richiesta, carica il Service Account di Firebase e inoltra la notifica tramite l'SDK ufficiale \cite{firebase_admin}.
+    \item \textbf{Invio notifica}: il bridge restituisce lo stato della consegna. In caso di errore \texttt{404} (token non registrato, app disinstallata) o \texttt{400} (token malformato), il backend provvede alla rimozione automatica del token dal profilo utente. I token FCM sono memorizzati come array JSON per supportare più dispositivi per singolo utente.
 \end{enumerate}
-\subsection{Logica di Invio e Trigger}
-Le notifiche vengono scatenate dai seguenti eventi, ciascuno con logica contestuale per evitare invii ridondanti:
+\subsection{Logica di invio e trigger}
+Le notifiche vengono scatenate dai seguenti eventi, 
+ciascuno con logica contestuale per evitare invii ridondanti nella Tabella~\ref{tab:notifiche}.
 
 \begin{table}[H]
 \centering
@@ -766,23 +773,25 @@ Le notifiche vengono scatenate dai seguenti eventi, ciascuno con logica contestu
 \toprule
 \textbf{Evento} & \textbf{Condizione di trigger} & \textbf{Nota} \\
 \midrule
-Uscita dalla zona      & \texttt{i} $\to$ \texttt{s} oppure \texttt{i} $\to$ \texttt{w} & Dipende dalla presenza di allarme utente \\
-Rientro in zona        & \texttt{s} $\to$ \texttt{i} oppure \texttt{w} $\to$ \texttt{i} & \\
-Allarme da passeggiata & \texttt{w} $\to$ \texttt{s}                                    & Allarme riattivato mentre fuori zona \\
-Inizio viaggio confermato & qualsiasi $\to$ \texttt{v/r}                     & Dipende dallo stato dell'allarme\\
-Fine viaggio in zona   & \texttt{v/r} $\to$ \texttt{i}                                    & \\
-Fine viaggio fuori zona (allarme) & \texttt{v/r} $\to$ \texttt{s}                        & \\
-Fine viaggio fuori zona (libero)  & \texttt{v/r} $\to$ \texttt{w}                        & \\
-Nessuna geofence       & \texttt{i} o \texttt{s} $\to$ \texttt{w}               & Zone disattivate \\
-Batteria bassa         & $\leq 20\%$ (cambio soglia)                                    & Solo al cambio di fascia \\
-Batteria critica       & $\leq 10\%$ (cambio soglia)                                    & Solo al cambio di fascia \\
-Batteria in carica     & \texttt{charging} passa a \texttt{true}                        & Solo al cambio di stato \\
-Watchdog               & Silenzio $>$ 10 minuti                                         & Chiusura automatica sessione \\
+Uscito dalla zona                 & \texttt{i} $\to$ \texttt{s} oppure \texttt{i} $\to$ \texttt{w} & Dipende dallo stato allarme               \\
+Rientro in zona                   & \texttt{s} $\to$ \texttt{i} oppure \texttt{w} $\to$ \texttt{i} & Presenza di geofence                      \\
+Allarme in passeggiata            & \texttt{w} $\to$ \texttt{s}                                    & Attivazione allarme                       \\
+Inizio viaggio confermato         & qualsiasi $\to$ \texttt{v/r}                                   & Dipende dallo stato allarme               \\
+Fine viaggio in zona              & \texttt{v/r} $\to$ \texttt{i}                                  & Rientro in geofence                       \\
+Fine viaggio fuori zona           & \texttt{v/r} $\to$ \texttt{s}                                  & Se allarme attivo                         \\
+Fine viaggio fuori zona           & \texttt{v/r} $\to$ \texttt{w}                                  & Se allarme spento                         \\
+Nessuna geofence                  & \texttt{i} o \texttt{s} $\to$ \texttt{w}                       & Assenza di geofence                       \\
+Batteria bassa                    & $\leq 20\%$                                                    & Solo al cambio di soglia                  \\
+Batteria critica                  & $\leq 10\%$                                                    & Solo al cambio di soglia                  \\
+Batteria in carica                & \texttt{charging} passa a \texttt{true}                        & Solo al cambio di stato                   \\
+Watchdog                          & Silenzio $>$ 10 minuti                                         & Chiusura automatica                       \\
 \bottomrule
 \end{tabular}
 \caption{Trigger del sistema di notifiche push}
 \label{tab:notifiche}
 \end{table}
+
+\newpage
 
 \subsection{Gestione permessi}
 
@@ -804,38 +813,37 @@ e la generazione del token univoco del dispositivo.
 Quest'ultimo viene dapprima salvato localmente 
 e poi sincronizzato con il profilo utente su PocketBase 
 all'interno del campo \texttt{tokenFCM}. 
-Tale campo è modellato come una lista 
-per permettere all'utente di ricevere le allerte 
-su più dispositivi contemporaneamente; 
-prima di ogni salvataggio, un controllo di duplicazione 
-verifica che il \textit{token} non sia già presente, 
+Prima di ogni salvataggio, viene effettuato un controllo di duplicazione 
+che verifica se il \textit{token} non sia già presente, 
 evitando così la ricezione di notifiche ridondanti.
 
-\section{Vincoli di Sistema}
+\section{Vincoli di sistema}
 Nonostante i risultati ottenuti, il sistema presenta alcune limitazioni:
 \begin{itemize}
     \item \textbf{Dipendenza dalla rete LTE}: senza copertura la trasmissione dati non è garantita.
     \item \textbf{Prestazioni indoor}: il modulo GNSS risulta poco affidabile in ambienti chiusi.
     \item \textbf{Backend locale}: l'utilizzo di PocketBase su macchina locale, 
         esposto tramite ngrok, introduce dipendenze da servizi esterni e limita la scalabilità.
-    \item \textbf{Race condition sui pacchetti simultanei}: in caso di ricezione 
+    \item \textbf{Race condition sui pacchetti}: in caso di ricezione 
         quasi simultanea di due pacchetti dallo stesso dispositivo, 
         entrambi potrebbero leggere lo stesso record \texttt{activity} 
         prima del completamento della prima scrittura. 
         Gli scenari più critici sono due: 
-        nel caso di cambio di stato, il secondo pacchetto potrebbe sovrascrivere 
-        un record già chiuso dal primo, generando inconsistenze strutturali; 
-        nel caso di risveglio simultaneo dal \textit{deep sleep}, 
-        entrambi i pacchetti potrebbero riattivare 
-        lo stesso record \texttt{sleep} e creare due sessioni attive 
-        contemporaneamente, violando l'invariante del sistema. 
-        L'impossibilità di gestire transazioni atomiche isolate 
-        sui singoli record tramite le API standard di PocketBase 
+        \begin{itemize}
+            \item Se entrambi i pacchetti rilevano un cambio di stato, 
+                il secondo potrebbe sovrascrivere un record già chiuso dal primo, 
+                generando inconsistenze strutturali.
+            \item Se entrambi i pacchetti riattivano 
+                lo stesso record \texttt{sleep}, potrebbero creare due sessioni attive 
+                contemporaneamente, violando l'invariante del sistema.
+        \end{itemize}
+        L'impossibilità di gestire transazioni atomiche 
+        sui singoli record tramite le API di PocketBase 
         rende questo scenario non eliminabile lato applicativo. 
-        Tuttavia, la frequenza di invio (ogni 30 o più secondi) 
-        rende l’evento estremamente raro all'atto pratico.
+        Tuttavia, la frequenza di invio (ogni 30~s circa) 
+        rende l’evento estremamente raro nella pratica.
     \item \textbf{Fallimento nella geolocalizzazione}: l'eventuale mancato rilevamento 
-        di indirizzi, solitamente nei nei centri abitati più piccoli, 
+        di indirizzi, solitamente nei centri abitati più piccoli, 
         non è imputabile al codice, bensì a un limite legato alla densità dei metadati geografici. 
         Poiché \texttt{OpenStreetMap} si basa su contributi volontari, 
         l'assenza di tag specifici (come i numeri civici o il CAP associato alla via) 
@@ -844,27 +852,30 @@ Nonostante i risultati ottenuti, il sistema presenta alcune limitazioni:
         non è in grado di compensare l'incompletezza dei dati.
 \end{itemize}
 
-\section{Implementazioni Future}
-Il progetto nel suo percorso di sviluppo ha trovato delle possibiità future di scalabilità dell'App, di seguito le idee che abbiamo accavallato per procedere nella migliore implementazione delle precedenti funzioni descritte.
+\section{Sviluppi futuri e prospettive del progetto}
+Durante lo sviluppo sono emerse diverse opportunità di scalabilità del progetto, 
+illustrate di seguito tramite alcune proposte di ottimizzazione ed estensione delle funzionalità.
 
-\subsection{Stato della batteria}
-Per garantire all'utente un corretto valore della batteria aggiornato sugli ultimi pacchetti è richiesto un calcolo con dati storici, questo è uno dei possibili ulteriori passaggi che può essere sviluppato all'interno dell'applicazione per quanto riguarda i dati da fornire all'utente. Non risulta come attività critica in quanto il sistema riesce a garantire all'utente una notifica nel momento in cui la batteria raggiunge (e scende) sotto il livello del 20\%.
-
-\subsection{Database, Infrastruttura Cloud e Gestione della Concorrenza}
-Il passaggio da un ambiente di prototipazione locale a una soluzione orientata alla produzione prevede la migrazione dell'intero backend su un'infrastruttura Cloud dedicata (PaaS o VPS come AWS, Google Cloud o DigitalOcean). Questa evoluzione consentirà di superare i vincoli attuali attraverso i seguenti interventi strutturali:
+\subsection{Evoluzione e scalabilità del backend}
+L'evoluzione dall'attuale prototipo locale a una soluzione più robusta ed efficace richiederà 
+la migrazione dell’intero backend su un’infrastruttura Cloud dedicata, 
+adottando soluzioni PaaS o VPS (come AWS, Google Cloud o DigitalOcean). 
+Questa evoluzione consentirà di superare i vincoli attuali attraverso i seguenti interventi strutturali:
 \begin{itemize}
-    \item \textbf{Assegnazione di Dominio e Sicurezza TLS:} Sostituendo il tunnel temporaneo \texttt{ngrok} con un dominio di secondo livello proprietario, protetto da certificati SSL/TLS (es. Let's Encrypt), si garantirà una connessione HTTPS/WSS nativa, stabile e priva di interruzioni di sessione o rate-limiting arbitrari.
-    \item \textbf{Risoluzione delle Race Condition via Message Broker:} Per azzerare il rischio di collisione nell'aggiornamento simultaneo delle attività (derivante dalla ricezione di pacchetti ravvicinati), si prevede l'introduzione di un middleware di messaggistica asincrona, come \texttt{Redis} o \texttt{RabbitMQ}, interposto tra l'endpoint di ricezione e il database. Questo livello fungerà da coda FIFO (\textit{First-In, First-Out}), serializzando i pacchetti provenienti dallo stesso tracker ed eseguendo le transazioni in modo strettamente sequenziale, preservando così l'invariante del sistema.
-    \item \textbf{Migrazione del DBMS:} Qualora il volume di dispositivi connessi dovesse saturare le capacità di lock di SQLite, l'architettura consentirà di scalare verticalmente migrando verso un database relazionale centralizzato (come \texttt{PostgreSQL}), nativamente ottimizzato per transazioni ACID altamente concorrenti.
+    \item \textbf{Assegnazione di dominio e sicurezza TLS:} sostituendo il tunnel temporaneo \texttt{ngrok} con un dominio di secondo livello proprietario, protetto da certificati SSL/TLS (es. \texttt{Let's Encrypt}), garantirà una connessione HTTPS/WSS, stabile e priva di interruzioni di sessione o limiti di traffico.
+    \item \textbf{Risoluzione delle race condition:} per eliminare il rischio di collisioni causato dall'arrivo simultaneo di pacchetti, si prevede l'introduzione di un middleware di messaggistica asincrona, come \texttt{Redis} o \texttt{RabbitMQ}, tra l'endpoint di ricezione e il database. Questo livello fungerà da coda FIFO (\textit{First-In, First-Out}), mettendo in fila i pacchetti provenienti dallo stesso dispositivo per elaborarli rigorosamente uno alla volta, garantendo così la coerenza dei dati nel database.
+    \item \textbf{Migrazione del DBMS:} qualora il volume di dispositivi connessi diventasse troppo elevato per le capacità di SQLite, sarà possibile migrare verso un database più robusto (come \texttt{PostgreSQL}), progettato appositamente per gestire un grande volume di scritture simultanee senza bloccarsi.
 \end{itemize}
 
-\subsection{Ingegnerizzazione e Costruzione della Scheda Hardware}
-L'attuale prototipo hardware, sebbene funzionale alla validazione del software, richiede una fase di ingegnerizzazione elettronica per poter essere trasformato in un dispositivo commerciale realmente indossabile dall'animale. Lo sviluppo futuro si articolerà su tre assi principali:
+\subsection{Evoluzione e costruzione hardware}
+L’attuale prototipo è stato fondamentale per testare il software, ma richiederà un'ottimizzazione dell'hardware per diventare un dispositivo pratico da far indossare all'animale. Lo sviluppo futuro si articolerà su tre assi principali:
 \begin{itemize}
-    \item \textbf{Sviluppo di un PCB Custom:} Progettazione di un circuito stampato personalizzato (\textit{Printed Circuit Board}) mediante strumenti EDA (come KiCad o Altium Designer). L'integrazione del microcontrollore, del modem LTE e del modulo GNSS su un'unica scheda consentirà di ridurre drasticamente il fattore di forma (\textit{form factor}), minimizzando l'ingombro e il peso del tracker sul collare dell'animale.
-    \item \textbf{Ottimizzazione del Power Management:} Introduzione di un circuito integrato dedicato alla gestione dell'energia (\textit{PMIC}) e di un chip di \textit{fuel gauge} hardware (es. serie MAX17043). Questo permetterà di implementare il calcolo predittivo basato sui dati storici menzionato nella sezione precedente, offrendo letture della percentuale di carica estremamente precise e non inficiate dai picchi di assorbimento del modem durante la trasmissione.
-    \item \textbf{Industrial Design e Protezione Ambientale:} Progettazione di un \textit{enclosure} (involucro) personalizzato tramite modellazione 3D e stampaggio a iniezione. La scocca dovrà garantire un grado di protezione minimo pari a \textbf{IP67} o \textbf{IP68}, rendendo il dispositivo totalmente impermeabile all'acqua, al fango e resistente agli urti causati dai movimenti repentini dell'animale all'aperto.
+    \item \textbf{Sviluppo di un PCB custom:} progettare un'unica scheda su misura (es. \texttt{KiCad}) che integri microcontrollore, modem LTE e modulo GNSS. In questo modo si ridurranno drasticamente le dimensioni e il peso del dispositivo sul collare dell'animale.
+    \item \textbf{Ottimizzazione del power management:} l'integrazione di un \textit{PMIC} e di un chip fuel gauge (es. \texttt{MAX17043}) permetterà di ottenere letture della batteria estremamente precise. Questo abiliterà il calcolo predittivo sui dati storici, evitando che i picchi di consumo del modem durante le trasmissioni falsino la percentuale di carica.
+    \item \textbf{Design e protezione:} progettazione di un involucro su misura, ad esempio tramite modellazione 3D e stampaggio a iniezione. La scocca dovrà avere una certificazione minima \textbf{IP67} o \textbf{IP68} per garantire totale impermeabilità (ad acqua e fango) e resistere agli urti causati dai movimenti dell'animale.
 \end{itemize}
+
+\newpage
 
 \section{Conclusioni}
 
