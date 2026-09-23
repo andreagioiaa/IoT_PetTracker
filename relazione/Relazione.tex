@@ -309,7 +309,7 @@ ciclo successivo.
 \subsection{Connessione alla rete LTE}
 
 All'avvio, il firmware tenta di registrarsi alla rete LTE attraverso la funzione
-\texttt{connectToNetworkFast()}. Vengono configurati la modalità radio
+\path{connectToNetworkFast()}. Vengono configurati la modalità radio
 (\texttt{AT+CNMP=38} per LTE only), il profilo APN dell'operatore e l'attivazione del
 contesto dati con \texttt{AT+CNACT=0,1}. La registrazione viene verificata in polling
 tramite il comando \texttt{AT+CEREG?}, controllando la presenza dei codici di stato
