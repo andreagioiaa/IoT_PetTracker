@@ -167,26 +167,23 @@ e visualizzati attraverso un'applicazione mobile dedicata.
 
 \newpage
 
-\begin{comment}
-\section{Architettura del sistema}
+\section{Obiettivi del Progetto}
 
-L'architettura del sistema Pet Tracker segue il modello a sette livelli dell'IoTWF, 
-garantendo una transizione strutturata dal dato fisico all'informazione per l'utente.
-
-\subsection{Mappatura sul modello IoTWF}
-
+Il progetto Pet Tracker nasce con l'obiettivo generale di realizzare un sistema completo di localizzazione e monitoraggio per animali domestici di taglia media o grande, affidabile, a basso consumo energetico e utilizzabile in scenari reali. Per raggiungere questo obiettivo, il lavoro si è articolato nei seguenti obiettivi specifici:
 \begin{itemize}
-    \item \textbf{Livello 1 (Physical Devices):} microcontrollore, sensori e batteria.
-    \item \textbf{Livello 2 (Connectivity):} modem LTE e protocolli di comunicazione sicuri.
-    \item \textbf{Livello 3 (Edge Computing):} elaborazione locale sul microcontrollore per il filtraggio delle stringhe NMEA e il calcolo dei passi.
-    \item \textbf{Livello 4 (Data Accumulation):} persistenza dei dati sul server PocketBase basato su database SQLite.
-    \item \textbf{Livello 5 (Data Abstraction):} pubblicazione dei dati tramite API REST in formato JSON.
-    \item \textbf{Livello 6 (Application):} applicazione mobile per la visualizzazione delle informazioni e della posizione dell'animale su mappa.
-    \item \textbf{Livello 7 (Collaboration and Processes):} interazione dell'utente con il sistema per il monitoraggio dell'animale.
+    \item \textbf{Progettazione hardware del dispositivo indossabile:} integrare su un'unica piattaforma embedded (ESP32-S3) connettività LTE, ricezione GNSS e rilevamento del movimento, garantendo un'autonomia energetica adeguata all'uso continuativo sull'animale.
+    \item \textbf{Ottimizzazione energetica del firmware:} implementare strategie di risparmio energetico (\textit{deep sleep}, \textit{hot start}) che permettano di bilanciare la frequenza di acquisizione dei dati con la durata della batteria.
+    \item \textbf{Progettazione di un backend affidabile e scalabile:} sviluppare un'infrastruttura server in grado di ricevere, validare e normalizzare i dati grezzi provenienti dal dispositivo, esponendo le informazioni tramite API REST e mantenendo la coerenza storica delle sessioni di attività.
+    \item \textbf{Modellazione del comportamento dell'animale:} definire una logica in grado di distinguere in modo affidabile i diversi stati cinematici e geografici dell'animale (permanenza in zona sicura, passeggiata, viaggio in veicolo, allontanamento), riducendo i falsi positivi dovuti al rumore dei sensori.
+    \item \textbf{Sviluppo di un sistema di allerta tempestivo:} implementare un meccanismo di notifiche push capace di avvisare l'utente in caso di uscita dal perimetro sicuro o di condizioni critiche del dispositivo, garantendo la gestione di più dispositivi mobili per singolo utente.
+    \item \textbf{Realizzazione di un'applicazione mobile intuitiva:} fornire all'utente un'interfaccia in tempo reale per la visualizzazione della posizione, delle statistiche di attività e per la gestione autonoma delle zone di sicurezza, minimizzando il carico sul backend e sui dati mobili.
 \end{itemize}
-\end{comment}
 
+Questi obiettivi guidano la struttura dell'intero elaborato: dopo una panoramica dell'architettura hardware, vengono descritte la logica firmware, il backend e la modellazione dei dati, per poi passare all'applicazione mobile e al sistema di notifiche, fino ai vincoli riscontrati e alle possibili evoluzioni future del sistema.
+
+\clearpage
 \section{Hardware}
+\label{sec:hardware}
 
 \subsection{LilyGo T-SIM7670G-S3}
 
@@ -276,8 +273,8 @@ Per massimizzare l'autonomia, la gestione energetica
 viene modulata in base alla rilevazione del movimento e allo stato di viaggio:
 
 \begin{enumerate}
-    \item \textbf{Rilevamento attività:} il firmware monitora costantemente il numero di passi,
-          azzerando a ogni nuovo movimento un timer di inattività (\texttt{lastActivityTime}).
+    \item \textbf{Rilevamento attività:} il firmware monitora costantemente il numero di passi ricevuto ad ogni pacchetto,
+          azzerando a ogni nuovo movimento un timer di inattività (\texttt{lastActivityTime}) per monitorare lo stato di anomalia o di chiusura dell'attività in corso.
     \item \textbf{Modalità viaggio:} se il flag \texttt{trip} è attivo (velocità GPS $>$ 10\,km/h), 
           il \textit{deep sleep} viene disabilitato indipendentemente dall'inattività rilevata
           dall'accelerometro, garantendo la trasmissione dei dati a intervalli regolari durante il viaggio.
@@ -354,7 +351,7 @@ L'infrastruttura operativa di backend è stata strutturata per garantire disponi
 
 \subsection{Modellazione dei dati e API rules}
 
-I dati inviati dal dispositivo transitano inizialmente nella collezione di staging \texttt{data\_sent\_raw}, 
+I dati inviati dal dispositivo transitano inizialmente nella collezione di staging \path{data\_sent\_raw}, 
 fungendo da \textit{buffer} iniziale per i dati non ancora elaborati, separando la fase di ricezione dalla successiva validazione. 
 Il singolo record è strutturato secondo i seguenti campi:
 
@@ -416,8 +413,8 @@ mantenendo una corrispondenza biunivoca riassunta nella Tabella~\ref{tab:stati}.
 \toprule
 \textbf{Attivo} & \textbf{Sleep} & \textbf{Allarme} & \textbf{Geofence} & \textbf{Descrizione posizione}                   \\ \midrule
 \texttt{i} (inside)   & \texttt{d}           & True/False              & True              & All'interno dell'area sicura. \\
-\texttt{v} (vehicle)  & \texttt{a}           & False                   & False             & In viaggio su veicolo.        \\ 
-\texttt{r} (robbed)   & \texttt{q}           & True                    & False             & Rischio di furto su veicolo.  \\
+\texttt{v} (trip)  & \texttt{a}           & False                   & False             & In viaggio su veicolo.        \\ 
+\texttt{r} (trip)   & \texttt{q}           & True                    & False             & Rischio di furto su veicolo.  \\
 \texttt{w} (walk)     & \texttt{z}           & False                   & False             & In passeggiata.               \\
 \texttt{s} (search)   & \texttt{p}           & True                    & False             & Rischio di fuga.              \\ \bottomrule
 \end{tabularx}
@@ -471,8 +468,8 @@ che gestisce il risveglio secondo due scenari:
 \end{itemize}
 
 Per ottimizzare l'efficienza del thread unico di esecuzione, il modulo implementa 
-un \textbf{filtraggio delle notifiche spurie} (\textit{STEP 3 anticipato}): 
-se viene ricevuto un pacchetto di quiete (\texttt{sleep = true}) in assenza di una sessione attiva sul database, 
+un \textbf{filtraggio delle notifiche spurie}: 
+se viene ricevuto un pacchetto con "\texttt{sleep = true}" in assenza di una sessione attiva sul database, 
 l'inserimento viene intercettato e scartato preventivamente a livello logico, 
 impedendo la proliferazione di record ridondanti e l'invio di catene di notifiche push duplicate all'utente.
 
@@ -481,18 +478,8 @@ impedendo la proliferazione di record ridondanti e l'invio di catene di notifich
 La coerenza temporale delle sessioni di attività e l'allineamento dello storico sono garantiti da due \textit{cron job}, registrati all'avvio all'interno del \textit{thread} principale dell'applicazione:
 \begin{itemize}
     \item \textbf{Watchdog:} ogni minuto interroga il database, per individuare e interrompere le sessioni attive da cui non si ricevono aggiornamenti per oltre 10 minuti, tipicamente a seguito di malfunzionamenti o perdite di connettività LTE. Per preservare lo storico, il modulo chiude forzatamente il record (\texttt{is\_active = false}), lo marca come anomalo (\texttt{anomaly = true}) e notifica tempestivamente l'utente. Da questa procedura di sicurezza sono escluse per \textit{design} le attività in \textit{sleep}, la cui inattività prolungata rientra nel normale funzionamento.    
-    \item \textbf{Split notturno:} suddivide le sessioni operative che si protraggono a cavallo di due giornate (esattamente alle 23:59 ora italiana), al fine di non alterare le statistiche grafiche giornaliere visibili all'utente. Poiché i \textit{timestamp} sono memorizzati nativamente in UTC, il sistema gestisce dinamicamente l'alternanza tra ora solare (CET, 22:59:59 UTC) e ora legale (CEST, 21:59:59 UTC) tramite la funzione \texttt{getItalyTime()}, evitando l'impiego di valori di fuso orario statici. Il \textit{cron job} è pertanto schedulato per avviarsi in entrambi i possibili orari critici (\texttt{59 21,22 * * *}). Sarà poi un controllo interno, basato sul fuso orario attivo, a bloccare l'esecuzione nel caso in cui l'orario non corrisponda a quello effettivo. In fase di elaborazione, le sessioni in stato di \textit{sleep} vengono preventivamente riattivate per garantire l'integrità dello storico, mentre le occorrenze già marcate come anomale (\texttt{anomaly = true}) vengono ignorate, impedendone la duplicazione nel giorno successivo.
+    \item \textbf{Split notturno:} suddivide le sessioni operative che si protraggono a cavallo di due giornate (esattamente alle 23:59 ora italiana), al fine di non alterare le statistiche grafiche giornaliere visibili all'utente. Poiché i \textit{timestamp} sono memorizzati nativamente da pocketbase in UTC, il sistema gestisce dinamicamente l'alternanza tra ora solare (CET, 22:59:59 UTC) e ora legale (CEST, 21:59:59 UTC) tramite la funzione \texttt{getItalyTime()}, evitando l'impiego di valori di fuso orario statici. Il \textit{cron job} è pertanto schedulato per avviarsi in entrambi i possibili orari critici. Sarà poi un controllo interno, basato sul fuso orario attivo, a bloccare l'esecuzione nel caso in cui l'orario non corrisponda a quello effettivo. In fase di elaborazione, le sessioni in stato di \textit{sleep} vengono preventivamente riattivate per garantire l'integrità dello storico, mentre le occorrenze già marcate come anomale (\texttt{anomaly = true}) vengono ignorate, impedendone la duplicazione nel giorno successivo.
 \end{itemize}
-
-\begin{comment}
-\subsection{Vantaggi Architetturali e Corrispondenza IoTWF}
-L'architettura del backend così ingegnerizzata riflette in modo rigoroso i principi stabiliti dal modello di riferimento \textit{IoT World Forum} (IoTWF) su due livelli chiave:
-\begin{enumerate}
-    \item \textbf{Efficienza del Livello 3 (Edge Computing):} La board LilyGo ottimizza la trasmissione impacchettando i dati in un unico payload ``bulk'' strutturato, riducendo al minimo il tempo di uptime del modem LTE e preservando l'autonomia energetica della batteria.
-    \item \textbf{Ottimizzazione del Livello 5 (Data Abstraction):} L'applicazione client sviluppata in Flutter è completamente sollevata dall'onere di dover processare, ripulire o normalizzare stream di dati grezzi. Le API REST interrogate restituiscono informazioni già astratte, validate e strutturate dai trigger server-side, garantendo una visualizzazione fluida e ad alta efficienza energetica sul dispositivo mobile dell'utente.
-\end{enumerate}
-\end{comment}
-
 
 \section{Frontend e applicazione mobile}
 
@@ -510,7 +497,6 @@ di sette giorni previsto per i profili gratuiti su dispositivo fisico.
 La comunicazione con il backend avviene tramite 
 il PocketBase SDK ufficiale per \texttt{Dart}, 
 che gestisce le chiamate REST e i meccanismi di autenticazione.
-
 
 \subsection{Architettura a livelli}
 
@@ -878,9 +864,24 @@ L’attuale prototipo è stato fondamentale per testare il software, ma richiede
 \newpage
 
 \section{Conclusioni}
+Il progetto Pet Tracker ha raggiunto l'obiettivo dichiarato in fase di progettazione: realizzare un sistema end-to-end, dal dispositivo embedded indossabile fino all'applicazione mobile, in grado di monitorare in tempo reale la posizione, l'attività motoria e lo stato energetico di un animale domestico, con particolare attenzione alla sicurezza (geofencing e allarme) e all'efficienza energetica del nodo IoT.
 
-\newpage
 
+Dal punto di vista hardware, l'integrazione su scheda LilyGo T-SIM7670G-S3 tra microcontrollore ESP32-S3, modem LTE, modulo GNSS e accelerometro BMA400 ha dimostrato la fattibilità di un tracker autonomo, mentre le strategie di \textit{deep sleep} e \textit{hot start} hanno permesso di contenere i consumi senza sacrificare la reattività del sistema. 
+
+A livello firmware e backend, la scelta di PocketBase si è rivelata efficace per la rapidità di sviluppo, sebbene abbia introdotto vincoli non banali, primo fra tutti l'incompatibilità del motore Goja con l'SDK di Firebase, risolta tramite l'introduzione di un microservizio \textit{bridge} dedicato. 
+
+Sul fronte applicativo, l'app Flutter ha concretizzato un'architettura visiva a livelli chiara migliorandone l'interfaccia, mentre l'adozione di \path{Server-Sent Events} e l'implementazione locale del geofencing hanno permesso di ottenere un'esperienza utente reattiva e a basso impatto energetico. 
+
+Il sistema di notifiche push, pur richiedendo un'architettura a bridge per aggirare i limiti del runtime server-side, copre in modo puntuale gli eventi rilevanti per l'utente rendendo il prodotto realmente utilizzabile in scenari reali di sorveglianza dell'animale.
+
+Il lavoro svolto non è tuttavia esente da limiti, in parte intrinseci alla fase di prototipazione: la dipendenza da un backend locale esposto tramite ngrok, l'assenza di un meccanismo di transazioni atomiche per la gestione della concorrenza sui pacchetti quasi simultanei e l'affidabilità non uniforme del reverse geocoding basato su OpenStreetMap rappresentano i principali fattori di rischio per una messa in produzione su larga scala. 
+
+Si tratta, in ogni caso, di limitazioni ben circoscritte e già indirizzate concettualmente nel capitolo dedicato agli sviluppi futuri.
+
+In sintesi, il progetto dimostra concretamente come i principi dell'IoT (acquisizione edge, trasmissione a basso consumo, elaborazione server-side e restituzione di dati già astratti al client) possano essere applicati con successo a un caso d'uso reale e di forte valore pratico, ponendo al contempo basi solide e ben documentate per un'evoluzione futura verso un sistema scalabile e production-ready.
+
+\clearpage
 \addcontentsline{toc}{section}{Riferimenti bibliografici}
 \printbibliography[title={Riferimenti bibliografici}]
 
