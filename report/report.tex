@@ -273,8 +273,8 @@ Per massimizzare l'autonomia, la gestione energetica
 viene modulata in base alla rilevazione del movimento e allo stato di viaggio:
 
 \begin{enumerate}
-    \item \textbf{Rilevamento attività:} il firmware monitora costantemente il numero di passi ricevuto ad ogni pacchetto,
-          azzerando a ogni nuovo movimento un timer di inattività (\texttt{lastActivityTime}) per monitorare lo stato di anomalia o di chiusura dell'attività in corso.
+    \item \textbf{Rilevamento attività:} il firmware monitora costantemente i passi ricevuti ad ogni pacchetto,
+          azzerando a ogni nuovo movimento il timer di inattività (\texttt{lastActivityTime}) per rilevare anomalie o la chiusura dell'attività in corso.
     \item \textbf{Modalità viaggio:} se il flag \texttt{trip} è attivo (velocità GPS $>$ 10\,km/h), 
           il \textit{deep sleep} viene disabilitato indipendentemente dall'inattività rilevata
           dall'accelerometro, garantendo la trasmissione dei dati a intervalli regolari durante il viaggio.
@@ -839,8 +839,9 @@ Nonostante i risultati ottenuti, il sistema presenta alcune limitazioni:
 \end{itemize}
 
 \section{Sviluppi futuri e prospettive del progetto}
-Durante lo sviluppo sono emerse diverse opportunità di scalabilità del progetto, 
-illustrate di seguito tramite alcune proposte di ottimizzazione ed estensione delle funzionalità.
+Sebbene il prototipo realizzato soddisfa i requisiti prefissati, alcune scelte progettuali 
+sono state guidate da vincoli di tempo e risorse tipici di un contesto universitario. 
+Di seguito vengono proposte alcune direzioni di evoluzione, sia a livello di backend che di hardware.
 
 \subsection{Evoluzione e scalabilità del backend}
 L'evoluzione dall'attuale prototipo locale a una soluzione più robusta ed efficace richiederà 
@@ -865,7 +866,6 @@ L’attuale prototipo è stato fondamentale per testare il software, ma richiede
 
 \section{Conclusioni}
 Il progetto Pet Tracker ha raggiunto l'obiettivo dichiarato in fase di progettazione: realizzare un sistema end-to-end, dal dispositivo embedded indossabile fino all'applicazione mobile, in grado di monitorare in tempo reale la posizione, l'attività motoria e lo stato energetico di un animale domestico, con particolare attenzione alla sicurezza (geofencing e allarme) e all'efficienza energetica del nodo IoT.
-
 
 Dal punto di vista hardware, l'integrazione su scheda LilyGo T-SIM7670G-S3 tra microcontrollore ESP32-S3, modem LTE, modulo GNSS e accelerometro BMA400 ha dimostrato la fattibilità di un tracker autonomo, mentre le strategie di \textit{deep sleep} e \textit{hot start} hanno permesso di contenere i consumi senza sacrificare la reattività del sistema. 
 
