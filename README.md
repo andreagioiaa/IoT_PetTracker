@@ -85,12 +85,6 @@ Sorgente della relazione del progetto.
 Gli altri file (`.aux`, `.bbl`, `.log`, ecc.) sono file temporanei generati da LaTeX e
 sono esclusi dalla repo (vedi `.gitignore`).
 
-Per compilare:
-```bash
-cd report
-latexmk -pdf report.tex
-```
-
 ### `tracker_sim7670g_s3/` — Firmware del dispositivo
 
 Firmware Arduino per la scheda LilyGo T-SIM7670G-S3 (ESP32-S3 + modem LTE/GNSS
