@@ -174,12 +174,12 @@ Il progetto Pet Tracker nasce con l'obiettivo generale di realizzare un sistema 
     \item \textbf{Progettazione hardware del dispositivo indossabile:} integrare su un'unica piattaforma embedded (ESP32-S3) connettività LTE, ricezione GNSS e rilevamento del movimento, garantendo un'autonomia energetica adeguata all'uso continuativo sull'animale.
     \item \textbf{Ottimizzazione energetica del firmware:} implementare strategie di risparmio energetico (\textit{deep sleep}, \textit{hot start}) che permettano di bilanciare la frequenza di acquisizione dei dati con la durata della batteria.
     \item \textbf{Progettazione di un backend affidabile e scalabile:} sviluppare un'infrastruttura server in grado di ricevere, validare e normalizzare i dati grezzi provenienti dal dispositivo, esponendo le informazioni tramite API REST e mantenendo la coerenza storica delle sessioni di attività.
-    \item \textbf{Modellazione del comportamento dell'animale:} definire una logica in grado di distinguere in modo affidabile i diversi stati cinematici e geografici dell'animale (permanenza in zona sicura, passeggiata, viaggio in veicolo, allontanamento), riducendo i falsi positivi dovuti al rumore dei sensori.
-    \item \textbf{Sviluppo di un sistema di allerta tempestivo:} implementare un meccanismo di notifiche push capace di avvisare l'utente in caso di uscita dal perimetro sicuro o di condizioni critiche del dispositivo, garantendo la gestione di più dispositivi mobili per singolo utente.
+    \item \textbf{Modellazione del comportamento dell'animale:} definire una logica in grado di distinguere in modo affidabile le diverse attività dell'animale, riducendo i falsi positivi dovuti al rumore dei sensori.
+    \item \textbf{Sviluppo di un sistema di allerta:} implementare un meccanismo di notifiche capace di avvisare l'utente in caso di uscita dall'area di geofence (geofencing \footnote{Un geofence è un perimetro virtuale associato ad un'area geografica del mondo reale. Può essere generato dinamicamente, ad esempio come l'area entro un raggio da un punto prefissato, oppure può essere definito da un insieme di confini prestabiliti.}) o di condizioni critiche del dispositivo.
     \item \textbf{Realizzazione di un'applicazione mobile intuitiva:} fornire all'utente un'interfaccia in tempo reale per la visualizzazione della posizione, delle statistiche di attività e per la gestione autonoma delle zone di sicurezza, minimizzando il carico sul backend e sui dati mobili.
+    \item \textbf{Gestione multi-utente:} garantire la gestione di più dispositivi mobili per singolo utente. Inoltre, ogni utente avrà la possibilità di creare le proprie zone di geofence e possedere l'applicazione su più dispositivi, funzionando in maniera sincronizzata.
 \end{itemize}
 
-Questi obiettivi guidano la struttura dell'intero elaborato: dopo una panoramica dell'architettura hardware, vengono descritte la logica firmware, il backend e la modellazione dei dati, per poi passare all'applicazione mobile e al sistema di notifiche, fino ai vincoli riscontrati e alle possibili evoluzioni future del sistema.
 
 \clearpage
 \section{Hardware}
@@ -578,12 +578,12 @@ ottimizzando l'uso della batteria e del traffico dati.
 
 \subsection{Geofencing e geocoding}
 
-La logica di geofencing è implementata anche dal lato client tramite algoritmo \mbox{\textit{Ray-Casting}}. 
+La logica di geofencing è implementata dal lato client tramite algoritmo \mbox{\textit{Ray-Casting}}. 
 Dato un punto GPS e un poligono definito da una lista di vertici, l'algoritmo traccia un raggio orizzontale dal punto
 verso l'infinito e conta le intersezioni con i lati del poligono, se il numero è dispari
 indica che il punto è interno al poligono, altrimenti è esterno. 
 Questa implementazione sul dispositivo evita un sovraccarico di rete verso il server 
-e permette di gestire le funzionalità visive in tempo reale, in totale autonomia dal \textit{backend}.
+e permette di gestire le funzionalità visive in tempo reale, in totale autonomia dal leggere le notifiche di attività dal \textit{backend}.
 
 Le zone vengono recuperate dalla collezione \texttt{geofences} su PocketBase, dove
 ogni record memorizza il nome della zona, i dati dell'indirizzo e la lista dei vertici
@@ -865,21 +865,13 @@ L’attuale prototipo è stato fondamentale per testare il software, ma richiede
 \newpage
 
 \section{Conclusioni}
-Il progetto Pet Tracker ha raggiunto l'obiettivo dichiarato in fase di progettazione: realizzare un sistema end-to-end, dal dispositivo embedded indossabile fino all'applicazione mobile, in grado di monitorare in tempo reale la posizione, l'attività motoria e lo stato energetico di un animale domestico, con particolare attenzione alla sicurezza (geofencing e allarme) e all'efficienza energetica del nodo IoT.
+Il progetto Pet Tracker ha raggiunto con successo gli obiettivi prefissati in fase di progettazione. È stato sviluppato un sistema end-to-end completo, dal dispositivo embedded indossabile fino all'applicazione mobile, capace di monitorare in tempo reale la posizione e l'attività motoria dell'animale domestico. Inoltre, il sistema controlla costantemente lo stato energetico del dispositivo, garantendo elevati standard di efficienza e sicurezza.
 
-Dal punto di vista hardware, l'integrazione su scheda LilyGo T-SIM7670G-S3 tra microcontrollore ESP32-S3, modem LTE, modulo GNSS e accelerometro BMA400 ha dimostrato la fattibilità di un tracker autonomo, mentre le strategie di \textit{deep sleep} e \textit{hot start} hanno permesso di contenere i consumi senza sacrificare la reattività del sistema. 
+A livello di firmware e backend, l'adozione di PocketBase si è dimostrata una scelta efficace per abbattere i tempi di sviluppo. Tuttavia, questa tecnologia ha imposto sfide tecniche significative, tra cui l'incompatibilità tra il motore Goja e l'SDK di Firebase, una criticità che è stata superata con successo implementando un microservizio bridge dedicato.
 
-A livello firmware e backend, la scelta di PocketBase si è rivelata efficace per la rapidità di sviluppo, sebbene abbia introdotto vincoli non banali, primo fra tutti l'incompatibilità del motore Goja con l'SDK di Firebase, risolta tramite l'introduzione di un microservizio \textit{bridge} dedicato. 
+Il sistema di notifiche push, pur richiedendo un'architettura a bridge per aggirare i limiti del runtime server-side, segnala tempestivamente gli eventi rilevanti per l'utente rendendo il prodotto realmente utilizzabile in scenari reali di sorveglianza dell'animale.
 
-Sul fronte applicativo, l'app Flutter ha concretizzato un'architettura visiva a livelli chiara migliorandone l'interfaccia, mentre l'adozione di \path{Server-Sent Events} e l'implementazione locale del geofencing hanno permesso di ottenere un'esperienza utente reattiva e a basso impatto energetico. 
-
-Il sistema di notifiche push, pur richiedendo un'architettura a bridge per aggirare i limiti del runtime server-side, copre in modo puntuale gli eventi rilevanti per l'utente rendendo il prodotto realmente utilizzabile in scenari reali di sorveglianza dell'animale.
-
-Il lavoro svolto non è tuttavia esente da limiti, in parte intrinseci alla fase di prototipazione: la dipendenza da un backend locale esposto tramite ngrok, l'assenza di un meccanismo di transazioni atomiche per la gestione della concorrenza sui pacchetti quasi simultanei e l'affidabilità non uniforme del reverse geocoding basato su OpenStreetMap rappresentano i principali fattori di rischio per una messa in produzione su larga scala. 
-
-Si tratta, in ogni caso, di limitazioni ben circoscritte e già indirizzate concettualmente nel capitolo dedicato agli sviluppi futuri.
-
-In sintesi, il progetto dimostra concretamente come i principi dell'IoT (acquisizione edge, trasmissione a basso consumo, elaborazione server-side e restituzione di dati già astratti al client) possano essere applicati con successo a un caso d'uso reale e di forte valore pratico, ponendo al contempo basi solide e ben documentate per un'evoluzione futura verso un sistema scalabile e production-ready.
+I test condotti sul campo hanno fatto emergere alcune limitazioni del sistema. Tuttavia, il progetto dimostra concretamente come i paradigmi dell'IoT (acquisizione, trasmissione a basso consumo, elaborazione server-side e fornitura di dati strutturati al client) possano essere applicati con successo a un caso d'uso di notevole utilità pratica. Il lavoro svolto pone, inoltre, basi solide e ben documentate per la futura evoluzione verso un'architettura pienamente scalabile. Infatti, in un futuro il sistema potrà essere facilmente esteso per supportare un numero maggiore di dispositivi, migliorare la robustezza del backend e ottimizzare l'hardware per renderlo più compatto e resistente.
 
 \clearpage
 \addcontentsline{toc}{section}{Riferimenti bibliografici}
