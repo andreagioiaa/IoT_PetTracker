@@ -1,7 +1,8 @@
 # IoT Pet Tracker
 
-Sistema per il tracciamento in tempo reale di animali domestici, sviluppato per il corso
-IBML (Internet of Things, Big Data, Machine Learning) — Università degli Studi di Udine.
+Sistema per il tracciamento in tempo reale di animali domestici, sviluppato per il corso di
+Internet of Things del corso di laurea in IBML (Internet of Things, Big Data, Machine Learning) 
+dell'Università degli Studi di Udine.
 
 Il sistema è composto da un dispositivo embedded indossabile (ESP32-S3 + LTE + GNSS),
 un backend basato su PocketBase, un'app mobile Flutter e un microservizio Node.js per
